@@ -4,15 +4,14 @@
 src/web/static/assets/
 
 # Python
-
 *.so
-# .Python
 build/
 develop-eggs/
 dist/
 downloads/
 eggs/
 .eggs/
+# .Python
 # __pycache__/
 # *.py[cod]
 # *$py.classlib/

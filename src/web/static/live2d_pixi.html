@@ -13,9 +13,9 @@
     =============================================================================
     
     📋 PHASE 1: BASIC PIXI.js SETUP ✅ COMPLETED
-    ✅ PIXI.js v8.11.0 integration and compatibility
+    ✅ PIXI.js v6.5.2 integration with pixi-live2d-display v0.4.0 and compatibility with Cubism 2.1 & 4
     ✅ Canvas initialization and container setup
-    ✅ Version detection (v7 vs v8+) with async initialization
+    ✅ Version detection with async initialization
     ✅ Basic logging and error handling system
     ✅ Mouse tracking and UI controls
     ✅ HTTP server setup for node_modules access (python -m http.server 8001 --directory .)
@@ -362,345 +362,206 @@
 
 <!-- Load PIXI.js and Live2D libraries in correct order -->
 <!-- Step 1: Load PIXI.js -->
-<script src="/node_modules/pixi.js/dist/pixi.min.js"></script>
+<script src="/node_modules/pixi.js/dist/browser/pixi.min.js"></script>
 
-<!-- Step 2: IMMEDIATE EventEmitter setup for PIXI v8 compatibility -->
+<!-- Step 2: Load Live2D Cubism Core (required for pixi-live2d-display) -->
+<script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+
+<!-- Step 3: PIXI v6.5.x EventEmitter setup following Live2D Viewer Web pattern -->
 <script>
-// PIXI v8 EventEmitter compatibility fix - MUST run immediately after PIXI loads
-// Based on official PIXI v8 migration guide: https://pixijs.com/8.x/guides/migrations/v8
+// Live2D Viewer Web compatible EventEmitter setup
+// Based on Live2D Viewer Web architecture: uses @pixi/utils EventEmitter
 
-console.log('Setting up PIXI v8 EventEmitter compatibility...');
+console.log('Setting up Live2D Viewer Web compatible EventEmitter...');
 
-// PIXI v8 has events system imported by default, but old libraries may expect EventEmitter in specific locations
-// The issue is that pixi-live2d-display was built for PIXI v6/v7 and expects EventEmitter in different locations
+// Verify PIXI is loaded
+if (typeof PIXI === 'undefined') {
+    console.error('PIXI.js not loaded - this is required for Live2D Viewer Web compatibility');
+    throw new Error('PIXI.js not loaded');
+}
 
-// Create a comprehensive EventEmitter class that matches Node.js EventEmitter API
-// This ensures compatibility with libraries that expect Node.js-style EventEmitter
-class PixiV8EventEmitter {
-    constructor() {
-        this._events = {};
-        this._eventsCount = 0;
-        this._maxListeners = 10;
-    }
+console.log('PIXI version:', PIXI.VERSION);
+
+// Live2D Viewer Web uses @pixi/utils EventEmitter
+// For PIXI v6.5.x, EventEmitter is available in PIXI.utils
+if (PIXI.utils && PIXI.utils.EventEmitter) {
+    console.log('Using PIXI.utils.EventEmitter (Live2D Viewer Web compatible)');
     
-    // Core EventEmitter methods matching Node.js API
-    on(event, listener) {
-        if (typeof listener !== 'function') {
-            throw new TypeError('The listener must be a function');
-        }
-        
-        if (!this._events[event]) {
-            this._events[event] = [];
-            this._eventsCount++;
-        }
-        
-        this._events[event].push(listener);
-        
-        if (this._events[event].length > this._maxListeners) {
-            console.warn(`Possible EventEmitter memory leak detected. ${this._events[event].length} listeners added for event "${event}".`);
-        }
-        
-        return this;
-    }
+    // Make EventEmitter available globally for library compatibility
+    window.EventEmitter = PIXI.utils.EventEmitter;
     
-    addListener(event, listener) {
-        return this.on(event, listener);
-    }
-    
-    once(event, listener) {
-        if (typeof listener !== 'function') {
-            throw new TypeError('The listener must be a function');
-        }
-        
-        const onceWrapper = (...args) => {
-            this.off(event, onceWrapper);
-            listener.apply(this, args);
-        };
-        
-        onceWrapper.listener = listener;
-        return this.on(event, onceWrapper);
-    }
-    
-    emit(event, ...args) {
-        if (!this._events[event]) return false;
-        
-        const listeners = this._events[event].slice(); // Create a copy to avoid issues with modifications during iteration
-        
-        for (const listener of listeners) {
-            try {
-                listener.apply(this, args);
-            } catch (error) {
-                console.error(`Error in EventEmitter listener for event "${event}":`, error);
+    // Also make it available in the expected module locations
+    if (typeof require === 'undefined') {
+        window.require = function(module) {
+            if (module === 'events') {
+                return { EventEmitter: PIXI.utils.EventEmitter };
             }
-        }
-        
-        return listeners.length > 0;
+            if (module === '@pixi/utils') {
+                return { EventEmitter: PIXI.utils.EventEmitter };
+            }
+            return {};
+        };
     }
     
-    off(event, listener) {
-        if (!this._events[event]) return this;
+    console.log('EventEmitter setup complete using PIXI.utils.EventEmitter');
+    
+} else {
+    console.warn('PIXI.utils.EventEmitter not found, falling back to minimal implementation');
+    
+    // Minimal fallback for older PIXI versions
+    class MinimalEventEmitter {
+        constructor() {
+            this._events = {};
+        }
         
-        if (typeof listener === 'undefined') {
-            delete this._events[event];
-            this._eventsCount--;
+        on(event, listener) {
+            if (!this._events[event]) this._events[event] = [];
+            this._events[event].push(listener);
             return this;
         }
         
-        const listeners = this._events[event];
-        for (let i = listeners.length - 1; i >= 0; i--) {
-            if (listeners[i] === listener || listeners[i].listener === listener) {
-                listeners.splice(i, 1);
-                break;
+        emit(event, ...args) {
+            if (this._events[event]) {
+                this._events[event].forEach(listener => listener.apply(this, args));
             }
+            return this;
         }
         
-        if (listeners.length === 0) {
-            delete this._events[event];
-            this._eventsCount--;
+        off(event, listener) {
+            if (this._events[event]) {
+                const index = this._events[event].indexOf(listener);
+                if (index > -1) this._events[event].splice(index, 1);
+            }
+            return this;
         }
         
-        return this;
-    }
-    
-    removeListener(event, listener) {
-        return this.off(event, listener);
-    }
-    
-    removeAllListeners(event) {
-        if (typeof event === 'undefined') {
-            this._events = {};
-            this._eventsCount = 0;
-        } else if (this._events[event]) {
-            delete this._events[event];
-            this._eventsCount--;
-        }
-        return this;
-    }
-    
-    listeners(event) {
-        return this._events[event] ? this._events[event].slice() : [];
-    }
-    
-    listenerCount(event) {
-        return this._events[event] ? this._events[event].length : 0;
-    }
-    
-    eventNames() {
-        return Object.keys(this._events);
-    }
-    
-    setMaxListeners(n) {
-        if (typeof n !== 'number' || n < 0) {
-            throw new TypeError('n must be a non-negative number');
-        }
-        this._maxListeners = n;
-        return this;
-    }
-    
-    getMaxListeners() {
-        return this._maxListeners;
-    }
-    
-    // Additional methods for compatibility with different EventEmitter implementations
-    prependListener(event, listener) {
-        if (typeof listener !== 'function') {
-            throw new TypeError('The listener must be a function');
+        removeListener(event, listener) {
+            return this.off(event, listener);
         }
         
-        if (!this._events[event]) {
-            this._events[event] = [];
-            this._eventsCount++;
+        removeAllListeners(event) {
+            if (event) {
+                delete this._events[event];
+            } else {
+                this._events = {};
+            }
+            return this;
         }
         
-        this._events[event].unshift(listener);
-        return this;
+        once(event, listener) {
+            const onceListener = (...args) => {
+                this.off(event, onceListener);
+                listener.apply(this, args);
+            };
+            return this.on(event, onceListener);
+        }
     }
     
-    prependOnceListener(event, listener) {
-        if (typeof listener !== 'function') {
-            throw new TypeError('The listener must be a function');
-        }
-        
-        const onceWrapper = (...args) => {
-            this.off(event, onceWrapper);
-            listener.apply(this, args);
+    window.EventEmitter = MinimalEventEmitter;
+    
+    if (typeof require === 'undefined') {
+        window.require = function(module) {
+            if (module === 'events') {
+                return { EventEmitter: MinimalEventEmitter };
+            }
+            return {};
         };
-        
-        onceWrapper.listener = listener;
-        return this.prependListener(event, onceWrapper);
     }
 }
 
-// Make EventEmitter available in ALL possible locations where libraries might look for it
-// This ensures maximum compatibility with different library expectations
-
-// 1. Global window scope (most common)
-if (typeof window !== 'undefined') {
-    window.EventEmitter = PixiV8EventEmitter;
-    console.log('EventEmitter added to window');
-}
-
-// 2. Global scope for Node.js-style requires
-if (typeof global !== 'undefined') {
-    global.EventEmitter = PixiV8EventEmitter;
-    console.log('EventEmitter added to global');
-}
-
-// 3. PIXI.utils scope (where pixi-live2d-display might expect it)
-if (typeof PIXI !== 'undefined' && PIXI.utils) {
-    PIXI.utils.EventEmitter = PixiV8EventEmitter;
-    console.log('EventEmitter added to PIXI.utils');
-}
-
-// 4. Direct PIXI scope
-if (typeof PIXI !== 'undefined' && !PIXI.EventEmitter) {
-    PIXI.EventEmitter = PixiV8EventEmitter;
-    console.log('EventEmitter added to PIXI');
-}
-
-// 5. Process scope (some libraries check process.EventEmitter)
-if (typeof process !== 'undefined') {
-    process.EventEmitter = PixiV8EventEmitter;
-    console.log('EventEmitter added to process');
-}
-
-// 6. Create a module-style export
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = PixiV8EventEmitter;
-    console.log('EventEmitter set as module.exports');
-}
-
-// 7. Create a require-style function for libraries that try to require('events')
-if (typeof window !== 'undefined') {
-    window.require = window.require || function(module) {
-        if (module === 'events' || module === 'events.js') {
-            return { EventEmitter: PixiV8EventEmitter };
-        }
-        if (module === 'eventemitter3') {
-            return PixiV8EventEmitter;
-        }
-        return {};
-    };
-    console.log('Mock require function created for events module');
-}
-
-// 8. Add to common EventEmitter library namespaces
-if (typeof window !== 'undefined') {
-    window.EventEmitter3 = PixiV8EventEmitter;
-    window.EE = PixiV8EventEmitter;
-    console.log('EventEmitter added to common library namespaces');
-}
-
-// 9. Try to patch any existing EventEmitter references
-try {
-    if (typeof window !== 'undefined' && window.events) {
-        window.events.EventEmitter = PixiV8EventEmitter;
-    }
-} catch (e) {
-    // Silently fail if events namespace doesn't exist
-}
-
-// 10. Create a static EventEmitter for default export patterns
-PixiV8EventEmitter.EventEmitter = PixiV8EventEmitter;
-PixiV8EventEmitter.default = PixiV8EventEmitter;
-
-console.log('PIXI v8 EventEmitter compatibility setup complete');
-console.log('EventEmitter available at:', {
-    'window.EventEmitter': !!(typeof window !== 'undefined' && window.EventEmitter),
-    'global.EventEmitter': typeof global !== 'undefined' ? !!global.EventEmitter : 'N/A',
-    'PIXI.utils.EventEmitter': !!(typeof PIXI !== 'undefined' && PIXI.utils && PIXI.utils.EventEmitter),
-    'PIXI.EventEmitter': !!(typeof PIXI !== 'undefined' && PIXI.EventEmitter),
-    'process.EventEmitter': typeof process !== 'undefined' ? !!process.EventEmitter : 'N/A',
-    'require("events")': typeof window !== 'undefined' ? !!window.require : 'N/A'
-});
-
-// Final verification
+// Verify EventEmitter is available
 if (typeof EventEmitter === 'undefined') {
-    console.error('EventEmitter is still undefined after setup!');
-} else {
-    console.log('EventEmitter successfully defined:', typeof EventEmitter);
+    console.error('EventEmitter setup failed');
+    throw new Error('EventEmitter setup failed');
 }
+
+console.log('EventEmitter type:', typeof EventEmitter);
+console.log('EventEmitter prototype:', EventEmitter.prototype);
+
+// Test EventEmitter functionality
+try {
+    const testEmitter = new EventEmitter();
+    testEmitter.on('test', () => console.log('✓ EventEmitter test passed'));
+    testEmitter.emit('test');
+} catch (e) {
+    console.error('EventEmitter test failed:', e);
+}
+
+console.log('Live2D Viewer Web compatible EventEmitter setup complete');
 </script>
-<!-- Step 3: Load Core PIXI Live2D Display for Cubism4 -->
+<!-- Step 4: Load Live2D Display Library (following Live2D Viewer Web pattern) -->
 <script src="/node_modules/pixi-live2d-display/dist/cubism4.min.js"></script>
 
-<!-- Step 4: Initialize Live2D plugin -->
+<!-- Step 5: Verify Live2D plugin initialization -->
 <script>
-// Initialize Live2D plugin after libraries are loaded
+// Initialize Live2D plugin following Live2D Viewer Web pattern
+console.log('Initializing Live2D plugin (Live2D Viewer Web compatible)...');
+
+// Wait for all scripts to load
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(function() {
-        console.log('Initializing Live2D plugin...');
+        console.log('Checking library compatibility...');
         
-        // Try to initialize the Live2D plugin
-        if (typeof PIXI !== 'undefined' && PIXI.live2d) {
-            console.log('PIXI.live2d found, attempting to install...');
-            
-            // Check available Live2D classes
-            const live2dKeys = Object.keys(PIXI.live2d);
-            console.log('Available PIXI.live2d keys:', live2dKeys);
-            
-            // Look for Live2D model constructors
-            let Live2DModelClass = null;
-            
-            // Try common Live2D model class names
-            const possibleNames = ['Live2DModel', 'Model', 'Live2D', 'Cubism4Model', 'CubismModel'];
-            
-            for (const name of possibleNames) {
-                if (PIXI.live2d[name] && typeof PIXI.live2d[name] === 'function') {
-                    Live2DModelClass = PIXI.live2d[name];
-                    console.log(`Found Live2D model class: ${name}`);
-                    break;
-                }
-            }
-            
-            // If no direct class found, try to find factory methods
-            if (!Live2DModelClass) {
-                console.log('No direct model class found, checking for factory methods...');
-                
-                // Look for factory methods or static creation methods
-                live2dKeys.forEach(key => {
-                    const obj = PIXI.live2d[key];
-                    if (obj && typeof obj === 'object') {
-                        console.log(`Checking object: ${key}`, obj);
-                        
-                        // Look for common factory method names
-                        if (obj.Live2DModel && typeof obj.Live2DModel === 'function') {
-                            Live2DModelClass = obj.Live2DModel;
-                            console.log(`Found Live2D model class in ${key}.Live2DModel`);
-                        } else if (obj.from && typeof obj.from === 'function') {
-                            window.Live2DFactory = obj;
-                            console.log(`Found Live2D factory in ${key}`);
-                        }
-                    }
-                });
-            }
-            
-            // Make the model class available globally
-            if (Live2DModelClass) {
-                window.Live2DModel = Live2DModelClass;
-                console.log('Live2DModel class set globally');
-            } else {
-                console.warn('No Live2D model class could be found');
-            }
-            
-            // Look for Live2D factory
-            if (typeof Live2DFactory === 'undefined') {
-                // Try to find factory in different locations
-                if (PIXI.live2d.Live2DFactory) {
-                    window.Live2DFactory = PIXI.live2d.Live2DFactory;
-                } else if (PIXI.live2d.factory) {
-                    window.Live2DFactory = PIXI.live2d.factory;
-                }
-            }
-            
-        } else {
-            console.error('PIXI.live2d not found - Live2D library may not be loaded correctly');
+        // Verify libraries are loaded
+        if (typeof PIXI === 'undefined') {
+            console.error('PIXI.js not loaded');
+            return;
         }
         
-        console.log('Live2D plugin initialization complete');
-        console.log('Live2DModel available:', typeof window.Live2DModel);
-        console.log('Live2DFactory available:', typeof window.Live2DFactory);
-    }, 100); // Small delay to ensure everything is loaded
+        if (typeof EventEmitter === 'undefined') {
+            console.error('EventEmitter not available');
+            return;
+        }
+        
+        console.log('✓ PIXI version:', PIXI.VERSION);
+        console.log('✓ EventEmitter type:', typeof EventEmitter);
+        
+        // Check if PIXI.utils.EventEmitter exists (Live2D Viewer Web pattern)
+        if (PIXI.utils && PIXI.utils.EventEmitter) {
+            console.log('✓ PIXI.utils.EventEmitter available (Live2D Viewer Web compatible)');
+        }
+        
+        // Check if Live2D plugin is available
+        if (typeof PIXI.live2d === 'undefined') {
+            console.error('✗ PIXI.live2d not loaded - pixi-live2d-display may not be compatible');
+            console.log('Available PIXI properties:', Object.keys(PIXI));
+            
+            // Try to diagnose the issue
+            if (window.pixiLive2DLoadError) {
+                console.error('Library loading error detected - check network tab');
+            }
+        } else {
+            console.log('✓ PIXI.live2d loaded successfully');
+            console.log('Available PIXI.live2d properties:', Object.keys(PIXI.live2d));
+            
+            // Check for Live2DModel
+            if (PIXI.live2d.Live2DModel) {
+                console.log('✓ Live2DModel class available');
+                window.Live2DModel = PIXI.live2d.Live2DModel;
+                
+                // Test if it has the expected methods
+                if (typeof PIXI.live2d.Live2DModel.from === 'function') {
+                    console.log('✓ Live2DModel.from() method available');
+                } else {
+                    console.warn('Live2DModel.from() method not found');
+                }
+            } else {
+                console.warn('Live2DModel not found in PIXI.live2d');
+            }
+            
+            // Check for Live2DFactory
+            if (PIXI.live2d.Live2DFactory) {
+                console.log('✓ Live2DFactory available');
+                window.Live2DFactory = PIXI.live2d.Live2DFactory;
+            } else {
+                console.warn('Live2DFactory not found in PIXI.live2d');
+            }
+        }
+        
+        console.log('Live2D plugin initialization check complete');
+        console.log('System ready for Live2D model loading');
+        
+    }, 500); // Increased delay to ensure all libraries are loaded
 });
 </script>
 

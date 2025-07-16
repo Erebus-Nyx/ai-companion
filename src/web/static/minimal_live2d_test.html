@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Minimal Live2D Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        #canvas {
+            border: 1px solid #ccc;
+            background-color: #fff;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>Minimal Live2D Test</h1>
+    <div id="status"></div>
+    <canvas id="canvas" width="800" height="600"></canvas>
+    
+    <script>
+        function log(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = message;
+            statusDiv.appendChild(div);
+            console.log(message);
+        }
+        
+        // Try to load PIXI v6 directly without fallbacks
+        async function loadPIXISimple() {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/pixi.js@6.5.8/dist/pixi.min.js';
+                script.onload = () => {
+                    log('PIXI 6.5.8 loaded successfully', 'success');
+                    log(`PIXI version: ${PIXI.VERSION}`);
+                    resolve();
+                };
+                script.onerror = () => {
+                    log('Failed to load PIXI 6.5.8', 'error');
+                    reject(new Error('PIXI load failed'));
+                };
+                document.head.appendChild(script);
+            });
+        }
+        
+        // Try to load pixi-live2d-display directly
+        async function loadLive2DDisplay() {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js';
+                script.onload = () => {
+                    log('pixi-live2d-display loaded successfully', 'success');
+                    log(`PIXI.live2d available: ${typeof PIXI.live2d !== 'undefined'}`);
+                    if (typeof PIXI.live2d !== 'undefined') {
+                        log(`PIXI.live2d properties: ${Object.keys(PIXI.live2d)}`);
+                    }
+                    resolve();
+                };
+                script.onerror = () => {
+                    log('Failed to load pixi-live2d-display', 'error');
+                    reject(new Error('pixi-live2d-display load failed'));
+                };
+                document.head.appendChild(script);
+            });
+        }
+        
+        // Initialize
+        async function init() {
+            try {
+                log('Starting minimal Live2D test...');
+                
+                // Load PIXI first
+                await loadPIXISimple();
+                
+                // Load Live2D Core
+                log('Loading Live2D Core...');
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js';
+                    script.onload = () => {
+                        log('Live2D Core loaded successfully', 'success');
+                        resolve();
+                    };
+                    script.onerror = () => {
+                        log('Failed to load Live2D Core', 'error');
+                        reject(new Error('Live2D Core load failed'));
+                    };
+                    document.head.appendChild(script);
+                });
+                
+                // Try to load pixi-live2d-display
+                log('Loading pixi-live2d-display...');
+                await loadLive2DDisplay();
+                
+                log('All libraries loaded successfully!', 'success');
+                
+            } catch (error) {
+                log(`Error during initialization: ${error.message}`, 'error');
+                console.error('Full error:', error);
+            }
+        }
+        
+        // Start when page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

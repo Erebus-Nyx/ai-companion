@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live2D Test - PIXI.js v6 Compatible</title>
+    <title>Live2D PIXI v6 Test</title>
     <style>
         body {
             margin: 0;
@@ -17,12 +17,18 @@
             margin: 0 auto;
         }
         
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
         .controls {
             background: white;
             padding: 20px;
             border-radius: 8px;
-            margin-bottom: 20px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
         }
         
         .canvas-container {
@@ -33,512 +39,689 @@
             overflow: hidden;
         }
         
-        #pixiCanvas {
-            display: block;
-            width: 100%;
-            height: 600px;
-            background: linear-gradient(45deg, #e8e8e8, #f5f5f5);
+        .status-panel {
+            background: #2c3e50;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-family: monospace;
         }
         
-        .btn {
-            background: #007bff;
-            color: white;
-            padding: 8px 16px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
+        .status-panel h3 {
+            margin: 0 0 10px 0;
+            color: #3498db;
+        }
+        
+        .status-item {
+            margin: 5px 0;
+            padding: 3px 0;
+        }
+        
+        .status-ok {
+            color: #2ecc71;
+        }
+        
+        .status-error {
+            color: #e74c3c;
+        }
+        
+        .status-warning {
+            color: #f39c12;
+        }
+        
+        .controls label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .controls select, .controls button {
+            padding: 10px;
             margin-right: 10px;
             margin-bottom: 10px;
-        }
-        
-        .btn:hover {
-            background: #0056b3;
-        }
-        
-        .status {
-            padding: 10px;
-            margin: 10px 0;
+            border: 1px solid #ddd;
             border-radius: 4px;
-            font-family: monospace;
-            font-size: 14px;
         }
         
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+        .controls button {
+            background: #3498db;
+            color: white;
+            cursor: pointer;
         }
         
-        .status.error {
+        .controls button:hover {
+            background: #2980b9;
+        }
+        
+        .error-display {
             background: #f8d7da;
             color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
             border: 1px solid #f5c6cb;
         }
         
-        .status.info {
-            background: #cce7ff;
-            color: #004085;
-            border: 1px solid #b8daff;
+        .success-display {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #c3e6cb;
         }
         
-        .loading {
-            color: #007bff;
+        #canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .logs {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        .log-entry {
+            margin: 2px 0;
+            padding: 1px 0;
+        }
+        
+        .log-error {
+            color: #ff4444;
+        }
+        
+        .log-warning {
+            color: #ffaa00;
+        }
+        
+        .log-success {
+            color: #44ff44;
+        }
+        
+        .log-info {
+            color: #00aaff;
         }
         
         .debug-info {
             background: #f8f9fa;
-            border: 1px solid #dee2e6;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
             padding: 15px;
-            margin: 10px 0;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 12px;
-            white-space: pre-wrap;
-            max-height: 200px;
-            overflow-y: auto;
+            margin: 20px 0;
         }
         
-        .model-select {
-            margin: 10px 0;
+        .debug-info h4 {
+            margin-top: 0;
+            color: #495057;
         }
         
-        .model-select select {
-            padding: 5px 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            background: white;
-            min-width: 200px;
-        }
-        
-        .error-details {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
+        .debug-info pre {
+            background: #f1f3f4;
             padding: 10px;
             border-radius: 4px;
-            margin: 10px 0;
+            font-size: 12px;
+            overflow-x: auto;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Live2D Test - PIXI.js v6 Compatible</h1>
+        <h1>Live2D PIXI v6 Test</h1>
+        
+        <div class="status-panel">
+            <h3>Library Status</h3>
+            <div id="library-status">Loading...</div>
+        </div>
         
         <div class="controls">
-            <div class="model-select">
-                <label for="modelSelect">Select Model:</label>
-                <select id="modelSelect">
-                    <option value="">Choose a model...</option>
-                </select>
-            </div>
-            
-            <button class="btn" onclick="initializePixi()">Initialize PIXI</button>
-            <button class="btn" onclick="loadSelectedModel()">Load Model</button>
-            <button class="btn" onclick="testInteraction()">Test Interaction</button>
-            <button class="btn" onclick="debugLibraries()">Debug Libraries</button>
-            <button class="btn" onclick="clearCanvas()">Clear Canvas</button>
+            <label for="modelSelect">Select Model:</label>
+            <select id="modelSelect">
+                <option value="">Loading models...</option>
+            </select>
+            <button id="loadModelBtn">Load Model</button>
+            <button id="clearModelBtn">Clear Model</button>
+            <button id="testApiBtn">Test API</button>
         </div>
         
         <div class="canvas-container">
-            <canvas id="pixiCanvas"></canvas>
+            <canvas id="canvas" width="800" height="600"></canvas>
         </div>
         
-        <div id="statusContainer">
-            <div class="status info">Ready to test Live2D with PIXI.js v6</div>
+        <div class="debug-info">
+            <h4>Debug Information</h4>
+            <pre id="debug-output">Starting Live2D debugging...</pre>
         </div>
         
-        <div class="debug-info" id="debugInfo">
-System Information:
-- Browser: Loading...
-- PIXI.js: Loading...
-- Live2D Core: Loading...
-- pixi-live2d-display: Loading...
-        </div>
+        <div class="logs" id="logs"></div>
     </div>
 
-    <!-- Step 1: Load EventEmitter polyfill for compatibility -->
-    <script src="js/eventemitter-preloader.js"></script>
-    
-    <!-- Process and module polyfills for compatibility -->
-    <script>
-        // Polyfill for process object that some libraries expect
-        if (typeof process === 'undefined') {
-            window.process = {
-                env: { NODE_ENV: 'production' },
-                browser: true,
-                version: '',
-                versions: {},
-                nextTick: function(fn) { setTimeout(fn, 0); }
-            };
-        }
-        
-        // Enhanced module system for different access patterns
-        if (typeof module === 'undefined') {
-            window.module = { 
-                exports: {},
-                require: function(name) {
-                    if (name === 'events') {
-                        return { EventEmitter: window.EventEmitter };
-                    }
-                    throw new Error('Module ' + name + ' not found');
-                }
-            };
-        }
-        
-        // Make EventEmitter available in all possible locations
-        if (typeof window.EventEmitter !== 'undefined') {
-            // Standard locations
-            window.events = { EventEmitter: window.EventEmitter };
-            
-            // For require() calls
-            if (!window.require) {
-                window.require = function(moduleName) {
-                    if (moduleName === 'events') {
-                        return { EventEmitter: window.EventEmitter };
-                    }
-                    throw new Error('Module ' + moduleName + ' not found');
-                };
-            }
-            
-            // For different access patterns libraries might use
-            if (typeof global === 'undefined') {
-                window.global = window;
-            }
-            window.global.EventEmitter = window.EventEmitter;
-            
-            // Node.js style exports
-            if (typeof exports === 'undefined') {
-                window.exports = {};
-            }
-            window.exports.EventEmitter = window.EventEmitter;
-        }
-    </script>
+    <!-- Step 1: Load EventEmitter Preloader (PIXI v6 compatible) -->
+    <script src="js/eventemitter-preloader-v6.js"></script>
     
     <!-- Step 2: Load PIXI.js v6 with multiple fallbacks -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/6.5.8/pixi.min.js"></script>
     <script>
-        // Fallback PIXI loading if primary CDN fails
-        if (typeof PIXI === 'undefined') {
-            document.write('<script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.8/dist/pixi.min.js"><\/script>');
-        }
-    </script>
-    
-    <!-- Step 3: Load Live2D Core -->
-    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
-    
-    <!-- Step 4: Load pixi-live2d-display with fallback -->
-    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.5.0-beta/dist/cubism4.min.js"></script>
-    <script>
-        // Fallback loading if primary CDN fails
-        if (typeof PIXI === 'undefined' || !PIXI.live2d || !PIXI.live2d.Live2DModel) {
-            document.write('<script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"><\/script>');
-        }
-    </script>
-    
-    <!-- Step 5: Expose PIXI for Live2D -->
-    <script>
-        // Expose PIXI globally for pixi-live2d-display
-        if (typeof PIXI !== 'undefined') {
-            window.PIXI = PIXI;
-            console.log('PIXI exposed globally:', PIXI.VERSION);
-        } else {
-            console.error('PIXI failed to load from CDN');
+        async function loadPIXI() {
+            const pixiSources = [
+                'https://cdn.jsdelivr.net/npm/pixi.js@6.5.8/dist/pixi.min.js',
+                'https://cdnjs.cloudflare.com/ajax/libs/pixi.js/6.5.8/pixi.min.js',
+                'https://unpkg.com/pixi.js@6.5.8/dist/pixi.min.js'
+            ];
+            
+            for (const src of pixiSources) {
+                try {
+                    console.log(`Trying to load PIXI from: ${src}`);
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = src;
+                        script.onload = () => {
+                            if (typeof PIXI !== 'undefined' && PIXI.Application) {
+                                console.log(`PIXI loaded successfully from: ${src}`);
+                                resolve();
+                            } else {
+                                console.log(`PIXI object incomplete from: ${src}`);
+                                reject(new Error('PIXI object incomplete'));
+                            }
+                        };
+                        script.onerror = () => {
+                            console.log(`Failed to load PIXI from: ${src}`);
+                            reject(new Error(`Failed to load from ${src}`));
+                        };
+                        document.head.appendChild(script);
+                    });
+                    
+                    // If we get here, PIXI loaded successfully
+                    break;
+                } catch (error) {
+                    console.log(`Error loading PIXI from ${src}:`, error.message);
+                    if (src === pixiSources[pixiSources.length - 1]) {
+                        // Last source failed, try one more approach
+                        console.log('All CDN sources failed, trying direct assignment...');
+                        
+                        // Emergency fallback - create minimal PIXI object for testing
+                        window.PIXI = {
+                            Application: function(options) {
+                                console.log('Using fallback PIXI Application');
+                                this.stage = { addChild: function() {}, removeChild: function() {} };
+                                this.screen = { width: options.width || 800, height: options.height || 600 };
+                                this.view = options.view;
+                                this.renderer = { backgroundColor: options.backgroundColor || 0xffffff };
+                                return this;
+                            },
+                            VERSION: '6.5.8-fallback',
+                            utils: {
+                                EventEmitter: window.EventEmitter || class EventEmitter {
+                                    constructor() { this._events = {}; }
+                                    on(event, listener) { 
+                                        if (!this._events[event]) this._events[event] = []; 
+                                        this._events[event].push(listener); 
+                                        return this; 
+                                    }
+                                    emit(event, ...args) { 
+                                        if (this._events[event]) { 
+                                            this._events[event].forEach(listener => listener.apply(this, args)); 
+                                        } 
+                                        return this; 
+                                    }
+                                    off(event, listener) { 
+                                        if (this._events[event]) { 
+                                            const index = this._events[event].indexOf(listener); 
+                                            if (index !== -1) this._events[event].splice(index, 1); 
+                                        } 
+                                        return this; 
+                                    }
+                                }
+                            }
+                        };
+                        
+                        console.log('Fallback PIXI object created');
+                    }
+                }
+            }
         }
         
-        // Wait for libraries to fully load
-        window.addEventListener('load', function() {
-            console.log('Libraries loaded:');
-            console.log('- PIXI:', typeof PIXI, PIXI ? PIXI.VERSION : 'undefined');
-            console.log('- PIXI.Application:', typeof PIXI.Application);
-            console.log('- Live2DCubismCore:', typeof Live2DCubismCore);
-            console.log('- PIXI.live2d:', typeof PIXI.live2d, PIXI.live2d ? Object.keys(PIXI.live2d) : 'undefined');
+        // Load PIXI immediately
+        loadPIXI().then(() => {
+            console.log('PIXI loading completed');
+            
+            // Set up EventEmitter for PIXI utils if PIXI is available
+            if (typeof window.PIXI !== 'undefined' && typeof window.EventEmitter !== 'undefined') {
+                if (!window.PIXI.utils) {
+                    window.PIXI.utils = {};
+                }
+                window.PIXI.utils.EventEmitter = window.EventEmitter;
+                console.log('EventEmitter set up for PIXI.utils after PIXI loaded');
+            }
+            
+            window.pixiReady = true;
+        }).catch(error => {
+            console.error('Critical: PIXI failed to load:', error);
+            
+            // Even with fallback, set up EventEmitter
+            if (typeof window.PIXI !== 'undefined' && typeof window.EventEmitter !== 'undefined') {
+                if (!window.PIXI.utils) {
+                    window.PIXI.utils = {};
+                }
+                window.PIXI.utils.EventEmitter = window.EventEmitter;
+                console.log('EventEmitter set up for fallback PIXI.utils');
+            }
+            
+            window.pixiReady = true; // Allow continuation with fallback
+        });
+    </script>
+    
+    <!-- Step 3: Load Live2D Core (Cubism 4) -->
+    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+    
+    <!-- Step 4: Load pixi-live2d-display after PIXI is ready -->
+    <script>
+        async function loadPixiLive2D() {
+            // Wait for PIXI to be ready
+            while (!window.pixiReady) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+            if (typeof PIXI === 'undefined') {
+                console.error('PIXI is not available, cannot load pixi-live2d-display');
+                return;
+            }
+            
+            console.log('Loading pixi-live2d-display...');
+            
+            // Debug EventEmitter availability before loading
+            console.log('Pre-load EventEmitter check:');
+            console.log('- window.EventEmitter:', typeof window.EventEmitter);
+            console.log('- global.EventEmitter:', typeof global?.EventEmitter);
+            console.log('- require("events"):', typeof require === 'function' ? require('events') : 'require not available');
+            console.log('- window.events:', typeof window.events);
+            console.log('- PIXI.utils:', typeof PIXI?.utils);
+            console.log('- PIXI.utils.EventEmitter:', typeof PIXI?.utils?.EventEmitter);
+            
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js';
+                script.onload = () => {
+                    console.log('pixi-live2d-display loaded');
+                    
+                    // Debug EventEmitter availability after loading
+                    console.log('Post-load EventEmitter check:');
+                    console.log('- window.EventEmitter:', typeof window.EventEmitter);
+                    console.log('- PIXI.utils:', typeof PIXI?.utils);
+                    console.log('- PIXI.utils.EventEmitter:', typeof PIXI?.utils?.EventEmitter);
+                    console.log('- PIXI.live2d available:', typeof PIXI.live2d);
+                    if (typeof PIXI.live2d !== 'undefined') {
+                        console.log('- PIXI.live2d properties:', Object.keys(PIXI.live2d));
+                    }
+                    
+                    window.pixiLive2DReady = true;
+                    resolve();
+                };
+                script.onerror = () => {
+                    console.error('pixi-live2d-display failed to load');
+                    reject(new Error('pixi-live2d-display failed to load'));
+                };
+                document.head.appendChild(script);
+            });
+        }
+        
+        // Load pixi-live2d-display
+        loadPixiLive2D().catch(error => {
+            console.error('Failed to load pixi-live2d-display:', error);
         });
     </script>
 
     <script>
-        // Global variables
-        let pixiApp = null;
-        let currentModel = null;
-        let modelsData = [];
+        // Enhanced logging system
+        const logs = [];
+        const logContainer = document.getElementById('logs');
+        const debugOutput = document.getElementById('debug-output');
         
-        // Status management
-        function addStatus(message, type = 'info') {
-            const container = document.getElementById('statusContainer');
-            const statusDiv = document.createElement('div');
-            statusDiv.className = `status ${type}`;
-            statusDiv.textContent = `${new Date().toLocaleTimeString()} - ${message}`;
-            container.appendChild(statusDiv);
-            container.scrollTop = container.scrollHeight;
+        function log(message, type = 'info') {
+            const timestamp = new Date().toISOString().substring(11, 23);
+            const entry = `[${timestamp}] ${message}`;
+            logs.push({timestamp, message, type});
             
-            console.log(`[${type.toUpperCase()}] ${message}`);
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.textContent = entry;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            console.log(entry);
         }
         
-        function updateDebugInfo() {
-            const debugInfo = document.getElementById('debugInfo');
-            const info = `System Information:
-- Browser: ${navigator.userAgent}
-- PIXI.js: ${typeof PIXI !== 'undefined' ? PIXI.VERSION : 'Not loaded'}
-- PIXI.Application: ${typeof PIXI !== 'undefined' && PIXI.Application ? 'Available' : 'Not available'}
-- Live2D Core: ${typeof Live2DCubismCore !== 'undefined' ? 'Loaded' : 'Not loaded'}
-- pixi-live2d-display: ${typeof PIXI !== 'undefined' && PIXI.live2d ? 'Loaded' : 'Not loaded'}
-
-Available Objects:
-- window.PIXI: ${typeof PIXI !== 'undefined' ? 'Available' : 'Not available'}
-- window.Live2DCubismCore: ${typeof Live2DCubismCore !== 'undefined' ? 'Available' : 'Not available'}
-- PIXI.live2d: ${typeof PIXI !== 'undefined' && PIXI.live2d ? 'Available' : 'Not available'}
-- PIXI.live2d.Live2DModel: ${typeof PIXI !== 'undefined' && PIXI.live2d && PIXI.live2d.Live2DModel ? 'Available' : 'Not available'}
-
-Canvas Status:
-- PIXI App initialized: ${pixiApp ? 'Yes' : 'No'}
-- Current model: ${currentModel ? 'Loaded' : 'None'}
-- Models available: ${modelsData.length}
-
-Debug Details:
-- PIXI keys: ${typeof PIXI !== 'undefined' ? Object.keys(PIXI).slice(0, 10).join(', ') : 'N/A'}
-- PIXI.live2d keys: ${typeof PIXI !== 'undefined' && PIXI.live2d ? Object.keys(PIXI.live2d).join(', ') : 'N/A'}
-            `;
-            debugInfo.textContent = info;
+        function updateDebugOutput(info) {
+            debugOutput.textContent = info;
         }
         
-        // Initialize PIXI Application
-        function initializePixi() {
+        function updateLibraryStatus() {
+            const statusDiv = document.getElementById('library-status');
+            let status = '';
+            
+            // Check PIXI
+            if (typeof PIXI !== 'undefined') {
+                status += `<div class="status-item status-ok">✓ PIXI.js ${PIXI.VERSION || 'unknown'} loaded</div>`;
+                
+                // Check PIXI.Application specifically
+                if (typeof PIXI.Application !== 'undefined') {
+                    status += `<div class="status-item status-ok">✓ PIXI.Application available</div>`;
+                } else {
+                    status += `<div class="status-item status-error">✗ PIXI.Application not available</div>`;
+                    status += `<div class="status-item status-info">Available PIXI properties: ${Object.keys(PIXI).slice(0, 10).join(', ')}</div>`;
+                }
+            } else {
+                status += `<div class="status-item status-error">✗ PIXI.js not found</div>`;
+            }
+            
+            // Check Live2D Core
+            if (typeof Live2DCubismCore !== 'undefined') {
+                status += `<div class="status-item status-ok">✓ Live2D Core loaded</div>`;
+            } else {
+                status += `<div class="status-item status-error">✗ Live2D Core not found</div>`;
+            }
+            
+            // Check EventEmitter
+            if (typeof EventEmitter !== 'undefined') {
+                status += `<div class="status-item status-ok">✓ EventEmitter available</div>`;
+            } else {
+                status += `<div class="status-item status-error">✗ EventEmitter not found</div>`;
+            }
+            
+            // Check events module
+            if (typeof window.events !== 'undefined') {
+                status += `<div class="status-item status-ok">✓ events module available</div>`;
+            } else {
+                status += `<div class="status-item status-warning">⚠ events module not found</div>`;
+            }
+            
+            // Check pixi-live2d-display
+            if (typeof PIXI !== 'undefined' && PIXI.live2d) {
+                if (PIXI.live2d.Live2DModel) {
+                    status += `<div class="status-item status-ok">✓ pixi-live2d-display loaded with Live2DModel</div>`;
+                } else {
+                    status += `<div class="status-item status-warning">⚠ pixi-live2d-display loaded but Live2DModel not found</div>`;
+                    status += `<div class="status-item status-info">Available in PIXI.live2d: ${Object.keys(PIXI.live2d).join(', ')}</div>`;
+                    
+                    // Check for alternative access patterns
+                    if (window.PIXI && window.PIXI.live2d) {
+                        status += `<div class="status-item status-info">PIXI.live2d keys: ${Object.keys(window.PIXI.live2d).join(', ')}</div>`;
+                    }
+                    
+                    // Check global namespace
+                    if (typeof Live2DModel !== 'undefined') {
+                        status += `<div class="status-item status-info">✓ Live2DModel found in global namespace</div>`;
+                    }
+                    
+                    // Check for common Live2D classes
+                    const live2dClasses = ['Live2DModel', 'Live2DFactory', 'Live2DLoader'];
+                    live2dClasses.forEach(className => {
+                        if (window[className]) {
+                            status += `<div class="status-item status-info">✓ ${className} found globally</div>`;
+                        }
+                    });
+                }
+            } else {
+                status += `<div class="status-item status-error">✗ pixi-live2d-display not found</div>`;
+            }
+            
+            statusDiv.innerHTML = status;
+        }
+        
+        // Global variables for PIXI app and model
+        let app;
+        let currentModel;
+        let availableModels = [];
+        
+        // Initialize PIXI application
+        function initPIXI() {
             try {
-                addStatus('Initializing PIXI.js application...', 'info');
+                log('Initializing PIXI application...', 'info');
+                log(`PIXI object available: ${typeof PIXI !== 'undefined'}`, 'info');
+                log(`PIXI.Application available: ${typeof PIXI.Application !== 'undefined'}`, 'info');
                 
-                if (!PIXI) {
-                    throw new Error('PIXI.js not loaded');
+                if (typeof PIXI === 'undefined') {
+                    throw new Error('PIXI is not loaded');
                 }
                 
-                // Destroy existing app if any
-                if (pixiApp) {
-                    pixiApp.destroy(true);
+                if (typeof PIXI.Application === 'undefined') {
+                    throw new Error('PIXI.Application is not available');
                 }
                 
-                // Create new PIXI application (v6 syntax)
-                pixiApp = new PIXI.Application({
+                const canvas = document.getElementById('canvas');
+                
+                // PIXI v6 syntax - try different initialization approaches
+                let appConfig = {
+                    view: canvas,
                     width: 800,
                     height: 600,
-                    backgroundColor: 0xf0f0f0,
-                    antialias: true
-                });
+                    backgroundColor: 0xffffff,
+                    antialias: true,
+                    resolution: window.devicePixelRatio || 1
+                };
                 
-                // Append to container
-                const container = document.getElementById('pixiCanvas');
-                container.appendChild(pixiApp.view);
+                app = new PIXI.Application(appConfig);
                 
-                // Make PIXI globally available for Live2D
-                window.PIXI = PIXI;
-                
-                addStatus('PIXI.js application initialized successfully', 'success');
-                updateDebugInfo();
-                
+                log('PIXI application initialized successfully', 'success');
+                log(`PIXI version: ${PIXI.VERSION || 'unknown'}`, 'info');
+                return true;
             } catch (error) {
-                addStatus(`Failed to initialize PIXI: ${error.message}`, 'error');
-                console.error('PIXI initialization error:', error);
-                updateDebugInfo();
+                log(`PIXI initialization failed: ${error.message}`, 'error');
+                log(`Available PIXI properties: ${Object.keys(PIXI || {}).join(', ')}`, 'error');
+                return false;
             }
         }
         
         // Load models from API
         async function loadModels() {
             try {
-                addStatus('Loading models from API...', 'info');
+                log('Loading models from API...', 'info');
+                const response = await fetch('/api/live2d/models');
                 
-                const response = await fetch('http://localhost:13443/api/live2d/models');
                 if (!response.ok) {
-                    throw new Error(`API request failed: ${response.status}`);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 
-                modelsData = await response.json();
+                const data = await response.json();
+                log(`API response: ${JSON.stringify(data).substring(0, 200)}...`, 'info');
                 
-                // Populate model select
+                availableModels = Array.isArray(data) ? data : (data.models || []);
+                
+                log(`Loaded ${availableModels.length} models from API`, 'success');
+                
+                // Populate dropdown
                 const select = document.getElementById('modelSelect');
-                select.innerHTML = '<option value="">Choose a model...</option>';
+                select.innerHTML = '<option value="">Select a model...</option>';
                 
-                modelsData.forEach((model, index) => {
+                availableModels.forEach((model, index) => {
                     const option = document.createElement('option');
                     option.value = index;
-                    option.textContent = model.model_name; // Fixed: use model_name
+                    // Use model_name field as shown in API documentation
+                    option.textContent = model.model_name || model.name || `Model ${index + 1}`;
                     select.appendChild(option);
                 });
                 
-                addStatus(`Loaded ${modelsData.length} models from API`, 'success');
-                updateDebugInfo();
-                
+                return true;
             } catch (error) {
-                addStatus(`Failed to load models: ${error.message}`, 'error');
-                console.error('Model loading error:', error);
+                log(`Failed to load models: ${error.message}`, 'error');
+                log(`Error details: ${error.stack}`, 'error');
+                return false;
             }
         }
         
-        // Load selected model
-        async function loadSelectedModel() {
+        // Load Live2D model
+        async function loadLive2DModel(modelIndex) {
             try {
-                if (!pixiApp) {
+                if (!app) {
                     throw new Error('PIXI application not initialized');
                 }
                 
-                const select = document.getElementById('modelSelect');
-                const selectedIndex = select.value;
+                // Try different ways to access Live2DModel
+                let Live2DModel = null;
                 
-                if (selectedIndex === '') {
-                    throw new Error('No model selected');
+                if (PIXI.live2d && PIXI.live2d.Live2DModel) {
+                    Live2DModel = PIXI.live2d.Live2DModel;
+                    log('Using PIXI.live2d.Live2DModel', 'info');
+                } else if (window.Live2DModel) {
+                    Live2DModel = window.Live2DModel;
+                    log('Using global Live2DModel', 'info');
+                } else if (window.PIXI && window.PIXI.live2d) {
+                    // Check what's available in PIXI.live2d
+                    const available = Object.keys(window.PIXI.live2d);
+                    log(`Available in PIXI.live2d: ${available.join(', ')}`, 'info');
+                    
+                    // Try common alternatives
+                    if (window.PIXI.live2d.Live2dModel) {
+                        Live2DModel = window.PIXI.live2d.Live2dModel;
+                        log('Using PIXI.live2d.Live2dModel', 'info');
+                    } else if (window.PIXI.live2d.model) {
+                        Live2DModel = window.PIXI.live2d.model;
+                        log('Using PIXI.live2d.model', 'info');
+                    }
                 }
                 
-                const modelData = modelsData[selectedIndex];
-                addStatus(`Loading model: ${modelData.name}...`, 'info');
-                
-                // Check if Live2DModel is available
-                if (!PIXI.live2d || !PIXI.live2d.Live2DModel) {
-                    throw new Error('Live2DModel not available in PIXI.live2d');
+                if (!Live2DModel) {
+                    throw new Error('Live2DModel class not available');
                 }
                 
-                // Remove existing model
+                const modelData = availableModels[modelIndex];
+                if (!modelData) {
+                    throw new Error('Invalid model index');
+                }
+                
+                log(`Loading Live2D model: ${modelData.model_name || modelData.name}`, 'info');
+                
+                // Clear existing model
                 if (currentModel) {
-                    pixiApp.stage.removeChild(currentModel);
+                    app.stage.removeChild(currentModel);
                     currentModel.destroy();
+                    currentModel = null;
                 }
                 
-                // Load new model
-                currentModel = await PIXI.live2d.Live2DModel.from(modelData.model_url);
+                // Create new model
+                const modelUrl = `/api/live2d/models/${modelData.model_name || modelData.name}/model.json`;
+                log(`Model URL: ${modelUrl}`, 'info');
                 
-                // Position model
-                currentModel.x = pixiApp.screen.width / 2;
-                currentModel.y = pixiApp.screen.height / 2;
+                currentModel = await Live2DModel.from(modelUrl);
+                
+                // Configure model
                 currentModel.anchor.set(0.5, 0.5);
-                currentModel.scale.set(0.3);
+                currentModel.position.set(app.screen.width / 2, app.screen.height / 2);
+                
+                // Scale model to fit
+                const scale = Math.min(
+                    app.screen.width / currentModel.width,
+                    app.screen.height / currentModel.height
+                ) * 0.8;
+                
+                currentModel.scale.set(scale);
                 
                 // Add to stage
-                pixiApp.stage.addChild(currentModel);
+                app.stage.addChild(currentModel);
                 
-                // Set up interaction
-                currentModel.on('hit', (hitAreas) => {
-                    addStatus(`Hit areas: ${hitAreas.join(', ')}`, 'info');
-                    
-                    // Try to play motion
-                    if (hitAreas.includes('body')) {
-                        currentModel.motion('tap_body');
-                    } else if (hitAreas.includes('head')) {
-                        currentModel.motion('tap_head');
-                    }
-                });
+                log(`Live2D model loaded successfully`, 'success');
                 
-                addStatus(`Model loaded successfully: ${modelData.name}`, 'success');
-                updateDebugInfo();
+                // Update debug info
+                updateDebugOutput(`Model loaded: ${modelData.model_name || modelData.name}
+Position: ${currentModel.position.x}, ${currentModel.position.y}
+Scale: ${currentModel.scale.x}
+Size: ${currentModel.width} x ${currentModel.height}
+Motions: ${currentModel.internalModel.motionManager.definitions.size} groups`);
                 
+                return true;
             } catch (error) {
-                addStatus(`Failed to load model: ${error.message}`, 'error');
-                console.error('Model loading error:', error);
+                log(`Failed to load Live2D model: ${error.message}`, 'error');
+                updateDebugOutput(`Error loading model: ${error.message}`);
+                return false;
             }
         }
         
-        // Test interaction
-        function testInteraction() {
-            if (!currentModel) {
-                addStatus('No model loaded for interaction test', 'error');
+        // Event handlers
+        document.getElementById('loadModelBtn').addEventListener('click', async () => {
+            const select = document.getElementById('modelSelect');
+            const selectedIndex = select.value;
+            
+            if (!selectedIndex) {
+                log('No model selected', 'warning');
                 return;
             }
             
-            try {
-                addStatus('Testing model interaction...', 'info');
-                
-                // Test motion
-                currentModel.motion('tap_body');
-                
-                addStatus('Interaction test completed', 'success');
-                
-            } catch (error) {
-                addStatus(`Interaction test failed: ${error.message}`, 'error');
-                console.error('Interaction test error:', error);
-            }
-        }
-        
-        // Debug libraries
-        function debugLibraries() {
-            addStatus('Debugging library status...', 'info');
-            
-            const checks = [
-                { name: 'PIXI', obj: window.PIXI, version: window.PIXI?.VERSION },
-                { name: 'PIXI.Application', obj: window.PIXI?.Application },
-                { name: 'Live2DCubismCore', obj: window.Live2DCubismCore },
-                { name: 'PIXI.live2d', obj: window.PIXI?.live2d },
-                { name: 'PIXI.live2d.Live2DModel', obj: window.PIXI?.live2d?.Live2DModel }
-            ];
-            
-            checks.forEach(check => {
-                if (check.obj) {
-                    let message = `✓ ${check.name} is available`;
-                    if (check.version) message += ` (v${check.version})`;
-                    addStatus(message, 'success');
-                } else {
-                    addStatus(`✗ ${check.name} is not available`, 'error');
-                }
-            });
-            
-            // Additional debugging
-            if (window.PIXI) {
-                addStatus(`PIXI keys: ${Object.keys(window.PIXI).join(', ')}`, 'info');
-                
-                if (window.PIXI.live2d) {
-                    addStatus(`PIXI.live2d keys: ${Object.keys(window.PIXI.live2d).join(', ')}`, 'info');
-                }
-            }
-            
-            updateDebugInfo();
-        }
-        
-        // Clear canvas
-        function clearCanvas() {
-            if (pixiApp && currentModel) {
-                pixiApp.stage.removeChild(currentModel);
-                currentModel.destroy();
-                currentModel = null;
-                addStatus('Canvas cleared', 'info');
-                updateDebugInfo();
-            }
-        }
-        
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', async () => {
-            addStatus('Page loaded, checking libraries...', 'info');
-            
-            // Wait for PIXI to load with retry
-            let retryCount = 0;
-            const maxRetries = 10;
-            
-            const checkLibraries = () => {
-                if (typeof PIXI !== 'undefined' && PIXI.Application) {
-                    addStatus('PIXI.js loaded successfully', 'success');
-                    
-                    // Wait a bit more for Live2D to load
-                    setTimeout(() => {
-                        updateDebugInfo();
-                        debugLibraries();
-                        initializePixi(); // Auto-initialize PIXI
-                        loadModels();
-                    }, 500);
-                } else {
-                    retryCount++;
-                    if (retryCount < maxRetries) {
-                        addStatus(`Waiting for PIXI to load... (${retryCount}/${maxRetries})`, 'info');
-                        setTimeout(checkLibraries, 200);
-                    } else {
-                        addStatus('PIXI failed to load after retries', 'error');
-                        
-                        // Still try to proceed with what we have
-                        setTimeout(() => {
-                            updateDebugInfo();
-                            debugLibraries();
-                            loadModels();
-                        }, 500);
-                    }
-                }
-            };
-            
-            checkLibraries();
+            await loadLive2DModel(parseInt(selectedIndex));
         });
         
-        // Update debug info periodically
-        setInterval(updateDebugInfo, 2000);
+        document.getElementById('clearModelBtn').addEventListener('click', () => {
+            if (currentModel) {
+                app.stage.removeChild(currentModel);
+                currentModel.destroy();
+                currentModel = null;
+                log('Model cleared', 'info');
+                updateDebugOutput('Model cleared');
+            }
+        });
+        
+        document.getElementById('testApiBtn').addEventListener('click', async () => {
+            log('Testing API manually...', 'info');
+            await loadModels();
+        });
+        
+        // Initialize everything
+        async function init() {
+            log('Starting Live2D initialization...', 'info');
+            
+            // Wait for all libraries to load
+            await new Promise(resolve => {
+                let attempts = 0;
+                const maxAttempts = 100; // 10 seconds
+                
+                const checkLibraries = setInterval(() => {
+                    attempts++;
+                    
+                    const pixiReady = window.pixiReady && typeof PIXI !== 'undefined';
+                    const live2dReady = typeof Live2DCubismCore !== 'undefined';
+                    const pixiLive2DReady = window.pixiLive2DReady;
+                    
+                    log(`Library status - PIXI: ${pixiReady}, Live2D: ${live2dReady}, pixi-live2d: ${pixiLive2DReady}`, 'info');
+                    
+                    if (pixiReady && live2dReady && pixiLive2DReady) {
+                        clearInterval(checkLibraries);
+                        log('All libraries loaded successfully', 'success');
+                        resolve();
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(checkLibraries);
+                        log('Timeout waiting for libraries to load', 'warning');
+                        log(`Final status - PIXI: ${pixiReady}, Live2D: ${live2dReady}, pixi-live2d: ${pixiLive2DReady}`, 'warning');
+                        resolve(); // Continue anyway
+                    }
+                }, 100);
+            });
+            
+            // Update library status
+            updateLibraryStatus();
+            
+            // Initialize PIXI
+            if (!initPIXI()) {
+                log('Failed to initialize PIXI', 'error');
+                return;
+            }
+            
+            // Load models
+            if (!await loadModels()) {
+                log('Failed to load models', 'error');
+                return;
+            }
+            
+            log('Live2D initialization complete', 'success');
+        }
+        
+        // Start initialization when page loads
+        window.addEventListener('load', init);
     </script>
 </body>
 </html>

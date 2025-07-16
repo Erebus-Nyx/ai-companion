@@ -5,7 +5,7 @@
     
     console.log('EventEmitter Preloader (PIXI v6) loading...');
     
-    // Simple EventEmitter implementation for PIXI v6 compatibility
+    // PIXI-compatible EventEmitter implementation
     class EventEmitter {
         constructor() {
             this._events = {};
@@ -131,6 +131,10 @@
         if (moduleName === 'eventemitter3') {
             return EventEmitter;
         }
+        // Handle @pixi/utils require
+        if (moduleName === '@pixi/utils') {
+            return { EventEmitter: EventEmitter };
+        }
         if (originalRequire) {
             try {
                 return originalRequire(moduleName);
@@ -179,6 +183,19 @@
     // Module compatibility
     if (typeof module === 'undefined') {
         window.module = { exports: {} };
+    }
+    
+    // CRITICAL: Set up PIXI utils compatibility
+    // This makes EventEmitter available as if it comes from @pixi/utils
+    if (typeof window.PIXI !== 'undefined') {
+        if (!window.PIXI.utils) {
+            window.PIXI.utils = {};
+        }
+        window.PIXI.utils.EventEmitter = EventEmitter;
+        console.log('EventEmitter set up for PIXI.utils');
+    } else {
+        // Set up for when PIXI loads later
+        console.log('PIXI not available yet, will set up EventEmitter when PIXI loads');
     }
     
     console.log('EventEmitter Preloader loaded successfully');

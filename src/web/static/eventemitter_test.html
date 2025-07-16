@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EventEmitter Dependency Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #b8daff; }
+        #log { background: #f8f9fa; padding: 15px; border: 1px solid #dee2e6; border-radius: 4px; font-family: monospace; max-height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>EventEmitter Dependency Conflict Test</h1>
+    <p>This test verifies that EventEmitter dependencies are properly resolved for Live2D integration.</p>
+    
+    <div id="results"></div>
+    <div id="log"></div>
+
+    <!-- Load dependencies in the same order as live2d_pixi.html -->
+    <script src="/node_modules/pixi.js/dist/browser/pixi.min.js"></script>
+    
+    <script>
+        // Test logging system
+        function logResult(message, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const logDiv = document.getElementById('log');
+            
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.textContent = message;
+            resultsDiv.appendChild(resultDiv);
+            
+            logDiv.innerHTML += `[${new Date().toISOString()}] ${type.toUpperCase()}: ${message}\n`;
+            
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        // Live2D Viewer Web compatible EventEmitter setup
+        console.log('Setting up Live2D Viewer Web compatible EventEmitter...');
+
+        // Verify PIXI is loaded
+        if (typeof PIXI === 'undefined') {
+            logResult('PIXI.js not loaded - this is required for Live2D Viewer Web compatibility', 'error');
+            throw new Error('PIXI.js not loaded');
+        }
+
+        logResult(`PIXI version: ${PIXI.VERSION}`, 'info');
+
+        // Live2D Viewer Web uses @pixi/utils EventEmitter
+        // For PIXI v6.5.x, EventEmitter is available in PIXI.utils
+        if (PIXI.utils && PIXI.utils.EventEmitter) {
+            logResult('Using PIXI.utils.EventEmitter (Live2D Viewer Web compatible)', 'success');
+            
+            // Make EventEmitter available globally for library compatibility
+            window.EventEmitter = PIXI.utils.EventEmitter;
+            
+            // Also make it available in the expected module locations
+            if (typeof require === 'undefined') {
+                window.require = function(module) {
+                    if (module === 'events') {
+                        return { EventEmitter: PIXI.utils.EventEmitter };
+                    }
+                    if (module === '@pixi/utils') {
+                        return { EventEmitter: PIXI.utils.EventEmitter };
+                    }
+                    return {};
+                };
+            }
+            
+            logResult('EventEmitter setup complete using PIXI.utils.EventEmitter', 'success');
+            
+        } else {
+            logResult('PIXI.utils.EventEmitter not found, using fallback implementation', 'warning');
+            
+            // Minimal fallback for older PIXI versions
+            class MinimalEventEmitter {
+                constructor() {
+                    this._events = {};
+                }
+                
+                on(event, listener) {
+                    if (!this._events[event]) this._events[event] = [];
+                    this._events[event].push(listener);
+                    return this;
+                }
+                
+                emit(event, ...args) {
+                    if (this._events[event]) {
+                        this._events[event].forEach(listener => listener.apply(this, args));
+                    }
+                    return this;
+                }
+                
+                off(event, listener) {
+                    if (this._events[event]) {
+                        const index = this._events[event].indexOf(listener);
+                        if (index > -1) this._events[event].splice(index, 1);
+                    }
+                    return this;
+                }
+                
+                removeListener(event, listener) {
+                    return this.off(event, listener);
+                }
+                
+                removeAllListeners(event) {
+                    if (event) {
+                        delete this._events[event];
+                    } else {
+                        this._events = {};
+                    }
+                    return this;
+                }
+                
+                once(event, listener) {
+                    const onceListener = (...args) => {
+                        this.off(event, onceListener);
+                        listener.apply(this, args);
+                    };
+                    return this.on(event, onceListener);
+                }
+            }
+            
+            window.EventEmitter = MinimalEventEmitter;
+            
+            if (typeof require === 'undefined') {
+                window.require = function(module) {
+                    if (module === 'events') {
+                        return { EventEmitter: MinimalEventEmitter };
+                    }
+                    return {};
+                };
+            }
+        }
+
+        // Test EventEmitter functionality
+        try {
+            const testEmitter = new EventEmitter();
+            let testPassed = false;
+            
+            testEmitter.on('test', () => {
+                testPassed = true;
+                logResult('EventEmitter functionality test passed', 'success');
+            });
+            
+            testEmitter.emit('test');
+            
+            if (!testPassed) {
+                logResult('EventEmitter functionality test failed', 'error');
+            }
+            
+        } catch (e) {
+            logResult(`EventEmitter test failed: ${e.message}`, 'error');
+        }
+
+        // Test require function
+        try {
+            const events = require('events');
+            if (events && events.EventEmitter) {
+                logResult('require("events") works correctly', 'success');
+            } else {
+                logResult('require("events") returned invalid result', 'error');
+            }
+        } catch (e) {
+            logResult(`require("events") failed: ${e.message}`, 'error');
+        }
+
+        logResult('EventEmitter compatibility setup complete', 'info');
+    </script>
+
+    <!-- Load Live2D Display Library -->
+    <script src="/node_modules/pixi-live2d-display/dist/index.min.js"
+            onload="logResult('pixi-live2d-display loaded successfully', 'success');"
+            onerror="logResult('Failed to load pixi-live2d-display', 'error');"></script>
+
+    <script>
+        // Test Live2D integration after library loads
+        setTimeout(function() {
+            logResult('Testing Live2D integration...', 'info');
+            
+            // Check if Live2D plugin is available
+            if (typeof PIXI.live2d === 'undefined') {
+                logResult('PIXI.live2d not loaded - dependency conflict detected', 'error');
+                
+                // Diagnose the issue
+                if (typeof EventEmitter === 'undefined') {
+                    logResult('EventEmitter not available - this is the root cause', 'error');
+                } else {
+                    logResult('EventEmitter is available, but PIXI.live2d still failed to load', 'warning');
+                }
+            } else {
+                logResult('PIXI.live2d loaded successfully - dependency conflicts resolved!', 'success');
+                
+                const live2dKeys = Object.keys(PIXI.live2d);
+                logResult(`Available PIXI.live2d properties: ${live2dKeys.join(', ')}`, 'info');
+                
+                // Check for Live2DModel
+                if (PIXI.live2d.Live2DModel) {
+                    logResult('Live2DModel class available', 'success');
+                    
+                    // Test if it has the expected methods
+                    if (typeof PIXI.live2d.Live2DModel.from === 'function') {
+                        logResult('Live2DModel.from() method available', 'success');
+                    } else {
+                        logResult('Live2DModel.from() method not found', 'warning');
+                    }
+                } else {
+                    logResult('Live2DModel not found in PIXI.live2d', 'warning');
+                }
+                
+                // Check for Live2DFactory
+                if (PIXI.live2d.Live2DFactory) {
+                    logResult('Live2DFactory available', 'success');
+                } else {
+                    logResult('Live2DFactory not found in PIXI.live2d', 'warning');
+                }
+            }
+            
+            logResult('Live2D integration test complete', 'info');
+            
+        }, 1000); // Wait for library to load
+    </script>
+</body>
+</html>
