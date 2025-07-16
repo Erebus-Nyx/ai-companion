@@ -12,8 +12,10 @@ const live2d_settings = {
     'tryWebp': false,                               // Try WebP textures first
     
     // Display settings - Modern Live2D Viewer Web approach
-    'live2dHeight': 500,                            // Canvas height (matches container)
-    'live2dWidth': 500,                             // Canvas width (matches container)
+    'live2dHeight': 0,                              // Canvas height (0 = auto-detect container)
+    'live2dWidth': 0,                               // Canvas width (0 = auto-detect container)
+    'canvasMargin': 40,                            // Margin from canvas boundaries (px)
+    'modelScale': 0.75,                            // Default model scale (75% of canvas height)
     'waifuMinWidth': '100px',                       // Hide on small screens
     'waifuEdgeSide': 'left:0',                      // Position (left:0, right:0, etc.)
     'waifuResize': true,                            // Allow resizing

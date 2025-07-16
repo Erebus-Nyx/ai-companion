@@ -4,6 +4,16 @@ class Live2DCore {
         this.app = null;
         this.model = null;
         this.logger = null;
+        this.baseScale = 1.0;
+        this.dragState = {
+            isDragging: false,
+            dragStartX: 0,
+            dragStartY: 0,
+            modelStartX: 0,
+            modelStartY: 0
+        };
+        this.hitBoxGraphics = null;
+        this.modelFrameGraphics = null;
     }
 
     setLogger(logger) {
@@ -55,14 +65,31 @@ class Live2DCore {
     }
 
     async initApp(canvasElement, options = {}) {
+        // Dynamic canvas sizing based on container
+        const containerRect = canvasElement.getBoundingClientRect();
+        const margin = options.canvasMargin || 40;
+        
+        const dynamicWidth = containerRect.width - (margin * 2);
+        const dynamicHeight = containerRect.height - (margin * 2);
+        
+        // Ensure minimum canvas size
+        const minWidth = 400;
+        const minHeight = 400;
+        
         const defaultOptions = {
-            width: 800,
-            height: 600,
-            backgroundColor: 0xffffff,
+            width: Math.max(dynamicWidth, minWidth),
+            height: Math.max(dynamicHeight, minHeight),
+            backgroundColor: 0x000000,
+            backgroundAlpha: 0,
             resolution: 1
         };
 
         const finalOptions = { ...defaultOptions, ...options };
+        
+        // Store canvas dimensions for model scaling
+        this.canvasWidth = finalOptions.width;
+        this.canvasHeight = finalOptions.height;
+        this.canvasMargin = margin;
 
         try {
             if (PIXI.VERSION.startsWith('8.')) {
@@ -74,12 +101,56 @@ class Live2DCore {
                 canvasElement.appendChild(this.app.view);
             }
             
-            this.log('PIXI application initialized successfully', 'success');
+            // Center the canvas within the container
+            const canvas = this.app.canvas || this.app.view;
+            canvas.style.position = 'absolute';
+            canvas.style.left = '50%';
+            canvas.style.top = '50%';
+            canvas.style.transform = 'translate(-50%, -50%)';
+            canvas.style.border = '1px solid rgba(74, 144, 226, 0.3)';
+            canvas.style.borderRadius = '8px';
+            
+            this.log(`PIXI application initialized: ${finalOptions.width}x${finalOptions.height} (container: ${containerRect.width}x${containerRect.height})`, 'success');
             return true;
         } catch (error) {
             this.log('Failed to initialize PIXI: ' + error.message, 'error');
             return false;
         }
+    }
+
+    // Clear current model and all associated graphics
+    clearModel() {
+        // Reset drag state
+        this.dragState = {
+            isDragging: false,
+            dragStartX: 0,
+            dragStartY: 0,
+            modelStartX: 0,
+            modelStartY: 0
+        };
+
+        // Clear model
+        if (this.model) {
+            this.app.stage.removeChild(this.model);
+            this.model.destroy();
+            this.model = null;
+        }
+
+        // Clear hit box graphics
+        if (this.hitBoxGraphics) {
+            this.app.stage.removeChild(this.hitBoxGraphics);
+            this.hitBoxGraphics.destroy();
+            this.hitBoxGraphics = null;
+        }
+
+        // Clear model frame graphics
+        if (this.modelFrameGraphics) {
+            this.app.stage.removeChild(this.modelFrameGraphics);
+            this.modelFrameGraphics.destroy();
+            this.modelFrameGraphics = null;
+        }
+
+        this.log('Model and graphics cleared', 'info');
     }
 
     async loadModel(modelUrl) {
@@ -90,11 +161,8 @@ class Live2DCore {
 
         this.log('Loading Live2D model: ' + modelUrl);
 
-        // Clear existing model
-        if (this.model) {
-            this.app.stage.removeChild(this.model);
-            this.model = null;
-        }
+        // Clear existing model and all graphics
+        this.clearModel();
 
         // Try standard PIXI.live2d approach first
         this.log('=== DIAGNOSTIC: Checking Live2D constructors ===', 'info');
@@ -218,10 +286,15 @@ class Live2DCore {
                         model.anchor.set(0.5, 0.5);
                     }
                     model.position.set(this.app.screen.width / 2, this.app.screen.height / 2);
-                    model.scale.set(0.4);
+                    // Smart model scaling: 75% of canvas height unless model is already smaller
+                    const modelScale = this.calculateOptimalModelScale(model);
+                    model.scale.set(modelScale);
                     
                     this.app.stage.addChild(model);
                     this.model = model;
+                    
+                    // Enable mouse interaction
+                    this.setupMouseInteraction(model);
                     
                     this.log('Model added to stage successfully!', 'success');
                     return model;
@@ -297,14 +370,9 @@ class Live2DCore {
             const drawableSprites = [];
             const atlasTexture = textures[0];
             
-            // Scale to fit nicely (set on container, not per-vertex)
-            const maxWidth = this.app.screen.width * 0.6;
-            const maxHeight = this.app.screen.height * 0.8;
-            const modelWidth = 2; // Live2D logical width is usually 2
-            const modelHeight = 2; // Live2D logical height is usually 2
-            const scaleX = maxWidth / modelWidth;
-            const scaleY = maxHeight / modelHeight;
-            const containerScale = Math.min(scaleX, scaleY, 1.0);
+            // Smart model scaling: 75% of canvas height unless model is already smaller
+            const modelScale = this.calculateOptimalModelScale(null, modelContainer);
+            modelContainer.scale.set(modelScale);
             
             // --- UV Remapping for Atlas Fix ---
             // Helper: get per-drawable UV rects from modelData (if available)
@@ -434,6 +502,9 @@ class Live2DCore {
             this.app.stage.addChild(modelContainer);
             this.model = modelContainer;
 
+            // Enable mouse interaction
+            this.setupMouseInteraction(modelContainer);
+
             this.log(`Enhanced Live2D model loaded! ${cubismModel.drawables.count} drawables, ${cubismModel.parameters.count} parameters`, 'success');
 
             return modelContainer;
@@ -538,6 +609,351 @@ class Live2DCore {
         }, 33); // ~30 FPS
     }
     
+    // Calculate optimal model scale based on 75% of canvas height
+    calculateOptimalModelScale(model, container) {
+        const targetScale = 0.75; // 75% of canvas height
+        const canvasHeight = this.canvasHeight || this.app.screen.height;
+        
+        // For pixi-live2d-display models, we can get bounds
+        if (model && model.getBounds) {
+            const bounds = model.getBounds();
+            const modelHeight = bounds.height;
+            
+            if (modelHeight > 0) {
+                // Calculate scale to make model 75% of canvas height
+                const desiredScale = (canvasHeight * targetScale) / modelHeight;
+                
+                // Don't upscale beyond 1.0 if model is already small
+                const finalScale = Math.min(desiredScale, 1.0);
+                
+                // Store the base scale for zoom calculations
+                this.baseScale = finalScale;
+                
+                this.log(`Model scaling: canvas=${canvasHeight}px, model=${modelHeight}px, base=${finalScale}`, 'info');
+                return finalScale;
+            }
+        }
+        
+        // For raw Cubism models or fallback, use logical size
+        // Live2D logical size is typically 2x2 units
+        const logicalHeight = 2;
+        const desiredScale = (canvasHeight * targetScale) / (logicalHeight * 100); // Adjust for coordinate system
+        const finalScale = Math.min(desiredScale, 1.0);
+        
+        // Store the base scale for zoom calculations
+        this.baseScale = finalScale;
+        
+        this.log(`Model scaling (fallback): canvas=${canvasHeight}px, logical=${logicalHeight}, base=${finalScale}`, 'info');
+        return finalScale;
+    }
+
+    // Scale model with zoom multiplier
+    scaleModel(zoomMultiplier) {
+        if (!this.model) {
+            this.log('No model loaded to scale', 'warning');
+            return;
+        }
+
+        const baseScale = this.baseScale || 1.0;
+        const finalScale = baseScale * zoomMultiplier;
+        
+        this.model.scale.set(finalScale);
+        this.log(`Model zoom: base=${baseScale}, multiplier=${zoomMultiplier}, final=${finalScale}`, 'info');
+        
+        // Update any frame visualizations
+        if (this.modelFrameGraphics && this.modelFrameGraphics.visible) {
+            this.drawModelFrame();
+        }
+        if (this.hitBoxGraphics && this.hitBoxGraphics.visible) {
+            this.drawHitBoxes();
+        }
+    }
+
+    // Setup mouse interaction for model dragging
+    setupMouseInteraction(model) {
+        if (!model) return;
+        
+        // Make model interactive
+        model.interactive = true;
+        model.buttonMode = true;
+        
+        // Store drag state
+        this.dragState = {
+            isDragging: false,
+            dragStartX: 0,
+            dragStartY: 0,
+            modelStartX: 0,
+            modelStartY: 0
+        };
+        
+        // Mouse/touch event handlers
+        model.on('pointerdown', (event) => {
+            this.onDragStart(event, model);
+        });
+        
+        model.on('pointerup', (event) => {
+            this.onDragEnd(event, model);
+        });
+        
+        model.on('pointerupoutside', (event) => {
+            this.onDragEnd(event, model);
+        });
+        
+        model.on('pointermove', (event) => {
+            this.onDragMove(event, model);
+        });
+        
+        // Also add click handler for hit testing
+        model.on('pointerdown', (event) => {
+            this.onModelClick(event, model);
+        });
+        
+        this.log('Mouse interaction enabled for model', 'info');
+    }
+
+    // Handle drag start
+    onDragStart(event, model) {
+        this.dragState.isDragging = true;
+        this.dragState.dragStartX = event.global.x;
+        this.dragState.dragStartY = event.global.y;
+        this.dragState.modelStartX = model.position.x;
+        this.dragState.modelStartY = model.position.y;
+        
+        model.alpha = 0.8; // Visual feedback
+        this.log('Drag started', 'info');
+    }
+
+    // Handle drag move
+    onDragMove(event, model) {
+        if (!this.dragState.isDragging) return;
+        
+        const deltaX = event.global.x - this.dragState.dragStartX;
+        const deltaY = event.global.y - this.dragState.dragStartY;
+        
+        const newX = this.dragState.modelStartX + deltaX;
+        const newY = this.dragState.modelStartY + deltaY;
+        
+        // Keep model within canvas bounds
+        const bounds = this.getCanvasBounds();
+        const modelBounds = model.getBounds();
+        
+        const clampedX = Math.max(
+            bounds.minX + modelBounds.width / 2,
+            Math.min(bounds.maxX - modelBounds.width / 2, newX)
+        );
+        const clampedY = Math.max(
+            bounds.minY + modelBounds.height / 2,
+            Math.min(bounds.maxY - modelBounds.height / 2, newY)
+        );
+        
+        model.position.set(clampedX, clampedY);
+        
+        // Update frame visualizations if visible
+        if (this.modelFrameGraphics && this.modelFrameGraphics.visible) {
+            this.drawModelFrame();
+        }
+        if (this.hitBoxGraphics && this.hitBoxGraphics.visible) {
+            this.drawHitBoxes();
+        }
+    }
+
+    // Handle drag end
+    onDragEnd(event, model) {
+        this.dragState.isDragging = false;
+        model.alpha = 1.0; // Restore normal opacity
+        
+        this.log(`Model positioned at: ${model.position.x.toFixed(0)}, ${model.position.y.toFixed(0)}`, 'info');
+    }
+
+    // Handle model click (for hit testing)
+    onModelClick(event, model) {
+        if (this.dragState.isDragging) return; // Don't process clicks during drag
+        
+        // Get click position relative to model
+        const localPoint = model.toLocal(event.global);
+        
+        // Check for hit areas (if model supports it)
+        if (model.hitTest && typeof model.hitTest === 'function') {
+            const hitAreas = model.hitTest(localPoint.x, localPoint.y);
+            if (hitAreas && hitAreas.length > 0) {
+                this.log(`Hit areas clicked: ${hitAreas.join(', ')}`, 'info');
+                // Could trigger motions based on hit areas here
+            }
+        }
+        
+        this.log(`Model clicked at: ${localPoint.x.toFixed(0)}, ${localPoint.y.toFixed(0)}`, 'info');
+    }
+
+    // Center model in canvas
+    centerModel() {
+        if (!this.model) {
+            this.log('No model loaded to center', 'warning');
+            return;
+        }
+
+        const centerX = this.app.screen.width / 2;
+        const centerY = this.app.screen.height / 2;
+        
+        this.model.position.set(centerX, centerY);
+        
+        // Update frame visualizations if visible
+        if (this.modelFrameGraphics && this.modelFrameGraphics.visible) {
+            this.drawModelFrame();
+        }
+        if (this.hitBoxGraphics && this.hitBoxGraphics.visible) {
+            this.drawHitBoxes();
+        }
+        
+        this.log(`Model centered at: ${centerX.toFixed(0)}, ${centerY.toFixed(0)}`, 'info');
+    }
+
+    // Get canvas bounds for drag clamping
+    getCanvasBounds() {
+        const margin = 20; // Keep some margin from edges
+        return {
+            minX: margin,
+            minY: margin,
+            maxX: this.app.screen.width - margin,
+            maxY: this.app.screen.height - margin
+        };
+    }
+
+    // Toggle canvas frame visibility
+    toggleCanvasFrame() {
+        const canvas = this.app.canvas || this.app.view;
+        const currentBorder = canvas.style.border;
+        
+        if (currentBorder && currentBorder !== 'none') {
+            canvas.style.border = 'none';
+            this.log('Canvas frame hidden', 'info');
+        } else {
+            canvas.style.border = '2px solid #4a90e2';
+            this.log('Canvas frame shown', 'info');
+        }
+    }
+
+    // Toggle model frame visualization
+    toggleModelFrame() {
+        if (!this.model) {
+            this.log('No model loaded for frame visualization', 'warning');
+            return;
+        }
+        
+        // Create or toggle model frame graphics
+        if (!this.modelFrameGraphics) {
+            this.modelFrameGraphics = new PIXI.Graphics();
+            this.app.stage.addChild(this.modelFrameGraphics);
+        }
+        
+        if (this.modelFrameGraphics.visible) {
+            this.modelFrameGraphics.visible = false;
+            this.log('Model frame hidden', 'info');
+        } else {
+            this.drawModelFrame();
+            this.modelFrameGraphics.visible = true;
+            this.log('Model frame shown', 'info');
+        }
+    }
+
+    // Draw model frame visualization
+    drawModelFrame() {
+        if (!this.modelFrameGraphics || !this.model) return;
+        
+        this.modelFrameGraphics.clear();
+        this.modelFrameGraphics.lineStyle(2, 0xff0000, 0.8);
+        
+        // Get model bounds
+        const bounds = this.model.getBounds();
+        
+        // Draw bounding box
+        this.modelFrameGraphics.drawRect(
+            bounds.x, bounds.y, bounds.width, bounds.height
+        );
+        
+        // Draw center cross
+        this.modelFrameGraphics.lineStyle(1, 0xff0000, 0.6);
+        const centerX = bounds.x + bounds.width / 2;
+        const centerY = bounds.y + bounds.height / 2;
+        
+        // Horizontal line
+        this.modelFrameGraphics.moveTo(bounds.x, centerY);
+        this.modelFrameGraphics.lineTo(bounds.x + bounds.width, centerY);
+        
+        // Vertical line
+        this.modelFrameGraphics.moveTo(centerX, bounds.y);
+        this.modelFrameGraphics.lineTo(centerX, bounds.y + bounds.height);
+        
+        // Add label
+        const style = new PIXI.TextStyle({
+            fontSize: 12,
+            fill: 0xff0000,
+            backgroundColor: 0x000000,
+            backgroundAlpha: 0.8
+        });
+        
+        const label = new PIXI.Text(`Model: ${bounds.width.toFixed(0)}×${bounds.height.toFixed(0)}`, style);
+        label.position.set(bounds.x, bounds.y - 20);
+        this.modelFrameGraphics.addChild(label);
+    }
+
+    // Toggle hit box visualization
+    toggleHitBoxes() {
+        if (!this.model) {
+            this.log('No model loaded for hit box visualization', 'warning');
+            return;
+        }
+        
+        // Check if hit areas exist
+        if (this.model.hitAreas && this.model.hitAreas.length > 0) {
+            // Create or toggle hit box graphics
+            if (!this.hitBoxGraphics) {
+                this.hitBoxGraphics = new PIXI.Graphics();
+                this.app.stage.addChild(this.hitBoxGraphics);
+            }
+            
+            if (this.hitBoxGraphics.visible) {
+                this.hitBoxGraphics.visible = false;
+                this.log('Hit boxes hidden', 'info');
+            } else {
+                this.drawHitBoxes();
+                this.hitBoxGraphics.visible = true;
+                this.log('Hit boxes shown', 'info');
+            }
+        } else {
+            this.log('No hit areas defined for this model', 'warning');
+        }
+    }
+
+    // Draw hit box visualization
+    drawHitBoxes() {
+        if (!this.hitBoxGraphics || !this.model) return;
+        
+        this.hitBoxGraphics.clear();
+        this.hitBoxGraphics.lineStyle(2, 0x00ff00, 0.8);
+        
+        // Draw hit areas if they exist
+        if (this.model.hitAreas) {
+            this.model.hitAreas.forEach((hitArea, index) => {
+                const bounds = hitArea.getBounds();
+                this.hitBoxGraphics.drawRect(
+                    bounds.x, bounds.y, bounds.width, bounds.height
+                );
+                
+                // Add label
+                const style = new PIXI.TextStyle({
+                    fontSize: 12,
+                    fill: 0x00ff00,
+                    backgroundColor: 0x000000,
+                    backgroundAlpha: 0.8
+                });
+                
+                const label = new PIXI.Text(hitArea.name || `Hit ${index}`, style);
+                label.position.set(bounds.x, bounds.y - 20);
+                this.hitBoxGraphics.addChild(label);
+            });
+        }
+    }
+
     // Draw a Live2D drawable using vertex data
     // drawLive2DDrawable is now unused in mesh-based rendering
     drawLive2DDrawable() { /* no-op for mesh-based fallback */ }
@@ -551,6 +967,14 @@ class Live2DCore {
     }
 
     destroy() {
+        if (this.hitBoxGraphics) {
+            this.app.stage.removeChild(this.hitBoxGraphics);
+            this.hitBoxGraphics = null;
+        }
+        if (this.modelFrameGraphics) {
+            this.app.stage.removeChild(this.modelFrameGraphics);
+            this.modelFrameGraphics = null;
+        }
         if (this.model && this.app) {
             this.app.stage.removeChild(this.model);
             this.model = null;

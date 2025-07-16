@@ -90,12 +90,11 @@ class Live2DModelManager {
         return await this.loadModel(modelName);
     }
 
-    scaleModel(scale) {
-        if (this.currentModel && this.currentModel.pixiModel) {
-            this.currentModel.pixiModel.scale.set(scale);
-            this.log(`Model scaled to: ${scale}`, 'info');
+    scaleModel(zoomMultiplier) {
+        if (this.core && this.core.scaleModel) {
+            this.core.scaleModel(zoomMultiplier);
         } else {
-            this.log('No model loaded to scale', 'error');
+            this.log('Core scale method not available', 'error');
         }
     }
 

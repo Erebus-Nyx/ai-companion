@@ -7,7 +7,6 @@ src/web/static/assets/
 *.so
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -35,6 +34,7 @@ venv.bak/
 .venv/bin/
 
 # IDE
+/src/web/static/dist/CubismSdkForWeb-5-r.4/.vscode/
 .vscode/
 .idea/
 *.swp

@@ -154,30 +154,43 @@ class Live2DUIController {
     toggleCanvasFrame() {
         this.state.canvasFrameVisible = !this.state.canvasFrameVisible;
         
-        let canvasFrame = this.elements.canvasContainer?.querySelector('.canvas-frame');
-        if (this.state.canvasFrameVisible) {
-            if (!canvasFrame) {
-                canvasFrame = document.createElement('div');
-                canvasFrame.className = 'canvas-frame';
-                this.elements.canvasContainer.appendChild(canvasFrame);
-            }
-        } else {
-            if (canvasFrame) {
-                canvasFrame.remove();
-            }
+        // Use the integration's canvas frame toggle
+        if (this.integration) {
+            this.integration.toggleCanvasFrame();
+        }
+        
+        // Update checkbox state
+        if (this.elements.showCanvasFrame) {
+            this.elements.showCanvasFrame.checked = this.state.canvasFrameVisible;
         }
     }
 
     toggleModelFrame() {
         this.state.modelFrameVisible = !this.state.modelFrameVisible;
-        // Implementation will be added when model is loaded
-        this.integration.logger.log(`Model frame: ${this.state.modelFrameVisible ? 'ON' : 'OFF'}`);
+        
+        // Use the integration's model frame toggle
+        if (this.integration) {
+            this.integration.toggleModelFrame();
+        }
+        
+        // Update checkbox state
+        if (this.elements.showModelFrame) {
+            this.elements.showModelFrame.checked = this.state.modelFrameVisible;
+        }
     }
 
     toggleHitAreas() {
         this.state.hitAreasVisible = !this.state.hitAreasVisible;
-        // Implementation will be added when model is loaded
-        this.integration.logger.log(`Hit areas: ${this.state.hitAreasVisible ? 'ON' : 'OFF'}`);
+        
+        // Use the integration's hit box toggle
+        if (this.integration) {
+            this.integration.toggleHitBoxes();
+        }
+        
+        // Update checkbox state
+        if (this.elements.showHitAreas) {
+            this.elements.showHitAreas.checked = this.state.hitAreasVisible;
+        }
     }
 
     toggleDebugMode() {
@@ -276,6 +289,9 @@ class Live2DUIController {
         try {
             await this.integration.loadModel(modelName);
             this.state.currentModel = modelName;
+            
+            // Reset zoom to 1.0 (100% of base scale)
+            this.resetZoom();
             
             // Update UI
             this.updateModelInfo();
@@ -423,20 +439,17 @@ class Live2DUIController {
     }
 
     fitModel() {
-        // Implement model fitting logic
-        this.updateZoom(0.5);
+        // Center the model and reset zoom
+        if (this.integration && this.integration.centerModel) {
+            this.integration.centerModel();
+        }
+        this.resetZoom();
     }
 
     centerModel() {
-        // Implement model centering logic
-        if (this.integration && this.integration.core && this.integration.core.model) {
-            const model = this.integration.core.model;
-            const app = this.integration.core.app;
-            
-            if (app && model) {
-                model.position.set(app.screen.width / 2, app.screen.height / 2);
-                this.updateModelPosition(model.position.x, model.position.y);
-            }
+        // Center the model at current zoom level
+        if (this.integration && this.integration.centerModel) {
+            this.integration.centerModel();
         }
     }
 

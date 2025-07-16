@@ -10,6 +10,7 @@ class Live2DIntegration {
         this.tester = null;
         this.config = null;
         this.initialized = false;
+        this.currentModelName = null;
     }
 
     async initialize(canvasElementId) {
@@ -48,8 +49,9 @@ class Live2DIntegration {
             }
 
             const success = await this.core.initApp(canvasElement, {
-                width: this.config.live2dWidth || 800,
-                height: this.config.live2dHeight || 600,
+                width: this.config.live2dWidth || 0,
+                height: this.config.live2dHeight || 0,
+                canvasMargin: this.config.canvasMargin || 40,
                 backgroundColor: 0x000000,
                 backgroundAlpha: 0
             });
@@ -81,12 +83,19 @@ class Live2DIntegration {
             return null;
         }
 
+        // Prevent duplicate loading
+        if (this.currentModelName === modelName) {
+            this.logger.log(`Model ${modelName} already loaded`, 'info');
+            return this.modelManager.getCurrentModel();
+        }
+
         try {
             const model = await this.modelManager.loadModel(modelName);
             
             // Load motions for the model
             await this.motionManager.loadModelMotions(modelName);
             
+            this.currentModelName = modelName;
             return model;
         } catch (error) {
             this.logger.log(`Failed to load model ${modelName}: ${error.message}`, 'error');
@@ -119,6 +128,17 @@ class Live2DIntegration {
         }
 
         this.modelManager.scaleModel(scale);
+    }
+
+    centerModel() {
+        if (!this.initialized) {
+            console.error('Live2D Integration not initialized');
+            return;
+        }
+
+        if (this.core && this.core.centerModel) {
+            this.core.centerModel();
+        }
     }
 
     // Motion management methods
@@ -246,6 +266,34 @@ class Live2DIntegration {
         if (this.logger) {
             this.logger.copyToClipboard();
         }
+    }
+
+    // UI Controls
+    toggleCanvasFrame() {
+        if (!this.initialized) {
+            console.error('Live2D Integration not initialized');
+            return;
+        }
+        
+        this.core.toggleCanvasFrame();
+    }
+
+    toggleModelFrame() {
+        if (!this.initialized) {
+            console.error('Live2D Integration not initialized');
+            return;
+        }
+        
+        this.core.toggleModelFrame();
+    }
+
+    toggleHitBoxes() {
+        if (!this.initialized) {
+            console.error('Live2D Integration not initialized');
+            return;
+        }
+        
+        this.core.toggleHitBoxes();
     }
 
     // Configuration access
