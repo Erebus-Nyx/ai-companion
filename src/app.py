@@ -1,0 +1,574 @@
+# =============================================================================
+# Imports & Logging
+# =============================================================================
+import logging
+import asyncio
+import json
+import time
+import logging
+import os
+import psutil
+import signal
+import sys
+from typing import Dict, Any, Optional, List
+from datetime import datetime
+import threading
+import re
+
+from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_cors import CORS
+
+from models.enhanced_llm_handler import EnhancedLLMHandler
+from models.tts_handler import TTSHandler
+from models.personality import PersonalitySystem
+from models.memory_system import MemorySystem
+from database.db_manager import DBManager
+from database.live2d_models_separated import Live2DModelManager
+from audio import AudioPipeline, create_basic_pipeline, AudioEvent, AudioPipelineState
+from utils.system_detector import SystemDetector
+from utils.model_downloader import ModelDownloader
+from api_spec import get_openapi_spec, get_swagger_ui_html
+from api_spec import get_openapi_spec, get_swagger_ui_html
+from app_routes_live2d import live2d_bp
+from app_routes_chat import chat_bp
+from app_routes_tts import tts_bp
+from app_routes_audio import audio_bp
+from app_routes_debug import debug_bp
+import app_globals
+
+# Configure logging with reduced verbosity
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%H:%M:%S'
+)
+logger = logging.getLogger(__name__)
+
+# Reduce verbosity for specific modules
+logging.getLogger('werkzeug').setLevel(logging.WARNING)  # Reduce Flask request logs
+logging.getLogger('socketio').setLevel(logging.WARNING)  # Reduce SocketIO logs
+logging.getLogger('engineio').setLevel(logging.WARNING)  # Reduce EngineIO logs
+logging.getLogger('urllib3').setLevel(logging.WARNING)  # Reduce HTTP logs
+
+# =============================================================================
+# Flask App & Global State
+# =============================================================================
+app = Flask(__name__, 
+           template_folder='web/templates',
+           static_folder='web/static')
+app.config['SECRET_KEY'] = 'ai-companion-secret-key-change-in-production'
+CORS(app, resources={r"/*": {"origins": "*"}})
+socketio = SocketIO(app, cors_allowed_origins="*", 
+                   async_mode='threading',
+                   logger=False, engineio_logger=False)
+
+# Set globals for blueprints
+app_globals.socketio = socketio
+
+db_manager = None
+llm_handler = None
+memory_system = None
+tts_handler = None
+personality_system = None
+audio_pipeline = None
+system_detector = None
+model_downloader = None
+live2d_manager = None
+
+app_state = {
+    'is_initializing': True,
+    'initialization_progress': 0,
+    'initialization_status': 'Starting...',
+    'audio_enabled': False,
+    'connected_clients': 0,
+    'last_interaction': None,
+    'system_info': {}
+}
+
+# Register the Live2D blueprint
+app.register_blueprint(live2d_bp)
+app.register_blueprint(chat_bp)
+app.register_blueprint(tts_bp)
+app.register_blueprint(audio_bp)
+app.register_blueprint(debug_bp)
+
+# Set app_state to globals for blueprint access
+app_globals.app_state = app_state
+
+# =============================================================================
+# Main Routes
+# =============================================================================
+@app.route('/')
+def index():
+    """Serve the main application page"""
+    return render_template('index.html')
+
+@app.route('/api/status')
+def api_status():
+    """Get application status"""
+    return jsonify({
+        'status': 'running',
+        'initialized': not app_state['is_initializing'],
+        'initialization_progress': app_state['initialization_progress'],
+        'initialization_status': app_state['initialization_status'],
+        'connected_clients': app_state['connected_clients'],
+        'audio_enabled': app_state['audio_enabled']
+    })
+
+# Import SocketIO event handlers to register them
+import socketio_handlers
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+def _extract_emotion_tags(response):
+    """Extract emotion tags from the LLM or API response (robust for string or dict)."""
+    if isinstance(response, dict) and 'emotions' in response:
+        return response['emotions']
+    if isinstance(response, str):
+        return re.findall(r'\\*([^*]+)\\*', response)
+    if isinstance(response, dict) and 'response' in response:
+        return re.findall(r'\\*([^*]+)\\*', response['response'])
+    return []
+
+def _determine_primary_emotion(emotion_tags, user_input, response):
+    """Determine the primary emotion from tags, user input, or response context (priority-based)."""
+    emotion_priority = {
+        'excited': 10, 'happy': 9, 'joyful': 9, 'cheerful': 8,
+        'surprised': 7, 'amazed': 7,
+        'empathetic': 8, 'supportive': 7, 'caring': 7,
+        'sad': 6, 'disappointed': 5,
+        'curious': 4, 'thoughtful': 3,
+        'neutral': 2, 'calm': 2
+    }
+    if emotion_tags:
+        return max(emotion_tags, key=lambda e: emotion_priority.get(e.lower(), 0))
+    if isinstance(response, dict) and 'primary_emotion' in response:
+        return response['primary_emotion']
+    if isinstance(response, str):
+        tags = re.findall(r'\\*([^*]+)\\*', response)
+        if tags:
+            return max(tags, key=lambda e: emotion_priority.get(e.lower(), 0))
+    return 'neutral'
+
+def _calculate_emotion_intensity(emotion_tags, bond_level):
+    """Calculate emotion intensity based on tags and bond level (float 0-1, with scaling)."""
+    base_intensity = len(emotion_tags) * 0.3
+    bond_multiplier = min(bond_level / 5.0, 2.0)
+    final_intensity = min(base_intensity * bond_multiplier, 1.0)
+    if any(e in ['excited', 'amazed', 'shocked', 'celebratory'] for e in emotion_tags):
+        final_intensity = min(final_intensity + 0.4, 1.0)
+    return final_intensity
+
+def _get_dominant_traits(personality_data):
+    """Extract dominant personality traits from personality data."""
+    if isinstance(personality_data, dict) and 'dominant_traits' in personality_data:
+        return personality_data['dominant_traits']
+    return []
+
+# =============================================================================
+# Main Application Class
+# =============================================================================
+class AICompanionApp:
+    """Main application class"""
+    
+    def __init__(self):
+        self.app = app
+        self.socketio = socketio
+        self.is_running = False
+        
+    async def initialize_components(self):
+        """Initialize all AI companion components"""
+        global db_manager, llm_handler, tts_handler, personality_system
+        global audio_pipeline, system_detector, model_downloader, app_state, live2d_manager
+        
+        try:
+            # Update initialization status
+            app_state['initialization_status'] = 'Detecting system capabilities...'
+            app_state['initialization_progress'] = 10
+            self._broadcast_status()
+            
+            # Initialize system detector
+            system_detector = SystemDetector()
+            app_globals.system_detector = system_detector
+            system_info = system_detector.get_system_info()
+            app_state['system_info'] = system_info
+            logger.info(f"System detected: {system_info['tier']} tier")
+            
+            # Update status
+            app_state['initialization_status'] = 'Setting up database...'
+            app_state['initialization_progress'] = 20
+            self._broadcast_status()
+            
+            # Initialize database
+            db_manager = DBManager()
+            app_globals.db_manager = db_manager
+            # Database is already initialized in the constructor
+            logger.info("Database initialized")
+            
+            # Initialize Live2D model manager
+            global live2d_manager
+            # Use relative path to ai_companion.db in the current working directory (src/)
+            db_path = 'ai_companion.db'
+            live2d_manager = Live2DModelManager(db_path)
+            app_globals.live2d_manager = live2d_manager
+            live2d_manager.scan_models_directory()
+            logger.info(f"Live2D model manager initialized with DB: {db_path} and models scanned")
+            
+            # Update status
+            app_state['initialization_status'] = 'Downloading models...'
+            app_state['initialization_progress'] = 30
+            self._broadcast_status()
+            
+            # Initialize model downloader and download models
+            model_downloader = ModelDownloader("models", "cache")
+            app_globals.model_downloader = model_downloader
+            await self._download_models_async()
+            
+            # Update status
+            app_state['initialization_status'] = 'Loading personality system...'
+            app_state['initialization_progress'] = 50
+            self._broadcast_status()
+            
+            # Initialize personality system
+            personality_system = PersonalitySystem(db_manager)
+            app_globals.personality_system = personality_system
+            logger.info("Personality system initialized")
+            
+            # Update status
+            app_state['initialization_status'] = 'Loading language model...'
+            app_state['initialization_progress'] = 65
+            self._broadcast_status()
+            
+            # Initialize LLM handler
+            llm_handler = EnhancedLLMHandler(db_manager=db_manager)
+            app_globals.llm_handler = llm_handler
+            success = llm_handler.initialize_model()
+            if not success:
+                logger.error("Failed to initialize LLM model")
+            else:
+                logger.info("✅ Enhanced LLM handler initialized")
+            
+            # Initialize memory system
+            memory_system = MemorySystem(db_manager)
+            app_globals.memory_system = memory_system
+            logger.info("✅ Memory system initialized")
+            
+            # Update status
+            app_state['initialization_status'] = 'Loading text-to-speech...'
+            app_state['initialization_progress'] = 80
+            self._broadcast_status()
+            
+            # Initialize TTS handler
+            tts_handler = TTSHandler()
+            app_globals.tts_handler = tts_handler
+            success = tts_handler.initialize_model()
+            if not success:
+                logger.error("Failed to initialize TTS model")
+            else:
+                logger.info("✅ TTS handler initialized")
+            
+            # Update status
+            app_state['initialization_status'] = 'Setting up audio pipeline...'
+            app_state['initialization_progress'] = 90
+            self._broadcast_status()
+            
+            # Initialize audio pipeline
+            audio_pipeline = create_basic_pipeline(["hey nyx", "nyx", "companion"])
+            app_globals.audio_pipeline = audio_pipeline
+            self._setup_audio_callbacks()
+            logger.info("Audio pipeline initialized")
+            
+            # Final update
+            app_state['initialization_status'] = 'Ready!'
+            app_state['initialization_progress'] = 100
+            app_state['is_initializing'] = False
+            self._broadcast_status()
+            
+            logger.info("AI Companion fully initialized and ready")
+            
+        except Exception as e:
+            logger.error(f"Initialization error: {e}")
+            app_state['initialization_status'] = f'Error: {str(e)}'
+            app_state['is_initializing'] = False
+            self._broadcast_status()
+            raise
+            
+    async def _download_models_async(self):
+        """Download required models asynchronously"""
+        try:
+            # Download recommended models based on system
+            results = await asyncio.to_thread(
+                model_downloader.download_recommended_models
+            )
+            logger.info(f"Models downloaded: {results}")
+            
+        except Exception as e:
+            logger.error(f"Model download error: {e}")
+            # Continue without models for graceful degradation
+            
+    def _setup_audio_callbacks(self):
+        """Setup audio pipeline event callbacks"""
+        if audio_pipeline:
+            audio_pipeline.add_event_callback('wake_word_detected', self._on_wake_word)
+            audio_pipeline.add_event_callback('transcription_ready', self._on_transcription)
+            audio_pipeline.add_event_callback('state_changed', self._on_audio_state_change)
+            audio_pipeline.add_event_callback('error', self._on_audio_error)
+            
+    def _on_wake_word(self, event: AudioEvent):
+        """Handle wake word detection"""
+        logger.info(f"Wake word detected: {event.data}")
+        socketio.emit('wake_word_detected', {
+            'wake_word': event.data['wake_word'],
+            'timestamp': event.timestamp
+        })
+        
+    def _on_transcription(self, event: AudioEvent):
+        """Handle speech transcription"""
+        result = event.data['result']
+        logger.info(f"Transcription: {result.text}")
+        
+        if result.text.strip():
+            # Process the transcribed text as user input
+            socketio.start_background_task(self._process_user_input_async, result.text)
+        
+    def _on_audio_state_change(self, event: AudioEvent):
+        """Handle audio pipeline state changes"""
+        socketio.emit('audio_state_changed', {
+            'old_state': event.data['old_state'],
+            'new_state': event.data['new_state'],
+            'timestamp': event.timestamp
+        })
+        
+    def _on_audio_error(self, event: AudioEvent):
+        """Handle audio pipeline errors"""
+        logger.error(f"Audio error: {event.data}")
+        socketio.emit('audio_error', {
+            'error': event.data,
+            'timestamp': event.timestamp
+        })
+        
+    def _process_user_input_async(self, user_input: str):
+        """Process user input asynchronously"""
+        try:
+            # Update personality based on input
+            if personality_system:
+                personality_system.update_traits(user_input)
+                
+            # Get LLM response
+            if llm_handler:
+                # Use the synchronous method instead of async
+                response = llm_handler.generate_response(user_input)
+                
+                # Store conversation
+                if db_manager:
+                    db_manager.add_conversation("default_user", "user", user_input, None, None)
+                    db_manager.add_conversation("default_user", "assistant", response, None, None)
+                
+                # Emit response to clients
+                socketio.emit('ai_response', {
+                    'user_input': user_input,
+                    'response': response,
+                    'timestamp': time.time(),
+                    'personality_state': personality_system.get_personality_summary() if personality_system else None
+                })
+                
+                # Generate TTS if enabled
+                if tts_handler:
+                    self._generate_tts_sync(response)
+                    
+        except Exception as e:
+            logger.error(f"Error processing user input: {e}")
+            socketio.emit('error', {'message': str(e)})
+            
+    def _generate_tts_sync(self, text: str):
+        """Generate TTS audio synchronously"""
+        try:
+            if tts_handler and hasattr(tts_handler, 'synthesize_speech'):
+                audio_data = tts_handler.synthesize_speech(text)
+                if audio_data:
+                    # Emit audio data to clients
+                    socketio.emit('tts_audio', {
+                        'audio_data': audio_data,
+                        'text': text,
+                        'timestamp': time.time()
+                    })
+        except Exception as e:
+            logger.error(f"TTS generation error: {e}")
+            
+    async def _generate_tts_async(self, text: str):
+        """Generate TTS audio asynchronously"""
+        try:
+            if tts_handler:
+                audio_data = await tts_handler.synthesize_async(text)
+                if audio_data:
+                    # Emit audio data to clients
+                    socketio.emit('tts_audio', {
+                        'audio_data': audio_data,
+                        'text': text,
+                        'timestamp': time.time()
+                    })
+        except Exception as e:
+            logger.error(f"TTS generation error: {e}")
+            
+    def _broadcast_status(self):
+        """Broadcast current status to all clients"""
+        socketio.emit('status_update', app_state)
+        
+    def start_audio(self):
+        """Start audio processing"""
+        if audio_pipeline and not app_state['audio_enabled']:
+            audio_pipeline.start()
+            app_state['audio_enabled'] = True
+            logger.info("Audio processing started")
+            
+    def stop_audio(self):
+        """Stop audio processing"""
+        if audio_pipeline and app_state['audio_enabled']:
+            audio_pipeline.stop()
+            app_state['audio_enabled'] = False
+            logger.info("Audio processing stopped")
+
+# =============================================================================
+# Process Management
+# =============================================================================
+def kill_existing_instances():
+    """Kill any existing instances of the Flask app running on the same port"""
+    current_pid = os.getpid()
+    port = 13443  # The port our Flask app uses
+    killed_count = 0
+    
+    try:
+        # First, try to find processes using lsof (more reliable for port detection)
+        try:
+            import subprocess
+            result = subprocess.run(['lsof', '-i', f':{port}'], 
+                                  capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                lines = result.stdout.strip().split('\n')[1:]  # Skip header
+                for line in lines:
+                    if line.strip():
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            pid = int(parts[1])
+                            if pid != current_pid:
+                                try:
+                                    proc = psutil.Process(pid)
+                                    logger.info(f"Killing process using port {port}: PID {pid}, CMD: {' '.join(proc.cmdline())}")
+                                    
+                                    # Try graceful termination first
+                                    proc.terminate()
+                                    try:
+                                        proc.wait(timeout=3)
+                                    except psutil.TimeoutExpired:
+                                        # Force kill if graceful termination fails
+                                        proc.kill()
+                                        proc.wait(timeout=1)
+                                    
+                                    killed_count += 1
+                                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                                    continue
+        except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
+            # lsof not available or failed, fall back to psutil method
+            pass
+        
+        # Fallback: Find processes using psutil (less reliable for port detection)
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline', 'connections']):
+            try:
+                # Skip current process
+                if proc.info['pid'] == current_pid:
+                    continue
+                
+                # Check if process is using our port or is a Flask/Python process running our app
+                connections = proc.info.get('connections', [])
+                cmdline = proc.info.get('cmdline', [])
+                
+                # Check for port usage
+                port_match = any(
+                    hasattr(conn, 'laddr') and conn.laddr and conn.laddr.port == port
+                    for conn in connections
+                )
+                
+                # Check for Flask app process (look for app.py in command line)
+                app_match = any(
+                    'app.py' in str(arg) for arg in cmdline
+                ) if cmdline else False
+                
+                if port_match or app_match:
+                    logger.info(f"Killing existing instance: PID {proc.info['pid']}, CMD: {' '.join(cmdline) if cmdline else 'N/A'}")
+                    
+                    # Try graceful termination first
+                    try:
+                        proc.terminate()
+                        proc.wait(timeout=3)
+                    except psutil.TimeoutExpired:
+                        # Force kill if graceful termination fails
+                        proc.kill()
+                        proc.wait(timeout=1)
+                    
+                    killed_count += 1
+                    
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                # Process already dead or no permission
+                continue
+                
+    except Exception as e:
+        logger.warning(f"Error while killing existing instances: {e}")
+    
+    if killed_count > 0:
+        logger.info(f"Killed {killed_count} existing instance(s)")
+        # Give a moment for ports to be released
+        time.sleep(2)
+    else:
+        logger.info("No existing instances found to kill")
+
+# =============================================================================
+# Application Instance
+# =============================================================================
+ai_app = AICompanionApp()
+
+# Set global for blueprints
+app_globals.ai_app = ai_app
+
+# =============================================================================
+# SocketIO Event Handlers
+# =============================================================================
+# Move SocketIO event handlers to a new module for further modularization
+# Remove all @socketio.on handlers from app.py
+
+# =============================================================================
+# Initialization & Entrypoint
+# =============================================================================
+def initialize_app():
+    """Initialize the application"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    try:
+        loop.run_until_complete(ai_app.initialize_components())
+    except Exception as e:
+        logger.error(f"Failed to initialize application: {e}")
+    finally:
+        loop.close()
+
+# Run initialization in background thread
+if __name__ != '__main__':
+    # When imported, start initialization
+    init_thread = threading.Thread(target=initialize_app, daemon=True)
+    init_thread.start()
+
+if __name__ == '__main__':
+    # Kill any existing instances first
+    kill_existing_instances()
+    
+    # Initialize and run
+    initialize_app()
+    
+    # Run the application
+    host = '0.0.0.0'  # Allow connections from any IP
+    port = 13443
+    debug = False  # Set to True for development
+    
+    logger.info(f"Starting AI Companion on http://{host}:{port}")
+    socketio.run(app, host=host, port=port, debug=debug, allow_unsafe_werkzeug=True)

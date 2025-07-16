@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live2D AI Companion Testing Interface</title>
+    <link rel="stylesheet" href="css/live2d_test.css">
+</head>
+    
+    <!-- 
+    =============================================================================
+    PIXI.js LIVE2D IMPLEMENTATION TODO LIST
+    =============================================================================
+    
+    📋 PHASE 1: BASIC PIXI.js SETUP ✅ COMPLETED
+    ✅ PIXI.js v8.11.0 integration and compatibility
+    ✅ Canvas initialization and container setup
+    ✅ Version detection (v7 vs v8+) with async initialization
+    ✅ Basic logging and error handling system
+    ✅ Mouse tracking and UI controls
+    ✅ HTTP server setup for node_modules access (python -m http.server 8001 --directory .)
+    
+    📋 PHASE 2: API INTEGRATION & MODEL LOADING ✅ COMPLETED
+    ✅ Flask API integration ( .venv -- app.py -- localhost:13443)
+    ✅ Dynamic model discovery (10 models found)
+    ✅ Model metadata parsing from API response
+    ✅ Static file serving integration
+    ✅ Model.json file loading and parsing
+    ✅ Placeholder model rendering system
+    ✅ Basic model interaction (click handlers)
+    ✅ Model selection dropdown population
+    ✅ Zoom controls (in/out/reset) functionality
+    ✅ Model scaling and positioning
+    
+    📋 PHASE 3: MODULAR SYSTEM ARCHITECTURE ✅ COMPLETED
+    ✅ Live2D modular system design and implementation
+    ✅ Live2DCore class for PIXI and Live2D management
+    ✅ Live2DLogger unified logging system
+    ✅ Live2DModelManager for model lifecycle management
+    ✅ Live2DMotionManager for motion categorization and playback
+    ✅ Live2DTester for diagnostics and library validation
+    ✅ Live2DIntegration orchestrator class
+    ✅ Live2DUIController for UI management
+    ✅ Configuration system (live2d_config.js)
+    ✅ Syntax error resolution and module validation
+    ✅ Proper dependency loading order
+    
+    📋 PHASE 4: LIVE2D LIBRARY INTEGRATION 🔄 IN PROGRESS
+    ✅ Live2D core library loading (Cubism 2.1 & 4)
+    ✅ PIXI.live2d display library integration
+    ✅ Library compatibility debugging and diagnostics
+    ✅ Comprehensive EventEmitter compatibility with PIXI v8+
+    ✅ Advanced step-by-step diagnostics system
+    ✅ Enhanced error handling and logging
+    ❌ Live2D model loading from Flask API (needs rework for modular system)
+    ❌ Actual Live2D model display (currently shows atlas/texture maps)
+    ❌ Model positioning and scaling within PIXI canvas
+    ❌ Live2D Viewer Web ModelEntity pattern integration
+    ❌ Mouse interaction system (drag-to-move)
+    ❌ Model hit testing and interaction zones
+    
+    📋 PHASE 5: UI SYSTEM INTEGRATION 🔄 IN PROGRESS
+    ✅ Left panel collapsible functionality
+    ✅ Model selection dropdown with API integration
+    ✅ Motion group and individual motion dropdowns
+    ✅ Expression selection dropdown
+    ✅ Zoom controls with slider and buttons
+    ✅ Model info display panel
+    ✅ Action buttons (Test, Reset, Copy Log)
+    ✅ Log panel with toggle functionality
+    ❌ Panel toggle button positioning and visibility
+    ❌ Log panel proper show/hide behavior
+    ❌ Footer removal and UI cleanup
+    ❌ Responsive design for mobile devices
+    ❌ Loading states and progress indicators
+    
+    📋 PHASE 6: MOTION & EXPRESSION SYSTEM 🔄 PLANNED
+    ✅ Motion categorization system (idle, head, body, expression, special, talk)
+    ✅ Motion group discovery and organization
+    ✅ Motion queue and priority system
+    ✅ Random motion playback functionality
+    ✅ Motion statistics and debugging
+    ❌ Dynamic motion loading from Flask API
+    ❌ Real-time motion list population
+    ❌ Motion playback with visual feedback
+    ❌ Expression loading and application
+    ❌ Motion/expression state synchronization
+    ❌ Motion blending and transitions
+    ❌ Custom motion triggers and events
+    
+    📋 PHASE 7: ADVANCED LIVE2D FEATURES 🔄 PLANNED
+    ❌ Proper Live2D model rendering (not texture atlas)
+    ❌ Model canvas sizing similar to Live2D Viewer Web
+    ❌ Eye tracking and mouse following
+    ❌ Breathing animation system
+    ❌ Lip sync integration (if available)
+    ❌ Physics simulation integration
+    ❌ Custom shader effects
+    ❌ Model switching animations
+    ❌ Performance optimization
+    ❌ Memory management and cleanup
+    
+    📋 PHASE 8: TESTING & VALIDATION 🔄 PLANNED
+    ✅ Basic diagnostics system
+    ✅ Library validation and compatibility testing
+    ✅ Syntax validation for all modules
+    ❌ Comprehensive automated testing
+    ❌ Performance benchmarking
+    ❌ Cross-browser compatibility testing
+    ❌ Mobile device support
+    ❌ Error recovery and graceful degradation
+    ❌ Memory leak detection and prevention
+    ❌ Load testing with multiple models
+    ❌ API endpoint testing and validation
+    
+    📋 PHASE 9: PRODUCTION FEATURES 🔄 PLANNED
+    ❌ Configuration management system enhancement
+    ❌ Model caching and preloading
+    ❌ Background loading and streaming
+    ❌ Quality settings and performance modes
+    ❌ Export functionality (screenshots, recordings)
+    ❌ Analytics and usage tracking
+    ❌ Accessibility features
+    ❌ Internationalization support
+    ❌ User preferences and settings persistence
+    ❌ Keyboard shortcuts and hotkeys
+    
+    📋 PHASE 10: DYNAMIC MODEL LOADING & COMPRESSION 🔄 PLANNED
+    ❌ Live2D Viewer Web style model loading from multiple formats
+    ❌ Support for ZIP compressed model files
+    ❌ Support for JSON model definition files
+    ❌ Support for MOC/MOC3 model files
+    ❌ Support for CAN3 model files (current format)
+    ❌ Automatic format detection and loading
+    ❌ Model compression and space optimization
+    ❌ Streaming model loading for large files
+    ❌ Model caching and preloading system
+    ❌ Model format converter utility
+    ❌ Asset bundling and optimization
+    ❌ Progressive model loading with fallbacks
+    
+    📋 PHASE 11: FLASK BACKEND INTEGRATION 🔄 PLANNED
+    ❌ Flask API endpoint verification and testing
+    ❌ Model discovery API enhancement
+    ❌ Motion/expression API endpoint completion
+    ❌ WebSocket integration for real-time updates
+    ❌ Model streaming and partial loading
+    ❌ Asset optimization and compression
+    ❌ CDN integration for model assets
+    ❌ Database integration for model metadata
+    
+    =============================================================================
+    CURRENT STATUS: Phase 3 Complete, Phase 4-5 In Progress
+    NEXT PRIORITY: Fix Live2D model display to show actual models, not atlas maps
+    CRITICAL ISSUES: 
+    - Models load as texture atlases instead of Live2D models
+    - Panel toggle functionality needs fixing
+    - Log panel visibility behavior needs work
+    - API integration needs testing and validation
+    =============================================================================
+    -->
+</head>
+<body>
+    <div class="app-container">
+        <!-- Left Panel -->
+        <div class="left-panel" id="leftPanel">
+            <div class="panel-header">
+                <div class="panel-title">Live2D AI Companion</div>
+                <button class="panel-close" onclick="togglePanel(false)">×</button>
+            </div>
+            
+            <div class="model-section">
+                <div class="model-header">
+                    <div class="model-id" id="modelId">#1</div>
+                    <div class="model-name" id="modelName" onclick="showModelInfo()">
+                        Select a model to begin
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>Model Selection</h3>
+                    <div class="form-group">
+                        <label for="modelSelect">Available Models:</label>
+                        <select id="modelSelect" onchange="onModelChange()">
+                            <option value="">Loading models...</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>Display Controls</h3>
+                    <div class="form-group">
+                        <label for="zoomSlider">Scale: <span id="zoomValue">1.0</span></label>
+                        <input type="range" id="zoomSlider" min="0.1" max="3.0" step="0.1" value="1.0" oninput="updateZoom(this.value)">
+                    </div>
+                    <div class="control-buttons">
+                        <button class="btn btn-secondary" onclick="resetZoom()">Reset</button>
+                        <button class="btn btn-secondary" onclick="fitModel()">Fit</button>
+                        <button class="btn btn-secondary" onclick="centerModel()">Center</button>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>Motions</h3>
+                    <div class="form-group">
+                        <label for="motionGroupSelect">Motion Group:</label>
+                        <select id="motionGroupSelect" onchange="onMotionGroupChange()">
+                            <option value="">No motions available</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="motionSelect">Motion:</label>
+                        <select id="motionSelect" onchange="onMotionTypeChange()">
+                            <option value="">Select motion group first</option>
+                        </select>
+                    </div>
+                    <div class="control-buttons">
+                        <button class="btn btn-primary" onclick="playSelectedMotion()">Play Motion</button>
+                        <button class="btn btn-secondary" onclick="playRandomMotion()">Random</button>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>Expressions</h3>
+                    <div class="form-group">
+                        <label for="expressionSelect">Expression:</label>
+                        <select id="expressionSelect" onchange="onExpressionChange()">
+                            <option value="">No expressions available</option>
+                        </select>
+                    </div>
+                    <div class="control-buttons">
+                        <button class="btn btn-primary" onclick="playExpression()">Apply Expression</button>
+                        <button class="btn btn-secondary" onclick="resetExpression()">Reset</button>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>Model Info</h3>
+                    <div class="info-display" id="modelInfo">
+                        <div class="info-row">
+                            <span class="info-label">Status:</span>
+                            <span class="info-value" id="modelStatus">
+                                <span class="status-indicator status-warning"></span>
+                                No model loaded
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Position:</span>
+                            <span class="info-value" id="modelPosition">0, 0</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Scale:</span>
+                            <span class="info-value" id="modelScale">1.0</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Mouse:</span>
+                            <span class="info-value" id="mousePosition">0, 0</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>Actions</h3>
+                    <div class="control-buttons">
+                        <button class="btn btn-primary" onclick="testModel()">Test Model</button>
+                        <button class="btn btn-warning" onclick="resetModel()">Reset</button>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>Diagnostics</h3>
+                    <div class="control-buttons">
+                        <button class="btn btn-secondary" onclick="toggleSettings()">⚙️ Settings</button>
+                        <button class="btn btn-info" onclick="debugModel()">Debug Info</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Settings Panel -->
+        <div class="settings-panel" id="settingsPanel">
+            <div class="settings-header">
+                <span>Live2D Viewer Settings</span>
+                <button class="panel-close" onclick="toggleSettings()">×</button>
+            </div>
+            <div class="settings-content">
+                <div class="settings-group">
+                    <h4>Display Options</h4>
+                    <div class="setting-item">
+                        <label>
+                            <input type="checkbox" id="showCanvasFrame" checked onchange="toggleCanvasFrame()">
+                            Show Canvas Frame
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <label>
+                            <input type="checkbox" id="showModelFrame" onchange="toggleModelFrame()">
+                            Show Model Frame
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <label>
+                            <input type="checkbox" id="showHitAreas" onchange="toggleHitAreas()">
+                            Show Hit Areas
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="settings-group">
+                    <h4>Debug Options</h4>
+                    <div class="setting-item">
+                        <label>
+                            <input type="checkbox" id="debugMode" onchange="toggleDebugMode()">
+                            Debug Mode
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <label>
+                            <input type="checkbox" id="showFPS" onchange="toggleFPS()">
+                            Show FPS Counter
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <label>
+                            <input type="checkbox" id="logMouseEvents" onchange="toggleMouseLogging()">
+                            Log Mouse Events
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="settings-group">
+                    <h4>Performance</h4>
+                    <div class="setting-item">
+                        <label for="renderQuality">Render Quality:</label>
+                        <select id="renderQuality" onchange="changeRenderQuality()">
+                            <option value="high">High</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="low">Low</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label>
+                            <input type="checkbox" id="enableAntialiasing" checked onchange="toggleAntialiasing()">
+                            Enable Antialiasing
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Canvas Area -->
+        <div class="canvas-container">
+            <div id="pixiContainer"></div>
+            <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+                <div class="loading-spinner"></div>
+            </div>
+        </div>
+        
+        <!-- Panel Toggle Button -->
+        <button class="panel-toggle" id="panelToggle" onclick="togglePanel(true)">☰</button>
+    </div>
+
+<!-- Load PIXI.js and Live2D libraries in correct order -->
+<!-- Step 1: Load PIXI.js -->
+<script src="/node_modules/pixi.js/dist/pixi.min.js"></script>
+
+<!-- Step 2: IMMEDIATE EventEmitter setup for PIXI v8 compatibility -->
+<script>
+// PIXI v8 EventEmitter compatibility fix - MUST run immediately after PIXI loads
+// Based on official PIXI v8 migration guide: https://pixijs.com/8.x/guides/migrations/v8
+
+console.log('Setting up PIXI v8 EventEmitter compatibility...');
+
+// PIXI v8 has events system imported by default, but old libraries may expect EventEmitter in specific locations
+// The issue is that pixi-live2d-display was built for PIXI v6/v7 and expects EventEmitter in different locations
+
+// Create a comprehensive EventEmitter class that matches Node.js EventEmitter API
+// This ensures compatibility with libraries that expect Node.js-style EventEmitter
+class PixiV8EventEmitter {
+    constructor() {
+        this._events = {};
+        this._eventsCount = 0;
+        this._maxListeners = 10;
+    }
+    
+    // Core EventEmitter methods matching Node.js API
+    on(event, listener) {
+        if (typeof listener !== 'function') {
+            throw new TypeError('The listener must be a function');
+        }
+        
+        if (!this._events[event]) {
+            this._events[event] = [];
+            this._eventsCount++;
+        }
+        
+        this._events[event].push(listener);
+        
+        if (this._events[event].length > this._maxListeners) {
+            console.warn(`Possible EventEmitter memory leak detected. ${this._events[event].length} listeners added for event "${event}".`);
+        }
+        
+        return this;
+    }
+    
+    addListener(event, listener) {
+        return this.on(event, listener);
+    }
+    
+    once(event, listener) {
+        if (typeof listener !== 'function') {
+            throw new TypeError('The listener must be a function');
+        }
+        
+        const onceWrapper = (...args) => {
+            this.off(event, onceWrapper);
+            listener.apply(this, args);
+        };
+        
+        onceWrapper.listener = listener;
+        return this.on(event, onceWrapper);
+    }
+    
+    emit(event, ...args) {
+        if (!this._events[event]) return false;
+        
+        const listeners = this._events[event].slice(); // Create a copy to avoid issues with modifications during iteration
+        
+        for (const listener of listeners) {
+            try {
+                listener.apply(this, args);
+            } catch (error) {
+                console.error(`Error in EventEmitter listener for event "${event}":`, error);
+            }
+        }
+        
+        return listeners.length > 0;
+    }
+    
+    off(event, listener) {
+        if (!this._events[event]) return this;
+        
+        if (typeof listener === 'undefined') {
+            delete this._events[event];
+            this._eventsCount--;
+            return this;
+        }
+        
+        const listeners = this._events[event];
+        for (let i = listeners.length - 1; i >= 0; i--) {
+            if (listeners[i] === listener || listeners[i].listener === listener) {
+                listeners.splice(i, 1);
+                break;
+            }
+        }
+        
+        if (listeners.length === 0) {
+            delete this._events[event];
+            this._eventsCount--;
+        }
+        
+        return this;
+    }
+    
+    removeListener(event, listener) {
+        return this.off(event, listener);
+    }
+    
+    removeAllListeners(event) {
+        if (typeof event === 'undefined') {
+            this._events = {};
+            this._eventsCount = 0;
+        } else if (this._events[event]) {
+            delete this._events[event];
+            this._eventsCount--;
+        }
+        return this;
+    }
+    
+    listeners(event) {
+        return this._events[event] ? this._events[event].slice() : [];
+    }
+    
+    listenerCount(event) {
+        return this._events[event] ? this._events[event].length : 0;
+    }
+    
+    eventNames() {
+        return Object.keys(this._events);
+    }
+    
+    setMaxListeners(n) {
+        if (typeof n !== 'number' || n < 0) {
+            throw new TypeError('n must be a non-negative number');
+        }
+        this._maxListeners = n;
+        return this;
+    }
+    
+    getMaxListeners() {
+        return this._maxListeners;
+    }
+    
+    // Additional methods for compatibility with different EventEmitter implementations
+    prependListener(event, listener) {
+        if (typeof listener !== 'function') {
+            throw new TypeError('The listener must be a function');
+        }
+        
+        if (!this._events[event]) {
+            this._events[event] = [];
+            this._eventsCount++;
+        }
+        
+        this._events[event].unshift(listener);
+        return this;
+    }
+    
+    prependOnceListener(event, listener) {
+        if (typeof listener !== 'function') {
+            throw new TypeError('The listener must be a function');
+        }
+        
+        const onceWrapper = (...args) => {
+            this.off(event, onceWrapper);
+            listener.apply(this, args);
+        };
+        
+        onceWrapper.listener = listener;
+        return this.prependListener(event, onceWrapper);
+    }
+}
+
+// Make EventEmitter available in ALL possible locations where libraries might look for it
+// This ensures maximum compatibility with different library expectations
+
+// 1. Global window scope (most common)
+if (typeof window !== 'undefined') {
+    window.EventEmitter = PixiV8EventEmitter;
+    console.log('EventEmitter added to window');
+}
+
+// 2. Global scope for Node.js-style requires
+if (typeof global !== 'undefined') {
+    global.EventEmitter = PixiV8EventEmitter;
+    console.log('EventEmitter added to global');
+}
+
+// 3. PIXI.utils scope (where pixi-live2d-display might expect it)
+if (typeof PIXI !== 'undefined' && PIXI.utils) {
+    PIXI.utils.EventEmitter = PixiV8EventEmitter;
+    console.log('EventEmitter added to PIXI.utils');
+}
+
+// 4. Direct PIXI scope
+if (typeof PIXI !== 'undefined' && !PIXI.EventEmitter) {
+    PIXI.EventEmitter = PixiV8EventEmitter;
+    console.log('EventEmitter added to PIXI');
+}
+
+// 5. Process scope (some libraries check process.EventEmitter)
+if (typeof process !== 'undefined') {
+    process.EventEmitter = PixiV8EventEmitter;
+    console.log('EventEmitter added to process');
+}
+
+// 6. Create a module-style export
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = PixiV8EventEmitter;
+    console.log('EventEmitter set as module.exports');
+}
+
+// 7. Create a require-style function for libraries that try to require('events')
+if (typeof window !== 'undefined') {
+    window.require = window.require || function(module) {
+        if (module === 'events' || module === 'events.js') {
+            return { EventEmitter: PixiV8EventEmitter };
+        }
+        if (module === 'eventemitter3') {
+            return PixiV8EventEmitter;
+        }
+        return {};
+    };
+    console.log('Mock require function created for events module');
+}
+
+// 8. Add to common EventEmitter library namespaces
+if (typeof window !== 'undefined') {
+    window.EventEmitter3 = PixiV8EventEmitter;
+    window.EE = PixiV8EventEmitter;
+    console.log('EventEmitter added to common library namespaces');
+}
+
+// 9. Try to patch any existing EventEmitter references
+try {
+    if (typeof window !== 'undefined' && window.events) {
+        window.events.EventEmitter = PixiV8EventEmitter;
+    }
+} catch (e) {
+    // Silently fail if events namespace doesn't exist
+}
+
+// 10. Create a static EventEmitter for default export patterns
+PixiV8EventEmitter.EventEmitter = PixiV8EventEmitter;
+PixiV8EventEmitter.default = PixiV8EventEmitter;
+
+console.log('PIXI v8 EventEmitter compatibility setup complete');
+console.log('EventEmitter available at:', {
+    'window.EventEmitter': !!(typeof window !== 'undefined' && window.EventEmitter),
+    'global.EventEmitter': typeof global !== 'undefined' ? !!global.EventEmitter : 'N/A',
+    'PIXI.utils.EventEmitter': !!(typeof PIXI !== 'undefined' && PIXI.utils && PIXI.utils.EventEmitter),
+    'PIXI.EventEmitter': !!(typeof PIXI !== 'undefined' && PIXI.EventEmitter),
+    'process.EventEmitter': typeof process !== 'undefined' ? !!process.EventEmitter : 'N/A',
+    'require("events")': typeof window !== 'undefined' ? !!window.require : 'N/A'
+});
+
+// Final verification
+if (typeof EventEmitter === 'undefined') {
+    console.error('EventEmitter is still undefined after setup!');
+} else {
+    console.log('EventEmitter successfully defined:', typeof EventEmitter);
+}
+</script>
+<!-- Step 3: Load Core PIXI Live2D Display for Cubism4 -->
+<script src="/node_modules/pixi-live2d-display/dist/cubism4.min.js"></script>
+
+<!-- Step 4: Initialize Live2D plugin -->
+<script>
+// Initialize Live2D plugin after libraries are loaded
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+        console.log('Initializing Live2D plugin...');
+        
+        // Try to initialize the Live2D plugin
+        if (typeof PIXI !== 'undefined' && PIXI.live2d) {
+            console.log('PIXI.live2d found, attempting to install...');
+            
+            // Check available Live2D classes
+            const live2dKeys = Object.keys(PIXI.live2d);
+            console.log('Available PIXI.live2d keys:', live2dKeys);
+            
+            // Look for Live2D model constructors
+            let Live2DModelClass = null;
+            
+            // Try common Live2D model class names
+            const possibleNames = ['Live2DModel', 'Model', 'Live2D', 'Cubism4Model', 'CubismModel'];
+            
+            for (const name of possibleNames) {
+                if (PIXI.live2d[name] && typeof PIXI.live2d[name] === 'function') {
+                    Live2DModelClass = PIXI.live2d[name];
+                    console.log(`Found Live2D model class: ${name}`);
+                    break;
+                }
+            }
+            
+            // If no direct class found, try to find factory methods
+            if (!Live2DModelClass) {
+                console.log('No direct model class found, checking for factory methods...');
+                
+                // Look for factory methods or static creation methods
+                live2dKeys.forEach(key => {
+                    const obj = PIXI.live2d[key];
+                    if (obj && typeof obj === 'object') {
+                        console.log(`Checking object: ${key}`, obj);
+                        
+                        // Look for common factory method names
+                        if (obj.Live2DModel && typeof obj.Live2DModel === 'function') {
+                            Live2DModelClass = obj.Live2DModel;
+                            console.log(`Found Live2D model class in ${key}.Live2DModel`);
+                        } else if (obj.from && typeof obj.from === 'function') {
+                            window.Live2DFactory = obj;
+                            console.log(`Found Live2D factory in ${key}`);
+                        }
+                    }
+                });
+            }
+            
+            // Make the model class available globally
+            if (Live2DModelClass) {
+                window.Live2DModel = Live2DModelClass;
+                console.log('Live2DModel class set globally');
+            } else {
+                console.warn('No Live2D model class could be found');
+            }
+            
+            // Look for Live2D factory
+            if (typeof Live2DFactory === 'undefined') {
+                // Try to find factory in different locations
+                if (PIXI.live2d.Live2DFactory) {
+                    window.Live2DFactory = PIXI.live2d.Live2DFactory;
+                } else if (PIXI.live2d.factory) {
+                    window.Live2DFactory = PIXI.live2d.factory;
+                }
+            }
+            
+        } else {
+            console.error('PIXI.live2d not found - Live2D library may not be loaded correctly');
+        }
+        
+        console.log('Live2D plugin initialization complete');
+        console.log('Live2DModel available:', typeof window.Live2DModel);
+        console.log('Live2DFactory available:', typeof window.Live2DFactory);
+    }, 100); // Small delay to ensure everything is loaded
+});
+</script>
+
+<!-- Step 5: Load Live2D modular system -->
+<script src="js/live2d_config.js"></script>
+<script src="js/live2d_logger.js"></script>
+<script src="js/live2d_tester.js"></script>
+<script src="js/live2d_core.js"></script>
+<script src="js/live2d_model_manager.js"></script>
+<script src="js/live2d_motion_manager.js"></script>
+<script src="js/live2d_integration.js"></script>
+<script src="js/live2d_ui_controller.js"></script>
+<script src="js/live2d_simple_fix.js"></script>
+
+<script>
+// Global variables for the modular system
+let live2dIntegration = null;
+let uiController = null;
+
+// Initialize the modular Live2D system
+async function initializeLive2D() {
+    try {
+        console.log('Initializing Live2D modular system...');
+        
+        // Create integration instance
+        live2dIntegration = new Live2DIntegration();
+        
+        // Initialize integration (canvas container)
+        const success = await live2dIntegration.initialize('pixiContainer');
+        
+        if (!success) {
+            throw new Error('Failed to initialize Live2D integration');
+        }
+        
+        // Create UI controller
+        uiController = new Live2DUIController(live2dIntegration);
+        
+        // Initialize UI controller
+        await uiController.initialize();
+        
+        console.log('Live2D system initialized successfully!');
+        
+    } catch (error) {
+        console.error('Failed to initialize Live2D system:', error);
+    }
+}
+
+// Global functions for HTML onclick handlers
+function togglePanel(force) {
+    console.log('togglePanel called with force:', force);
+    if (uiController) {
+        uiController.togglePanel(force);
+    } else {
+        console.error('uiController not available');
+    }
+}
+
+function onModelChange() {
+    console.log('onModelChange called');
+    if (uiController) {
+        const modelName = document.getElementById('modelSelect').value;
+        uiController.onModelChange(modelName);
+    } else {
+        console.error('uiController not available');
+    }
+}
+
+function updateZoom(value) {
+    if (window.scaleModel) window.scaleModel(parseFloat(value));
+}
+
+function resetZoom() {
+    if (window.scaleModel) window.scaleModel(window.SCALE_CONFIG.default);
+}
+
+function fitModel() {
+    if (window.fitModelToCanvas) window.fitModelToCanvas();
+}
+
+function centerModel() {
+    if (window.centerModel) window.centerModel();
+}
+
+function onMotionGroupChange() {
+    if (uiController) {
+        const group = document.getElementById('motionGroupSelect').value;
+        uiController.onMotionGroupChange(group);
+    }
+}
+
+function onMotionTypeChange() {
+    if (uiController) {
+        const motion = document.getElementById('motionSelect').value;
+        uiController.onMotionTypeChange(motion);
+    }
+}
+
+function playSelectedMotion() {
+    if (uiController) uiController.playSelectedMotion();
+}
+
+function playRandomMotion() {
+    if (uiController) uiController.playRandomMotion();
+}
+
+function onExpressionChange() {
+    if (uiController) {
+        const expression = document.getElementById('expressionSelect').value;
+        uiController.onExpressionChange(expression);
+    }
+}
+
+function playExpression() {
+    if (uiController) uiController.playExpression();
+}
+
+function resetExpression() {
+    if (uiController) uiController.resetExpression();
+}
+
+function testModel() {
+    if (uiController) uiController.testModel();
+}
+
+function resetModel() {
+    console.log('resetModel called');
+    if (uiController) {
+        uiController.resetModel();
+    } else {
+        console.error('uiController not available');
+    }
+}
+
+function toggleSettings() {
+    console.log('toggleSettings called');
+    if (uiController) {
+        uiController.toggleSettings();
+    } else if (window.toggleSettingsPanel) {
+        window.toggleSettingsPanel();
+    } else {
+        console.error('uiController and toggleSettingsPanel not available');
+    }
+}
+
+function debugModel() {
+    console.log('debugModel called');
+    if (uiController) {
+        uiController.debugModel();
+    } else {
+        console.error('uiController not available');
+    }
+}
+
+function toggleCanvasFrame() {
+    if (uiController) uiController.toggleCanvasFrame();
+}
+
+function toggleModelFrame() {
+    if (uiController) uiController.toggleModelFrame();
+}
+
+function toggleHitAreas() {
+    if (uiController) uiController.toggleHitAreas();
+}
+
+function toggleDebugMode() {
+    if (uiController) uiController.toggleDebugMode();
+}
+
+function toggleFPS() {
+    if (uiController) uiController.toggleFPS();
+}
+
+function toggleMouseLogging() {
+    if (uiController) uiController.toggleMouseLogging();
+}
+
+function changeRenderQuality() {
+    if (uiController) uiController.changeRenderQuality();
+}
+
+function toggleAntialiasing() {
+    if (uiController) uiController.toggleAntialiasing();
+}
+
+function showModelInfo() {
+    if (live2dIntegration) {
+        live2dIntegration.debugModelBounds();
+    }
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Wait for all libraries to load properly
+    setTimeout(async function() {
+        console.log('Libraries loaded, checking availability...');
+        
+        // Check library availability
+        if (typeof PIXI === 'undefined') {
+            console.error('PIXI.js not loaded');
+            return;
+        }
+        
+        if (typeof EventEmitter === 'undefined') {
+            console.error('EventEmitter not available');
+            return;
+        }
+        
+        console.log('PIXI version:', PIXI.VERSION);
+        console.log('EventEmitter available:', typeof EventEmitter !== 'undefined');
+        
+        // Initialize the Live2D system
+        await initializeLive2D();
+    }, 1000); // Increased delay to ensure libraries are loaded
+});
+
+</script>
+</body>
+</html>

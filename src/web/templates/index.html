@@ -1,0 +1,269 @@
+<!--
+  index.html
+  Modern two-column layout: model on the left (centered vertically), controls on the right.
+  Based on working backup as of 2025-06-10.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Companion - Live2D Model Viewer</title>
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+<!-- Debug Mouse Coordinates Display -->
+<div id="mouse-coords-debug" style="
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.8);
+    color: #00ff00;
+    padding: 10px;
+    border-radius: 5px;
+    font-family: monospace;
+    font-size: 12px;
+    z-index: 9999;
+    min-width: 300px;
+    border: 2px solid #00ff00;
+">
+    <div><strong>🖱️ Mouse Coordinates Debug</strong></div>
+    <div>Page: <span id="page-coords">(0, 0)</span></div>
+    <div>Waifu Container: <span id="waifu-coords">(0, 0)</span></div>
+    <div>Current Zoom: <span id="zoom-level">2.0x</span></div>
+    <div>Model Position: <span id="model-position">(0, 0)</span></div>
+</div>
+
+<div class="main-layout">
+    <!-- Live2D Widget Structure Required by waifu-tips.js -->
+    <div id="waifu">
+        <div id="waifu-message"></div>
+        <div class="waifu-tool">
+            <span class="icon-next" title="Switch Model"></span>
+            <span class="icon-home" title="Home"></span>
+            <span class="icon-message" title="Message"></span>
+            <span class="icon-camera" title="Screenshot"></span>
+            <span class="icon-volumeup" title="Volume Up"></span>
+            <span class="icon-volumedown" title="Volume Down"></span>
+            <span class="icon-zoom-in" title="Zoom In" onclick="zoomModel(1.1)"></span>
+            <span class="icon-zoom-out" title="Zoom Out" onclick="zoomModel(0.9)"></span>
+            <span class="icon-zoom-reset" title="Reset Zoom" onclick="resetModelZoom()"></span>
+            <span class="icon-about" title="Debug Motions"></span>
+            <span class="icon-cross" title="Close"></span>
+        </div>
+        <canvas id="live2d2" width="600" height="1000"></canvas>
+        <canvas id="live2d4" width="600" height="1000"></canvas>
+    </div>
+    <div class="loading-spinner" id="loadingSpinner"></div>
+    
+    <div class="control-column">
+        <div class="header"><h1>🤖 AI Companion Chat</h1></div>
+        <div class="chat-section">
+            <div id="chat-window"></div>
+            <div class="chat-input-container">
+                <input type="text" id="user-input" placeholder="Type your message..." style="flex:1;" />
+                <button id="send-button">Send</button>
+                <button id="voice-button">🎤</button>
+            </div>
+        </div>
+        <div class="status-and-selector">
+            <div class="status-bar">
+                <span class="status-indicator info" id="statusIndicator"></span>
+                <span id="statusText">Ready</span>
+            </div>
+        </div>
+        <div class="debug-panel" id="debugPanel"></div>
+        
+        <!-- Enhanced Debug Console -->
+        <div class="debug-ui-panel" id="debugUIPanel" style="display: none;">
+            <div class="debug-header">
+                🔍 Live2D AI Companion Debug Console
+                <button class="debug-close-btn" onclick="toggleDebugConsole()" style="float: right; background: none; border: none; color: #ff4444; cursor: pointer; font-size: 16px;">✕</button>
+            </div>
+            
+            <div class="debug-section">
+                <h4>System Status</h4>
+                <div class="debug-item" id="debug-sdk-status">SDK: <span class="debug-status-warn">Checking...</span></div>
+                <div class="debug-item" id="debug-canvas-status">Canvas: <span class="debug-status-warn">Initializing...</span></div>
+            </div>
+            
+            <div class="debug-section">
+                <h4>Model Info</h4>
+                <div class="debug-item" id="debug-model-name">Name: <span id="debug-current-model">None</span></div>
+                <div class="debug-item" id="debug-motion-groups">Motion Groups: <span id="debug-motion-count">0</span></div>
+                <div class="debug-item" id="debug-last-motion">Last Motion: <span id="debug-last-motion-name">None</span></div>
+                <div class="debug-item" id="debug-available-models">Available Models: <span id="debug-models-list">Loading...</span></div>
+            </div>
+            
+            <div class="debug-section">
+                <h4>Database Info</h4>
+                <div class="debug-item" id="debug-db-models">DB Models: <span id="debug-db-model-count">-</span></div>
+                <div class="debug-item" id="debug-db-motions">DB Motions: <span id="debug-db-motion-count">-</span></div>
+                <div class="debug-item" id="debug-db-status">DB Connection: <span id="debug-db-connection">Unknown</span></div>
+            </div>
+            
+            <div class="debug-section">
+                <h4>System Operations</h4>
+                <div class="debug-controls" style="flex-wrap: wrap; gap: 0.25rem;">
+                    <button class="debug-btn" onclick="debugRefreshAll()" title="Refresh all status information">🔄 Refresh All</button>
+                    <button class="debug-btn" onclick="debugTestSystem()" title="Run comprehensive system test">🧪 System Test</button>
+                    <button class="debug-btn" onclick="debugDatabaseInfo()" title="Load database information">💾 DB Info</button>
+                    <button class="debug-btn" onclick="debugClearDatabase()" title="Clear database (WARNING: Destructive)" style="background: #ff4444;">🗑 Clear DB</button>
+                    <button class="debug-btn" onclick="debugReimportData()" title="Re-import all models and motions" style="background: #ff9800;">📥 Re-import</button>
+                </div>
+            </div>
+            
+            <div class="debug-section">
+                <h4>Model Operations</h4>
+                <div class="debug-controls" style="flex-wrap: wrap; gap: 0.25rem;">
+                    <button class="debug-btn" onclick="debugTestMotion()" title="Test a random motion">🎭 Test Motion</button>
+                    <button class="debug-btn" onclick="debugLogMotions()" title="Log available motions to console">📝 Log Motions</button>
+                    <button class="debug-btn" onclick="debugModelStructure()" title="Analyze model structure">🔍 Structure</button>
+                    <button class="debug-btn" onclick="debugLive2D()" title="Debug Live2D system">🔍 Debug L2D</button>
+                    <button class="debug-btn" onclick="debugLoadDefaultModel()" title="Load default model" id="debug-load-default-model" style="display:none;background:#4caf50;">📦 Load Model</button>
+                </div>
+                
+                <div class="debug-controls" style="margin-top: 0.5rem;">
+                    <h5 style="margin: 0.5rem 0 0.3rem 0; color: #ffeb3b;">⚡ Performance Tests:</h5>
+                    <button class="debug-btn" onclick="testLoadingPerformance()" title="Test model loading speed">🏃‍♂️ Load Speed</button>
+                    <button class="debug-btn" onclick="benchmarkModelSwitching()" title="Benchmark model switching">🏎️ Switch Speed</button>
+                    <button class="debug-btn" onclick="displayPerformanceStats()" title="Show performance statistics">📊 Stats</button>
+                    <button class="debug-btn" onclick="clearPerformanceCache()" title="Clear performance cache">🧹 Clear Cache</button>
+                </div>
+            </div>
+            
+            <div class="debug-section">
+                <h4>Real-time Log</h4>
+                <div class="debug-log" id="debug-realtime-log">
+                    🔍 Debug console initialized. Use buttons above to run tests...
+                </div>
+                <div class="debug-controls" style="margin-top: 0.5rem;">
+                    <button class="debug-btn" onclick="debugClearLog()" title="Clear debug log">🗑 Clear Log</button>
+                    <button class="debug-btn" onclick="debugToggleVerbose()" title="Toggle verbose logging">💬 Verbose</button>
+                    <button class="debug-btn" onclick="debugExportLog()" title="Export log to console">📤 Export Log</button>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+<!-- Modularized JS imports -->
+<!-- EMERGENCY: Diagnostic border injection script -->
+<script>
+// Emergency border injection script - bypasses main waifu-tips.js
+console.log('🚨 Emergency border injection script loaded');
+
+function injectEmergencyBorders() {
+    console.log('🚨 Running emergency border injection...');
+    
+    const waifu = document.getElementById('waifu');
+    if (waifu) {
+        console.log('🚨 Found #waifu element, applying emergency borders...');
+        
+        // Remove any hiding classes
+        waifu.classList.remove('hide');
+        
+        // Nuclear option - force styling
+        waifu.style.cssText = `
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            width: 500px !important;
+            height: 500px !important;
+            border: 10px solid red !important;
+            background: rgba(255, 0, 0, 0.2) !important;
+            z-index: 9999 !important;
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            overflow: visible !important;
+        `;
+        
+        console.log('🚨 Applied emergency red border to #waifu');
+        console.log('🚨 Final computed border:', window.getComputedStyle(waifu).border);
+        return true;
+    } else {
+        console.log('🚨 ERROR: #waifu element not found!');
+        return false;
+    }
+}
+
+// Try multiple times
+setTimeout(injectEmergencyBorders, 100);
+setTimeout(injectEmergencyBorders, 1000);
+window.injectEmergencyBorders = injectEmergencyBorders;
+</script>
+<script src="/static/js/live2d_config.js"></script>
+<script src="/static/dist/live2d_bundle.js"></script>
+<script src="/static/js/waifu-tips.js"></script>
+<script src="/static/js/debug.js"></script>
+<script src="/static/js/live2d-motions.js"></script>
+<script src="/static/js/tts-audio.js"></script>
+<script src="/static/js/chat.js"></script>
+<script src="/static/js/db.js"></script>
+
+<script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+
+<!-- Mouse Coordinate Tracking JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const pageCoords = document.getElementById('page-coords');
+    const waifuCoords = document.getElementById('waifu-coords');
+    const zoomLevel = document.getElementById('zoom-level');
+    const modelPosition = document.getElementById('model-position');
+    
+    function updateZoomDisplay() {
+        if (window.currentZoom) {
+            zoomLevel.textContent = `${window.currentZoom.toFixed(2)}x`;
+        }
+    }
+    
+    function updateModelPosition() {
+        // Calculate model position based on CSS transform
+        const canvas2 = document.getElementById('live2d2');
+        const canvas4 = document.getElementById('live2d4');
+        const activeCanvas = (canvas2 && canvas2.style.display !== 'none') ? canvas2 : canvas4;
+        
+        if (activeCanvas) {
+            const waifuContainer = document.getElementById('waifu');
+            if (waifuContainer) {
+                const containerRect = waifuContainer.getBoundingClientRect();
+                // Model is positioned at center with 200px offset from CSS transform
+                const modelX = containerRect.width / 2; // Center horizontally
+                const modelY = (containerRect.height / 2) + 200; // Center + 200px offset
+                modelPosition.textContent = `(${Math.round(modelX)}, ${Math.round(modelY)})`;
+            }
+        }
+    }
+    
+    document.addEventListener('mousemove', function(e) {
+        // Page coordinates
+        pageCoords.textContent = `(${e.clientX}, ${e.clientY})`;
+        
+        // Waifu container coordinates
+        const waifuContainer = document.getElementById('waifu');
+        if (waifuContainer) {
+            const waifuRect = waifuContainer.getBoundingClientRect();
+            const waifuX = e.clientX - waifuRect.left;
+            const waifuY = e.clientY - waifuRect.top;
+            waifuCoords.textContent = `(${Math.round(waifuX)}, ${Math.round(waifuY)})`;
+        }
+        
+        // Update zoom and model position
+        updateZoomDisplay();
+        updateModelPosition();
+    });
+    
+    // Initial updates
+    updateZoomDisplay();
+    updateModelPosition();
+    
+    // Listen for zoom changes
+    document.addEventListener('zoomChanged', function() {
+        updateZoomDisplay();
+        updateModelPosition();
+    });
+});
+</script>
+</body>
+</html>

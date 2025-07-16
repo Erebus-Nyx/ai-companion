@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Library Inspector</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .log {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 600px;
+            overflow-y: auto;
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+        .error {
+            color: #ff4444;
+        }
+        .success {
+            color: #44ff44;
+        }
+        .info {
+            color: #00aaff;
+        }
+        .warning {
+            color: #ffaa00;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Library Inspector - PIXI v7 + pixi-live2d-display</h1>
+        <button onclick="inspectLibraries()">Inspect Libraries</button>
+        <button onclick="clearLog()">Clear Log</button>
+        <div id="log" class="log"></div>
+    </div>
+
+    <!-- Simple polyfills -->
+    <script>
+        window.process = window.process || { env: { NODE_ENV: 'production' } };
+        window.module = window.module || { exports: {} };
+        
+        function EventEmitter() {
+            this._events = {};
+        }
+        EventEmitter.prototype.on = function(event, listener) {
+            if (!this._events[event]) this._events[event] = [];
+            this._events[event].push(listener);
+        };
+        EventEmitter.prototype.emit = function(event, ...args) {
+            if (this._events[event]) {
+                this._events[event].forEach(listener => listener.apply(this, args));
+            }
+        };
+        
+        window.EventEmitter = EventEmitter;
+    </script>
+    
+    <!-- Load PIXI.js v7 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.4.2/pixi.min.js"></script>
+    
+    <!-- Load Live2D Core -->
+    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+    
+    <!-- Load pixi-live2d-display -->
+    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js"></script>
+
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toISOString().substring(11, 23);
+            const entry = document.createElement('div');
+            entry.className = type;
+            entry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function inspectObject(obj, name, depth = 0, maxDepth = 3) {
+            if (depth > maxDepth) return `${name}: [Max depth reached]`;
+            
+            let result = `${name}:\n`;
+            
+            if (obj === null || obj === undefined) {
+                return `${name}: ${obj}`;
+            }
+            
+            if (typeof obj === 'function') {
+                return `${name}: [Function]`;
+            }
+            
+            if (typeof obj !== 'object') {
+                return `${name}: ${obj}`;
+            }
+            
+            const indent = '  '.repeat(depth + 1);
+            
+            try {
+                const keys = Object.keys(obj);
+                if (keys.length === 0) {
+                    result += `${indent}[Empty object]`;
+                } else {
+                    keys.forEach(key => {
+                        try {
+                            const value = obj[key];
+                            if (typeof value === 'function') {
+                                result += `${indent}${key}: [Function]\n`;
+                            } else if (typeof value === 'object' && value !== null) {
+                                if (depth < maxDepth) {
+                                    result += `${indent}${key}: [Object]\n`;
+                                    result += inspectObject(value, '', depth + 1, maxDepth);
+                                } else {
+                                    result += `${indent}${key}: [Object - not expanded]\n`;
+                                }
+                            } else {
+                                result += `${indent}${key}: ${value}\n`;
+                            }
+                        } catch (e) {
+                            result += `${indent}${key}: [Error accessing: ${e.message}]\n`;
+                        }
+                    });
+                }
+            } catch (e) {
+                result += `${indent}[Error inspecting object: ${e.message}]`;
+            }
+            
+            return result;
+        }
+
+        function inspectLibraries() {
+            clearLog();
+            log('Starting library inspection...', 'info');
+            
+            // Check PIXI
+            if (typeof PIXI !== 'undefined') {
+                log(`✓ PIXI.js loaded: ${PIXI.VERSION}`, 'success');
+            } else {
+                log('✗ PIXI.js not loaded', 'error');
+                return;
+            }
+            
+            // Check Live2D Core
+            if (typeof Live2DCubismCore !== 'undefined') {
+                log('✓ Live2D Core loaded', 'success');
+            } else {
+                log('✗ Live2D Core not loaded', 'error');
+            }
+            
+            // Check EventEmitter
+            if (typeof EventEmitter !== 'undefined') {
+                log('✓ EventEmitter available', 'success');
+            } else {
+                log('✗ EventEmitter not available', 'error');
+            }
+            
+            // Inspect PIXI.live2d namespace
+            if (typeof PIXI !== 'undefined' && PIXI.live2d) {
+                log('✓ PIXI.live2d namespace exists', 'success');
+                log(inspectObject(PIXI.live2d, 'PIXI.live2d', 0, 2), 'info');
+            } else {
+                log('✗ PIXI.live2d namespace not found', 'error');
+            }
+            
+            // Check global namespace for Live2D classes
+            const globalClasses = ['Live2DModel', 'Live2DFactory', 'Live2DLoader', 'Live2DExpression', 'Live2DMotion'];
+            globalClasses.forEach(className => {
+                if (window[className]) {
+                    log(`✓ ${className} found in global namespace`, 'success');
+                } else {
+                    log(`✗ ${className} not found in global namespace`, 'warning');
+                }
+            });
+            
+            // Check what's available in window
+            log('=== Checking window for Live2D related objects ===', 'info');
+            const windowKeys = Object.keys(window).filter(key => 
+                key.toLowerCase().includes('live2d') || 
+                key.toLowerCase().includes('pixi') ||
+                key.toLowerCase().includes('cubism')
+            );
+            
+            if (windowKeys.length > 0) {
+                log(`Found Live2D/PIXI related globals: ${windowKeys.join(', ')}`, 'success');
+            } else {
+                log('No Live2D/PIXI related globals found', 'warning');
+            }
+            
+            // Try to create a simple PIXI application
+            try {
+                const app = new PIXI.Application({
+                    width: 400,
+                    height: 300,
+                    backgroundColor: 0xffffff
+                });
+                log('✓ PIXI Application created successfully', 'success');
+                
+                // Clean up
+                app.destroy();
+            } catch (e) {
+                log(`✗ Failed to create PIXI Application: ${e.message}`, 'error');
+            }
+            
+            log('Library inspection complete', 'info');
+        }
+
+        // Auto-run inspection when page loads
+        window.addEventListener('load', () => {
+            setTimeout(inspectLibraries, 1000);
+        });
+    </script>
+</body>
+</html>

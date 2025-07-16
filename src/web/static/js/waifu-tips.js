@@ -1,0 +1,1572 @@
+/*****************************************************************************************************
+ く__,.ヘヽ.　　　　/　,ー､ 〉
+ 　　　　　＼ ', !-─‐-i　/　/´
+ 　　　 　 ／｀ｰ'　　　 L/／｀ヽ､                 Live2D Widget Setting
+ 　　 　 /　 ／,　 /|　 ,　 ,　　　 ',               Version 2.0.0
+ 　　　ｲ 　/ /-‐/　ｉ　L_ ﾊ ヽ!　 i                     Konata
+ 　　　 ﾚ ﾍ 7ｲ｀ﾄ　 ﾚ'ｧ-ﾄ､!ハ|　 |
+ 　　　　 !,/7 '0'　　 ´0iソ| 　 |　　　
+ 　　　　 |.从"　　_　　 ,,,, / |./ 　 |      Add Live2D widget in your website.
+ 　　　　 ﾚ'| i＞.､,,__　_,.イ / 　.i 　|
+ 　　　　　 ﾚ'| | / k_７_/ﾚ'ヽ,　ﾊ.　|       Thanks:
+ 　　　　　　 | |/i 〈|/　 i　,.ﾍ |　i　|    fghrsh / https://www.fghrsh.net/post/123.html
+ 　　　　　　.|/ /　ｉ： 　 ﾍ!　　＼　|       journey-ad / https://github.com/journey-ad/live2d_src
+ 　　　 　 　 kヽ>､ﾊ 　 _,.ﾍ､ 　 /､!         xiazeyu / https://github.com/xiazeyu/live2d-widget.js
+ 　　　　　　 !'〈//｀Ｔ´', ＼ ｀'7'ｰr'      Cubism Web Framework & All model authors.
+ 　　　　　　 ﾚ'ヽL__|___i,___,ンﾚ|ノ
+ 　　　　　 　　　ﾄ-,/　|___./
+ 　　　　　 　　　'ｰ'　　!_,.
+ ****************************************************************************************************/
+/****************************************************************************************************/
+// SessionStorage LocalStorage 操作
+const setSS = (k, v) => {
+    try {
+        sessionStorage.setItem(k, v);
+    } catch (e) {
+    }
+}
+const removeSS = (k) => {
+    try {
+        sessionStorage.removeItem(k);
+    } catch (e) {
+    }
+}
+const getSS = (k) => {
+    try {
+        return sessionStorage.getItem(k);
+    } catch (e) {
+        return null
+    }
+}
+const setLS = (k, v) => {
+    try {
+        localStorage.setItem(k, v);
+    } catch (e) {
+    }
+}
+const removeLS = (k) => {
+    try {
+        localStorage.removeItem(k);
+    } catch (e) {
+    }
+}
+const getLS = (k) => {
+    try {
+        return localStorage.getItem(k);
+    } catch (e) {
+        return null
+    }
+}
+String.prototype.render = function (context) {
+    const tokenReg = /(\\)?{([^{}\\]+)(\\)?}/g;
+    return this.replace(tokenReg, function (word, slash1, token, slash2) {
+        if (slash1 || slash2) {
+            return word.replace('\\', '');
+        }
+        const variables = token.replace(/\s/g, '').split('.');
+        let currentObject = context;
+        let i, length, variable;
+
+        for (i = 0, length = variables.length; i < length; ++i) {
+            variable = variables[i];
+            currentObject = currentObject[variable];
+            if (currentObject === undefined || currentObject === null) return '';
+        }
+        return currentObject;
+    });
+};
+const $$ = (selector) => {
+    try {
+        const e = document.querySelectorAll(selector);
+        if (e.length === 1) {
+            return e[0];
+        } else
+            return Array.from(e);
+    } catch (e) {
+        console.error(e);
+        return null;
+    }
+}
+const re = /x/;
+console.log(re);
+const live2dId2 = 'live2d2';
+const live2dId4 = 'live2d4';
+
+// Initialize these after DOM is ready
+let waifuTips;
+let waifu;
+
+function initWaifuElements() {
+    waifuTips = $$('#waifu-message');
+    waifu = $$('#waifu');
+    
+    if (!waifuTips || !waifu) {
+        console.warn('[WaifuTips] Required elements #waifu-message or #waifu not found');
+        return false;
+    }
+    return true;
+}
+
+function getRandText(text) {
+    return Array.isArray(text) ? text[Math.floor(Math.random() * text.length + 1) - 1] : text
+}
+
+let timeoutID;
+
+function testWebP() {
+    return new Promise(res => {
+        const webP = new Image();
+        webP.src = 'data:image/webp;base64,UklGRjoAAABXRUJQVlA4IC4AAACyAgCdASoCAAIALmk0mk0iIiIiIgBoSygABc6WWgAA/veff/0PP8bA//LwYAAA';
+        webP.onload = webP.onerror = () => {
+            res(webP.height === 2);
+        };
+    })
+}
+
+function showMessage(text, timeout, flag) {
+    if (!waifuTips) {
+        console.warn('[WaifuTips] waifuTips element not initialized');
+        return;
+    }
+    
+    if (flag || getSS('waifu-text') === '' || getSS('waifu-text') === null) {
+        if (timeoutID) window.clearTimeout(timeoutID);
+        if (Array.isArray(text)) text = text[Math.floor(Math.random() * text.length + 1) - 1];
+        if (live2d_settings.logMessageToConsole) console.log('[WaifuTips]', text.replace(/<[^<>]+>/g, ''));
+        if (flag) setSS('waifu-text', text);
+        waifuTips.style.display = 'block';
+        waifuTips.style.opacity = 1;
+        waifuTips.innerHTML = text;
+        if (timeout === undefined) timeout = 5000;
+        hideMessage(timeout);
+    }
+}
+
+function hideMessage(timeout) {
+    if (!waifuTips) return;
+    
+    if (timeout === undefined) timeout = 5000;
+    timeoutID = window.setTimeout(function () {
+        removeSS('waifu-text');
+        waifuTips.style.opacity = 0;
+        setTimeout(() => {
+            if (waifuTips) waifuTips.style.display = 'none';
+        }, 300);
+    }, timeout);
+}
+
+function changePosition(position) {
+    const waifuTool = $$('.waifu-tool');
+    
+    if (!waifu || !waifuTool) {
+        console.warn('[WaifuTips] Cannot change position - waifu elements not found');
+        return;
+    }
+    
+    if (position === 'left') {
+        waifuTool.style.right = 'unset';
+        waifuTool.style.left = '10px';
+        waifu.style.right = 'unset';
+        waifu.style.left = live2d_settings.waifuEdgeSide.split(":")[1];
+    } else if (position === 'right') {
+        waifuTool.style.left = 'unset';
+        waifuTool.style.right = '10px';
+        waifu.style.left = 'unset';
+        waifu.style.right = live2d_settings.waifuEdgeSide.split(":")[1];
+    } else {
+        waifuTool.style.left = '';
+        waifuTool.style.right = '';
+        waifu.style.left = '';
+        waifu.style.right = '';
+    }
+}
+
+// Get model info from database dynamically
+function getModelInfo(modelName) {
+    return window.availableModels.find(model => 
+        model.model_name === modelName || model.name === modelName
+    );
+}
+
+// Load available models from database
+async function loadAvailableModels() {
+    try {
+        console.log('[WaifuTips] Loading models from database...');
+        const response = await fetch('/api/live2d/models');
+        if (response.ok) {
+            const models = await response.json();
+            window.availableModels = models;
+            console.log(`[WaifuTips] Loaded ${models.length} models from database:`, models.map(m => m.model_name || m.name));
+            
+            // Update debug display if available
+            if (typeof window.debugLog === 'function') {
+                window.debugLog(`📦 Loaded ${models.length} models from database`);
+            }
+            
+            return models;
+        } else {
+            console.error('[WaifuTips] Failed to load models from API:', response.status);
+            if (typeof window.debugLog === 'function') {
+                window.debugLog(`❌ API error: HTTP ${response.status}`, 'error');
+            }
+            return [];
+        }
+    } catch (error) {
+        console.error('[WaifuTips] Error loading models:', error);
+        if (typeof window.debugLog === 'function') {
+            window.debugLog(`❌ Network error: ${error.message}`, 'error');
+        }
+        return [];
+    }
+}
+
+// Get last used model from localStorage
+function getLastUsedModel() {
+    if (live2d_settings.modelStorage) {
+        const saved = localStorage.getItem('modelName');
+        if (saved) {
+            console.log(`[WaifuTips] Found last used model: ${saved}`);
+            return saved;
+        }
+    }
+    console.log(`[WaifuTips] No last used model, using default: ${live2d_settings.modelName}`);
+    return live2d_settings.modelName;
+}
+
+// Save current model as last used
+function saveLastUsedModel(modelName) {
+    if (live2d_settings.modelStorage) {
+        localStorage.setItem('modelName', modelName);
+        console.log(`[WaifuTips] Saved last used model: ${modelName}`);
+    }
+}
+
+function initModel() {
+    console.log('[WaifuTips] initModel() called - starting initialization...');
+    if (typeof window.debugLog === 'function') {
+        window.debugLog('🎯 initModel() called - starting initialization...');
+    }
+    
+    // Check if live2d_settings is defined
+    if (typeof live2d_settings === 'undefined') {
+        console.error('[WaifuTips] live2d_settings is not defined, delaying initialization...');
+        if (typeof window.debugLog === 'function') {
+            window.debugLog('❌ live2d_settings is not defined, delaying initialization...', 'error');
+        }
+        setTimeout(initModel, 100); // Retry after 100ms
+        return;
+    }
+    
+    // Initialize waifu elements first
+    if (!initWaifuElements()) {
+        console.error('[WaifuTips] Failed to initialize waifu elements');
+        if (typeof window.debugLog === 'function') {
+            window.debugLog('❌ Failed to initialize waifu elements', 'error');
+        }
+        return;
+    }
+    
+    console.log('[WaifuTips] Waifu elements initialized successfully');
+    if (typeof window.debugLog === 'function') {
+        window.debugLog('✅ Waifu elements initialized successfully');
+    }
+    
+    /* Load style sheet */
+    console.log('[WaifuTips] 🎨 Applying CSS styles...');
+    if (typeof window.debugLog === 'function') {
+        window.debugLog('🎨 Applying waifu CSS styles...');
+    }
+    addStyle(waifuStyle);
+    
+    // Force immediate style application via JavaScript as backup
+    setTimeout(() => {
+        console.log('[WaifuTips] 🔧 Applying backup CSS via JavaScript...');
+        enforceWaifuContainerSize();
+    }, 100);
+    if (getSS('waifuHide') === '1') {
+        if (waifu) waifu.classList.add('hide');
+        return;
+    } else if (window.innerWidth <= Number(live2d_settings.waifuMinWidth.replace('px', ''))) {
+        if (waifu) waifu.classList.add('hide');
+        return;
+    } else {
+        if (waifu) waifu.classList.remove('hide');
+    }
+
+    const canvas2 = $$(`#${live2dId2}`);
+    const canvas4 = $$(`#${live2dId4}`);
+    
+    if (canvas2) {
+        canvas2.setAttribute('height', 500);
+        canvas2.setAttribute('width', 500);
+    }
+    if (canvas4) {
+        canvas4.setAttribute('height', 500);
+        canvas4.setAttribute('width', 500);
+    }
+    
+    // Apply current zoom level to canvases
+    if (typeof window.currentZoom !== 'undefined') {
+        const canvas2 = document.getElementById('live2d2');
+        const canvas4 = document.getElementById('live2d4');
+        const zoomLevel = window.currentZoom || 2.0;
+        
+        if (canvas2) {
+            canvas2.style.setProperty('--model-zoom', zoomLevel);
+        }
+        if (canvas4) {
+            canvas4.style.setProperty('--model-zoom', zoomLevel);
+        }
+        console.log(`[WaifuTips] Applied zoom level ${zoomLevel} to Live2D canvases`);
+    }
+    
+    const waifuTool = $$('.waifu-tool');
+    if (waifuTool) {
+        if (!live2d_settings.showToolMenu) waifuTool.classList.add('hide');
+    }
+    
+    // Add event listeners with null checks
+    const iconNext = $$('.waifu-tool .icon-next');
+    const iconHome = $$('.waifu-tool .icon-home');
+    const iconAbout = $$('.waifu-tool .icon-about');
+    const iconCamera = $$('.waifu-tool .icon-camera');
+    const iconCross = $$('.waifu-tool .icon-cross');
+    const iconMessage = $$('.waifu-tool .icon-message');
+    
+    if (!live2d_settings.canCloseLive2d && iconCross) iconCross.classList.add('hide');
+    if (!live2d_settings.canSwitchModel && iconNext) iconNext.classList.add('hide');
+    if (!live2d_settings.canSwitchHitokoto && iconMessage) iconMessage.classList.add('hide');
+    if (!live2d_settings.canTakeScreenshot && iconCamera) iconCamera.classList.add('hide');
+    if (!live2d_settings.canTurnToHomePage && iconHome) iconHome.classList.add('hide');
+    if (!live2d_settings.canTurnToAboutPage && iconAbout) iconAbout.classList.add('hide');
+    if (!live2d_settings.showVolumeBtn) {
+        const volumeUp = $$('.waifu-tool .icon-volumeup');
+        const volumeDown = $$('.waifu-tool .icon-volumedown');
+        if (volumeUp) volumeUp.classList.add('hide');
+        if (volumeDown) volumeDown.classList.add('hide');
+    }
+    
+    if (iconNext) iconNext.addEventListener('click', () => loadOtherModel());
+    if (iconHome) iconHome.addEventListener('click', () => window.location = live2d_settings.homePageUrl);
+    if (iconAbout) {
+        iconAbout.addEventListener('click', function(e) {
+            if (e) e.preventDefault();
+            if (typeof window.toggleDebugConsole === 'function') {
+                window.toggleDebugConsole();
+            } else {
+                console.warn('toggleDebugConsole() not found');
+            }
+        });
+    }
+    if (iconCamera) iconCamera.addEventListener('click', () => {
+        if (window.live2dCurrentVersion === 3) {
+            if (typeof window.live2dv4 !== 'undefined' && window.live2dv4 && typeof window.live2dv4.CaptureCanvas === 'function') {
+                window.live2dv4.CaptureCanvas();
+            } else {
+                console.warn('[WaifuTips] Live2D SDK v4 CaptureCanvas not available');
+            }
+        } else {
+            if (typeof window.live2dv2 !== 'undefined' && window.live2dv2) {
+                window.live2dv2.captureFrame = true;
+            } else {
+                console.warn('[WaifuTips] Live2D SDK v2 captureFrame not available');
+            }
+        }
+    });
+    if (iconCross) iconCross.addEventListener('click', () => {
+        sessionStorage.setItem('waifuHide', '1');
+        window.setTimeout(function () {
+            if (waifu) waifu.classList.add('hide');
+            // document.getElementById('show-live2d').classList.remove('btnHide');
+        }, 1000);
+    });
+
+    window.waifuResize = () => {
+        if (getSS('waifuHide') !== '1')
+            window.innerWidth <= Number(live2d_settings.waifuMinWidth.replace('px', '')) ? waifu.classList.add('hide') : waifu.classList.remove('hide');
+    };
+
+    if (live2d_settings.waifuMinWidth !== 'disable') {
+        waifuResize();
+        window.addEventListener('resize', waifuResize)
+    }
+
+    live2d_settings.homePageUrl = live2d_settings.homePageUrl === 'auto' ? window.location.protocol + '//' + window.location.hostname + '/' : live2d_settings.homePageUrl;
+
+    if (live2d_settings.tipsMessage)
+        window.fetch(live2d_settings.tipsMessage)
+            .then(res => res.json())
+            .then(resjson => loadTipsMessage(resjson));
+
+    // Check if Live2D SDKs are available before accessing them
+    if (typeof window.live2dv4 !== 'undefined' && window.live2dv4) {
+        if (typeof window.live2dv4.setPreLoadMotion === 'function') {
+            window.live2dv4.setPreLoadMotion(live2d_settings.preLoadMotion);
+        }
+        window.live2dv4.debug = live2d_settings.debug;
+        window.live2dv4.debugMousemove = live2d_settings.debug && live2d_settings.debugMousemove;
+    } else {
+        console.warn('[WaifuTips] Live2D SDK v4 not available');
+    }
+    
+    if (typeof window.live2dv2 !== 'undefined' && window.live2dv2) {
+        window.live2dv2.debug = live2d_settings.debug;
+        window.live2dv2.debugMousemove = live2d_settings.debug && live2d_settings.debugMousemove;
+    } else {
+        console.warn('[WaifuTips] Live2D SDK v2 not available');
+    }
+    // Initialize model loading - unified path for WebP and non-WebP
+    async function initializeModels() {
+        try {
+            console.log("[WaifuTips] Starting model initialization...");
+            
+            // Load available models from database first
+            await loadAvailableModels();
+            
+            if (window.availableModels.length === 0) {
+                console.error('[WaifuTips] No models found in database! Please populate the database first.');
+                showMessage('No Live2D models available. Please check the database.', 5000, true);
+                if (typeof window.debugLog === 'function') {
+                    window.debugLog('❌ No models found in database', 'error');
+                }
+                return;
+            }
+            
+            // Determine which model to load
+            let modelToLoad = getLastUsedModel();
+            
+            // If model storage is disabled or no last used model, use default
+            if (!live2d_settings.modelStorage || !modelToLoad) {
+                modelToLoad = live2d_settings.modelName;
+            }
+            
+            // Check if the selected model exists in database
+            const modelExists = window.availableModels.some(model => 
+                (model.model_name === modelToLoad) || (model.name === modelToLoad)
+            );
+            
+            if (!modelExists && window.availableModels.length > 0) {
+                console.warn(`[WaifuTips] Model ${modelToLoad} not found in database, using first available model`);
+                const firstModel = window.availableModels[0];
+                modelToLoad = firstModel.model_name || firstModel.name;
+            }
+            
+            console.log(`[WaifuTips] Loading selected model: ${modelToLoad}`);
+            if (typeof window.debugLog === 'function') {
+                window.debugLog(`🎭 Loading model: ${modelToLoad}`);
+            }
+            
+            await loadModel(modelToLoad);
+            
+        } catch (error) {
+            console.error('[WaifuTips] Model initialization failed:', error);
+            if (typeof window.debugLog === 'function') {
+                window.debugLog(`❌ Model init failed: ${error.message}`, 'error');
+            }
+        }
+    }
+    
+    if (live2d_settings.tryWebp) {
+        testWebP().then(r => window.webpReady = r).then(async () => {
+            if (window.webpReady === true)
+                console.log("[WaifuTips] Your browser support WebP format. Try to load WebP texture first.");
+            else
+                console.log("[WaifuTips] Your browser do not support WebP format.");
+            
+            await initializeModels();
+        });
+    } else {
+        console.log("[WaifuTips] WebP test disabled, proceeding with model loading...");
+        if (typeof window.debugLog === 'function') {
+            window.debugLog('🚀 WebP disabled, starting model loading...');
+        }
+        // Call async function properly
+        initializeModels().catch(error => {
+            console.error('[WaifuTips] Model initialization error:', error);
+            if (typeof window.debugLog === 'function') {
+                window.debugLog(`❌ Init error: ${error.message}`, 'error');
+            }
+        });
+    }
+}
+
+/*
+ * TODO: Performance Optimization Follow-up
+ * - Monitor model loading times over extended sessions
+ * - Implement texture streaming for large models (>10MB)
+ * - Add model preloading queue prioritization
+ * - Optimize memory usage for mobile devices
+ * - Consider WebWorker for background asset processing
+ * - Test performance with 20+ models loaded
+ */
+
+// Performance monitoring
+window.modelLoadingStats = {
+    lastLoadTime: 0,
+    averageLoadTime: 0,
+    loadCount: 0,
+    isLoading: false,
+    cacheHits: 0,
+    cacheMisses: 0
+};
+
+// Advanced caching system for model assets
+window.modelAssetCache = new Map();
+window.preloadQueue = new Set();
+
+/**
+ * Main model loading orchestrator function
+ * @param {string} modelName - Name of the model to load
+ * @returns {Promise<boolean>} - Success status
+ */
+async function loadModel(modelName) {
+    if (!modelName) {
+        console.error('[WaifuTips] Cannot load model: No model name provided');
+        return false;
+    }
+    
+    // Prevent concurrent loads
+    if (window.modelLoadingStats.isLoading) {
+        console.warn(`[WaifuTips] ⚠️ Already loading a model, skipping request for ${modelName}`);
+        return false;
+    }
+
+    try {
+        // Set loading state
+        window.modelLoadingStats.isLoading = true;
+        const startTime = performance.now();
+
+        // Log the attempt
+        console.log(`[WaifuTips] 🔄 Loading model: ${modelName}`);
+        if (typeof window.debugLog === 'function') {
+            window.debugLog(`🔄 Loading model: ${modelName}`);
+        }
+
+        // Ensure models are loaded from database
+        if (!window.availableModels || window.availableModels.length === 0) {
+            await loadAvailableModels();
+            if (window.availableModels.length === 0) {
+                console.error('[WaifuTips] ❌ No models available in database');
+                window.modelLoadingStats.isLoading = false;
+                return false;
+            }
+        }
+
+        // Find model in available models
+        const modelInfo = window.availableModels.find(m => 
+            (m.model_name === modelName) || (m.name === modelName)
+        );
+
+        if (!modelInfo) {
+            console.error(`[WaifuTips] ❌ Model "${modelName}" not found in database`);
+            window.modelLoadingStats.isLoading = false;
+            return false;
+        }
+
+        // Get model details
+        const modelPath = modelInfo.model_path || `${live2d_settings.modelUrl}/${modelInfo.model_name || modelInfo.name}`;
+        const configFile = modelInfo.config_file || `${modelInfo.model_name || modelInfo.name}.model3.json`;
+        
+        // Determine model version (2 or 3)
+        const modelVersion = configFile.includes('model3.json') ? 3 : 2;
+        
+        // Try to preload assets for faster rendering
+        const preloaded = await preloadModelAssets(modelInfo);
+        
+        // Load the model using the fast loader
+        await loadModelFast(modelVersion, modelPath, configFile, modelInfo);
+        
+        // Update global state
+        window.currentModel = modelInfo.model_name || modelInfo.name;
+        if (live2d_settings.modelStorage) {
+            saveLastUsedModel(window.currentModel);
+        }
+        
+        // Trigger preloading of likely next models for faster switching
+        setTimeout(() => preloadLikelyModels(modelInfo), 1000);
+        
+        // Log performance metrics
+        const loadTime = performance.now() - startTime;
+        window.modelLoadingStats.lastLoadTime = loadTime;
+        window.modelLoadingStats.loadCount++;
+        window.modelLoadingStats.averageLoadTime = 
+            ((window.modelLoadingStats.averageLoadTime * (window.modelLoadingStats.loadCount - 1)) + loadTime) / 
+            window.modelLoadingStats.loadCount;
+        
+        console.log(`[WaifuTips] ✅ Model loaded in ${loadTime.toFixed(2)}ms`);
+        if (typeof window.debugLog === 'function') {
+            window.debugLog(`✅ Model "${modelName}" loaded in ${loadTime.toFixed(2)}ms`);
+        }
+
+        // Reset loading state
+        window.modelLoadingStats.isLoading = false;
+        return true;
+        
+    } catch (error) {
+        console.error('[WaifuTips] ❌ Error loading model:', error);
+        if (typeof window.debugLog === 'function') {
+            window.debugLog(`❌ Error loading model: ${error.message}`, 'error');
+        }
+        // Reset loading state on error
+        window.modelLoadingStats.isLoading = false;
+        return false;
+    }
+}
+
+// Asset preloading system
+async function preloadModelAssets(modelInfo) {
+    if (!modelInfo) return;
+    
+    const cacheKey = `${modelInfo.model_name || modelInfo.name}_assets`;
+    if (window.modelAssetCache.has(cacheKey)) {
+        window.modelLoadingStats.cacheHits++;
+        return window.modelAssetCache.get(cacheKey);
+    }
+    
+    window.modelLoadingStats.cacheMisses++;
+    
+    try {
+        const modelPath = modelInfo.model_path || `${live2d_settings.modelUrl}/${modelInfo.model_name || modelInfo.name}`;
+        const configFile = modelInfo.config_file || `${modelInfo.model_name || modelInfo.name}.model3.json`;
+        
+        // Preload config file
+        const configResponse = await fetch(`${modelPath}/${configFile}`);
+        if (configResponse.ok) {
+            const configData = await configResponse.json();
+            
+            // Cache the config and mark as preloaded
+            const assets = {
+                config: configData,
+                configPath: `${modelPath}/${configFile}`,
+                modelPath: modelPath,
+                preloaded: true,
+                timestamp: Date.now()
+            };
+            
+            window.modelAssetCache.set(cacheKey, assets);
+            
+            // Background preload textures for faster rendering
+            if (configData.FileReferences?.Textures) {
+                setTimeout(() => preloadTextures(modelPath, configData.FileReferences.Textures), 100);
+            }
+            
+            console.log(`[WaifuTips] ✅ Preloaded assets for ${modelInfo.model_name || modelInfo.name}`);
+            return assets;
+        }
+    } catch (error) {
+        console.warn(`[WaifuTips] ⚠️ Failed to preload assets for ${modelInfo.model_name || modelInfo.name}:`, error);
+    }
+    
+    return null;
+}
+
+// Background texture preloading
+async function preloadTextures(modelPath, textures) {
+    if (!textures || textures.length === 0) return;
+    
+    // Progressive loading - load essential textures first, then others in background
+    const essentialTextures = textures.slice(0, 2); // First 2 are most important
+    const secondaryTextures = textures.slice(2);
+    
+    // Load essential textures immediately with higher priority
+    const essentialPromises = essentialTextures.map(async (texture, index) => {
+        try {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            return new Promise((resolve) => {
+                img.onload = () => {
+                    console.log(`[WaifuTips] ✅ Essential texture ${index + 1} loaded: ${texture}`);
+                    resolve(texture);
+                };
+                img.onerror = () => {
+                    console.warn(`[WaifuTips] ⚠️ Failed to load essential texture: ${texture}`);
+                    resolve(null);
+                };
+                img.src = `${modelPath}/${texture}`;
+            });
+        } catch (error) {
+            console.warn(`[WaifuTips] ⚠️ Error preloading texture: ${error.message}`);
+            return null;
+        }
+    });
+    
+    // Start loading essential textures immediately
+    const essentialResults = await Promise.all(essentialPromises);
+    const loadedEssential = essentialResults.filter(r => r !== null);
+    
+    if (loadedEssential.length > 0) {
+        console.log(`[WaifuTips] 🎨 Loaded ${loadedEssential.length} essential textures`);
+    }
+    
+    // Load remaining textures in background with lower priority
+    if (secondaryTextures.length > 0) {
+        setTimeout(() => {
+            console.log(`[WaifuTips] 🎨 Background loading ${secondaryTextures.length} secondary textures`);
+            secondaryTextures.forEach((texture, index) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => console.log(`[WaifuTips] ✅ Secondary texture loaded: ${index + 1}/${secondaryTextures.length}`);
+                img.onerror = () => console.warn(`[WaifuTips] ⚠️ Failed to load secondary texture: ${texture}`);
+                img.src = `${modelPath}/${texture}`;
+            });
+        }, 500); // Delay secondary textures to prioritize model appearance
+    }
+    
+    return loadedEssential;
+}
+
+// Intelligent preloading of likely next models
+async function preloadLikelyModels(currentModelInfo) {
+    if (!window.availableModels || window.availableModels.length <= 1) return;
+    
+    try {
+        const currentIndex = window.availableModels.findIndex(model => 
+            (model.model_name === currentModelInfo.model_name) || (model.name === currentModelInfo.name)
+        );
+        
+        // Preload next 2 models in sequence for faster switching
+        const modelsToPreload = [];
+        
+        if (currentIndex >= 0) {
+            // Next model in sequence
+            const nextIndex = (currentIndex + 1) % window.availableModels.length;
+            modelsToPreload.push(window.availableModels[nextIndex]);
+            
+            // Previous model in sequence (for reverse navigation)
+            const prevIndex = currentIndex === 0 ? window.availableModels.length - 1 : currentIndex - 1;
+            if (window.availableModels[prevIndex] !== window.availableModels[nextIndex]) {
+                modelsToPreload.push(window.availableModels[prevIndex]);
+            }
+        }
+        
+        // Random model if random mode is enabled
+        if (live2d_settings.modelRandMode && modelsToPreload.length < 2) {
+            const randomIndex = Math.floor(Math.random() * window.availableModels.length);
+            const randomModel = window.availableModels[randomIndex];
+            if (!modelsToPreload.includes(randomModel)) {
+                modelsToPreload.push(randomModel);
+            }
+        }
+        
+        // Preload in background without blocking
+        for (const model of modelsToPreload) {
+            if (!window.preloadQueue.has(model.model_name || model.name)) {
+                window.preloadQueue.add(model.model_name || model.name);
+                setTimeout(() => {
+                    preloadModelAssets(model).finally(() => {
+                        window.preloadQueue.delete(model.model_name || model.name);
+                    });
+                }, 500);
+            }
+        }
+        
+        console.log(`[WaifuTips] 🚀 Preloading ${modelsToPreload.length} likely next models`);
+        
+    } catch (error) {
+        console.warn('[WaifuTips] ⚠️ Error in intelligent preloading:', error);
+    }
+}
+
+// Fast model loading without excessive validation
+async function loadModelFast(modelVersion, modelPath, configFile, modelInfo) {
+    // Performance-optimized model switching
+    const startTime = performance.now();
+    
+    // Only release previous model if switching versions (performance optimization)
+    if (window.live2dCurrentVersion && window.live2dCurrentVersion !== modelVersion) {
+        if (window.live2dCurrentVersion === 2 && typeof window.live2dv2?.release === 'function') {
+            window.live2dv2.release();
+        } else if (typeof window.live2dv4?.release === 'function') {
+            window.live2dv4.release();
+        }
+    }
+    
+    // Optimized canvas switching with immediate visibility
+    const canvas2 = document.getElementById(live2dId2);
+    const canvas4 = document.getElementById(live2dId4);
+    
+    // Batch DOM updates for better performance
+    if (modelVersion === 2) {
+        if (canvas2) {
+            canvas2.style.display = 'block';
+            canvas2.style.visibility = 'visible';
+        }
+        if (canvas4) {
+            canvas4.style.display = 'none';
+        }
+        
+        if (typeof window.live2dv2?.load === 'function') {
+            const fullPath = `${modelPath}/${configFile}`;
+            window.live2dv2.load(live2dId2, fullPath);
+        }
+    } else {
+        if (canvas4) {
+            canvas4.style.display = 'block';
+            canvas4.style.visibility = 'visible';
+        }
+        if (canvas2) {
+            canvas2.style.display = 'none';
+        }
+        
+        // Use faster change method for same version, full load for version changes
+        try {
+            if (window.live2dCurrentVersion === modelVersion && typeof window.live2dv4?.change === 'function') {
+                // Fastest path: same version model switch
+                window.live2dv4.change(modelPath, configFile);
+            } else if (typeof window.live2dv4?.load === 'function') {
+                // Full load for new version or initial load
+                window.live2dv4.load(live2dId4, modelPath, configFile);
+            } else {
+                throw new Error('Live2D SDK v4 not available');
+            }
+        } catch (error) {
+            console.error('[WaifuTips] ❌ Live2D loading error:', error);
+            throw error;
+        }
+    }
+    
+    window.live2dCurrentVersion = modelVersion;
+    
+    // Apply optimizations immediately (non-blocking)
+    requestAnimationFrame(() => {
+        try {
+            // Apply zoom settings
+            if (typeof window.currentZoom !== 'undefined') {
+                const zoomLevel = window.currentZoom || 2.0;
+                if (canvas2 && modelVersion === 2) {
+                    canvas2.style.setProperty('--model-zoom', zoomLevel);
+                }
+                if (canvas4 && modelVersion === 3) {
+                    canvas4.style.setProperty('--model-zoom', zoomLevel);
+                }
+            }
+            
+            // Update position if specified
+            if (modelInfo.position) {
+                changePosition(modelInfo.position);
+            }
+            
+            // Position model at bottom center (anchor feet)
+            setTimeout(() => positionLive2DModel(), 100);
+            
+            // Update debug status
+            if (typeof window.updateDebugStatus === 'function') {
+                window.updateDebugStatus();
+            }
+            
+            // Log performance
+            const loadTime = performance.now() - startTime;
+            console.log(`[WaifuTips] ⚡ Fast load completed in ${loadTime.toFixed(2)}ms`);
+            
+        } catch (error) {
+            console.warn('[WaifuTips] ⚠️ Post-load optimization error:', error);
+        }
+    });
+    
+    // Return success immediately for non-blocking operation
+    return Promise.resolve();
+}
+
+// Position Live2D model at bottom center of canvas (anchor feet)
+function positionLive2DModel() {
+    try {
+        if (typeof window.live2dv4 !== 'undefined' && window.live2dv4 && window.live2dv4._model) {
+            const canvas = document.getElementById(live2dId4);
+            if (!canvas) return;
+            
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+            
+            // Get model matrix for positioning
+            if (window.live2dv4._model && typeof window.live2dv4._model.getModelMatrix === 'function') {
+                const modelMatrix = window.live2dv4._model.getModelMatrix();
+                
+                // Position model at bottom center
+                // X: center horizontally
+                // Y: bottom vertically (anchor feet)
+                const centerX = canvasWidth / 2;
+                const bottomY = canvasHeight * 0.9; // Slightly above absolute bottom for better appearance
+                
+                // Apply positioning transformation
+                modelMatrix.translateX(centerX - canvasWidth / 2);
+                modelMatrix.translateY(bottomY - canvasHeight / 2);
+                
+                // Apply the matrix to the model
+                window.live2dv4._model.setModelMatrix(modelMatrix);
+                
+                console.log(`[WaifuTips] ✅ Model positioned at bottom center (${centerX}, ${bottomY})`);
+                if (typeof window.debugLog === 'function') {
+                    window.debugLog(`✅ Model positioned at bottom center of canvas`);
+                }
+            } else if (window.live2dv4.setPosition && typeof window.live2dv4.setPosition === 'function') {
+                // Alternative positioning method if available
+                const centerX = canvasWidth / 2;
+                const bottomY = canvasHeight * 0.9;
+                window.live2dv4.setPosition(centerX, bottomY);
+                console.log(`[WaifuTips] ✅ Model positioned using setPosition(${centerX}, ${bottomY})`);
+            } else {
+                console.warn('[WaifuTips] ⚠️ Model positioning methods not available');
+            }
+        } else {
+            console.warn('[WaifuTips] ⚠️ Live2D model not loaded yet for positioning');
+        }
+    } catch (error) {
+        console.error('[WaifuTips] ❌ Error positioning Live2D model:', error);
+        if (typeof window.debugLog === 'function') {
+            window.debugLog(`❌ Model positioning error: ${error.message}`, 'error');
+        }
+    }
+}
+
+/**
+ * Clean up older model assets to free memory
+ * Important for performance over long sessions
+ */
+function cleanupModelCache() {
+    try {
+        // Don't clean if cache is small
+        if (window.modelAssetCache.size <= 3) {
+            return;
+        }
+        
+        console.log(`[WaifuTips] 🧹 Cleaning model cache (${window.modelAssetCache.size} entries)...`);
+        
+        // Get current model to protect it
+        const currentModel = window.currentModel;
+        
+        // Sort cache entries by timestamp (oldest first)
+        const cacheEntries = Array.from(window.modelAssetCache.entries())
+            .sort((a, b) => a[1].timestamp - b[1].timestamp);
+            
+        // Keep only the 3 most recently used models
+        const entriesToRemove = cacheEntries.slice(0, -3);
+        let removedCount = 0;
+            
+        for (const [key, value] of entriesToRemove) {
+            // Never remove the current model
+            if (key.includes(currentModel)) continue;
+                
+            window.modelAssetCache.delete(key);
+            removedCount++;
+        }
+        
+        console.log(`[WaifuTips] 🧹 Removed ${removedCount} cached models`);
+        
+        if (typeof window.debugLog === 'function' && removedCount > 0) {
+            window.debugLog(`🧹 Cache cleanup: removed ${removedCount} old entries`);
+        }
+        
+        // Request garbage collection if available (Chrome DevTools only)
+        if (window.gc) {
+            try {
+                window.gc();
+                console.log('[WaifuTips] 🗑️ Manual garbage collection requested');
+            } catch (e) {}
+        }
+    } catch (error) {
+        console.warn('[WaifuTips] ⚠️ Error cleaning model cache:', error);
+    }
+}
+
+// 读取记忆的模型
+function modelStorageGetItem(key) {
+    return live2d_settings.modelStorage ? getLS(key) : getSS(key);
+}
+
+async function loadOtherModel() {
+    // Ensure models are loaded from database
+    if (!window.availableModels || window.availableModels.length === 0) {
+        await loadAvailableModels();
+    }
+    
+    if (window.availableModels.length === 0) {
+        console.warn('[WaifuTips] No models available from database');
+        return;
+    }
+    
+    const currentModelName = getLastUsedModel();
+    let modelIndex = 0;
+    
+    if (live2d_settings.modelRandMode) {
+        modelIndex = Math.floor(Math.random() * window.availableModels.length);
+    } else {
+        const currentIndex = window.availableModels.findIndex(model => model.model_name === currentModelName);
+        if (currentIndex >= 0 && currentIndex < window.availableModels.length - 1) {
+            modelIndex = currentIndex + 1;
+        } else {
+            modelIndex = 0;
+        }
+    }
+    
+    const selectedModel = window.availableModels[modelIndex];
+    
+    // Show message if available
+    if (selectedModel.description) {
+        showMessage(selectedModel.description, 3000, true);
+    } else {
+        showMessage(`${selectedModel.model_name} model loaded! 🎭`, 3000, true);
+    }
+    
+    // Use optimized loading system
+    console.log(`[WaifuTips] 🔄 Switching to model: ${selectedModel.model_name || selectedModel.name}`);
+    
+    // Display performance stats if debug is enabled
+    if (live2d_settings.debug && typeof displayPerformanceStats === 'function') {
+        displayPerformanceStats();
+    }
+    
+    await loadModel(selectedModel.model_name);
+}
+
+
+function loadTipsMessage(result) {
+    window.waifu_tips = result;
+
+    const mouseenterListener = (e, tips) => {
+        e.addEventListener('mouseenter', () => {
+            let text = getRandText(tips.text);
+            if (text.indexOf("{text}") > 0)
+                text = text.replace(/{text}/, e.innerText);
+            showMessage(text, 3000);
+        });
+    }
+    const addMouseoverListener = () => {
+        for (let tips of result.mouseover) {
+            const select = $$(tips.selector);
+            if (Array.isArray(select))
+                select.forEach(e => mouseenterListener(e, tips));
+            else if (select)
+                mouseenterListener(select, tips);
+            else
+                live2d_settings.debug && console.warn(`[WaifuTips] can not found element: ${tips.selector}`)
+        }
+    }
+    const addClickListener = () => {
+        for (let tips of result.click) {
+            const select = $$(tips.selector);
+            if (Array.isArray(select))
+                select.forEach(e => e.addEventListener('click', () => {
+                    let text = getRandText(tips.text);
+                    showMessage(text, 3000, true);
+                }))
+            else if (select)
+                select.addEventListener('click', () => {
+                    let text = getRandText(tips.text);
+                    showMessage(text, 3000, true);
+                })
+            else
+                live2d_settings.debug && console.warn(`[WaifuTips] can not found element: ${tips.selector}`)
+        }
+    }
+    for (let tips of result.seasons) {
+        const now = new Date();
+        const after = tips.date.split('-')[0];
+        const before = tips.date.split('-')[1] || after;
+        if ((after.split('/')[0] <= now.getMonth() + 1 && now.getMonth() + 1 <= before.split('/')[0]) &&
+            (after.split('/')[1] <= now.getDate() && now.getDate() <= before.split('/')[1])) {
+            let text = getRandText(tips.text);
+            if (text.indexOf("{year}") > 0)
+                text = text.replace(/{year}/, now.getFullYear());
+            showMessage(text, 6000, true);
+        }
+    }
+    if (live2d_settings.showF12OpenMsg) {
+        re.toString = function () {
+            showMessage(getRandText(result.waifu.console_open_msg), 5000, true);
+            return '';
+        };
+    }
+    const addCopyListener = () => {
+        if ($$('#articleContent').length !== 0)
+            $$('#articleContent').addEventListener('copy', () => (showMessage(getRandText(result.waifu.copy_message), 5000, true)));
+    }
+    window.showWelcomeMessage = function (result) {
+        let text;
+        if (window.location.href === live2d_settings.homePageUrl) {
+            const now = (new Date()).getHours();
+            if (now > 23 || now <= 5) text = getRandText(result.waifu.hour_tips['t23-5']);
+            else if (now > 5 && now <= 7) text = getRandText(result.waifu.hour_tips['t5-7']);
+            else if (now > 7 && now <= 11) text = getRandText(result.waifu.hour_tips['t7-11']);
+            else if (now > 11 && now <= 14) text = getRandText(result.waifu.hour_tips['t11-14']);
+            else if (now > 14 && now <= 17) text = getRandText(result.waifu.hour_tips['t14-17']);
+            else if (now > 17 && now <= 19) text = getRandText(result.waifu.hour_tips['t17-19']);
+            else if (now > 19 && now <= 21) text = getRandText(result.waifu.hour_tips['t19-21']);
+            else if (now > 21 && now <= 23) text = getRandText(result.waifu.hour_tips['t21-23']);
+            else text = getRandText(result.waifu.hour_tips.default);
+        } else {
+            const referrer_message = result.waifu.referrer_message;
+            if (document.referrer !== '') {
+                const referrer = document.createElement('a');
+                referrer.href = document.referrer;
+                const domain = referrer.hostname.split('.')[1];
+                if (window.location.hostname === referrer.hostname)
+                    text = referrer_message.localhost[0] + document.title.split(referrer_message.localhost[2])[0] + referrer_message.localhost[1];
+                else if (domain === 'baidu')
+                    text = referrer_message.baidu[0] + referrer.search.split('&wd=')[1].split('&')[0] + referrer_message.baidu[1];
+                else if (domain === 'so')
+                    text = referrer_message.so[0] + referrer.search.split('&q=')[1].split('&')[0] + referrer_message.so[1];
+                else if (domain === 'google')
+                    text = referrer_message.google[0] + document.title.split(referrer_message.google[2])[0] + referrer_message.google[1];
+                else {
+                    text = referrer_message.default[0] + referrer.hostname + referrer_message.default[1];
+                    for (let host in result.waifu.referrer_hostname)
+                        if (host === referrer.hostname) {
+                            text = getRandText(result.waifu.referrer_hostname[host]);
+                            break;
+                        }
+                }
+            } else text = referrer_message.none[0] + document.title.split(referrer_message.none[2])[0] + referrer_message.none[1];
+        }
+        showMessage(text, 6000);
+    };
+    if (live2d_settings.showWelcomeMessage) showWelcomeMessage(result);
+
+    const waifu_tips = result.waifu;
+
+    if (live2d_settings.showHitokoto) {
+        window.getActed = false;
+        window.hitokotoTimer = 0;
+        window.hitokotoInterval = false;
+        setInterval(function () {
+            if (!getActed) ifActed();
+            else elseActed();
+        }, 1000);
+    }
+    /* 检测用户活动状态，并在空闲时显示一言 */
+    const addHitokotoListener = () => {
+        document.addEventListener('mousemove', () => (getActed = true))
+        document.addEventListener('keydown', () => (getActed = true))
+    }
+
+    if (document.readyState === "interactive" || document.readyState === "complete") {
+        addMouseoverListener();
+        addClickListener();
+        if (live2d_settings.showCopyMessage) addCopyListener();
+        if (live2d_settings.showHitokoto) addHitokotoListener();
+    } else {
+        window.addEventListener("DOMContentLoaded", addMouseoverListener);
+        window.addEventListener("DOMContentLoaded", addClickListener);
+        if (live2d_settings.showCopyMessage) window.addEventListener("DOMContentLoaded", addCopyListener);
+        if (live2d_settings.showHitokoto) window.addEventListener("DOMContentLoaded", addHitokotoListener);
+    }
+
+    function ifActed() {
+        if (!hitokotoInterval) {
+            hitokotoInterval = true;
+            hitokotoTimer = window.setInterval(showHitokotoActed, 30000);
+        }
+    }
+
+    function elseActed() {
+        getActed = hitokotoInterval = false;
+        window.clearInterval(hitokotoTimer);
+    }
+
+    function showHitokotoActed() {
+        if (document.visibilityState === 'visible') showHitokoto();
+    }
+
+    function showHitokoto() {
+        switch (live2d_settings.hitokotoAPI) {
+            case 'lwl12.com':
+                window.fetch('https://api.lwl12.com/hitokoto/v1?encode=realjson')
+                    .then(res => res.json())
+                    .then(resJson => {
+                        if (!resJson.source) {
+                            let text = waifu_tips.hitokoto_api_message['lwl12.com'][0];
+                            if (!resJson.author) text += waifu_tips.hitokoto_api_message['lwl12.com'][1];
+                            text = text.render({source: resJson.source, creator: resJson.author});
+                            window.setTimeout(function () {
+                                showMessage(text + waifu_tips.hitokoto_api_message['lwl12.com'][2], 3000, true);
+                            }, 5000);
+                        }
+                        showMessage(resJson.text, 5000, true);
+                    })
+                break;
+            case 'fghrsh.net':
+                window.fetch('https://api.fghrsh.net/hitokoto/rand/?encode=jsc&uid=3335')
+                    .then(res => res.json())
+                    .then(resJson => {
+                        if (!resJson.source) {
+                            let text = waifu_tips.hitokoto_api_message['fghrsh.net'][0];
+                            text = text.render({source: resJson.source, date: resJson.date});
+                            window.setTimeout(function () {
+                                showMessage(text, 3000, true);
+                            }, 5000);
+                            showMessage(resJson.hitokoto, 5000, true);
+                        }
+                    })
+                break;
+            case 'jinrishici.com':
+                window.fetch('https://v2.jinrishici.com/one.json')
+                    .then(res => res.json())
+                    .then(resJson => {
+                        if (!resJson.data.origin.title) {
+                            let text = waifu_tips.hitokoto_api_message['jinrishici.com'][0];
+                            text = text.render({
+                                title: resJson.data.origin.title,
+                                dynasty: resJson.data.origin.dynasty,
+                                author: resJson.data.origin.author
+                            });
+                            window.setTimeout(function () {
+                                showMessage(text, 3000, true);
+                            }, 5000);
+                        }
+                        showMessage(resJson.data.content, 5000, true);
+                    })
+                break;
+            default:
+                window.fetch('https://v1.hitokoto.cn')
+                    .then(res => res.json())
+                    .then(resJson => {
+                        if (!resJson.from) {
+                            let text = waifu_tips.hitokoto_api_message['hitokoto.cn'][0];
+                            text = text.render({source: resJson.from, creator: resJson.creator});
+                            window.setTimeout(function () {
+                                showMessage(text, 3000, true);
+                            }, 5000);
+                        }
+                        showMessage(resJson.hitokoto, 5000, true);
+                    })
+        }
+    }
+
+    $$('.waifu-tool .icon-message').addEventListener('click', () => showHitokoto());
+}
+
+const addStyle = (() => {
+    const style = document.createElement('style');
+    document.head.append(style);
+    return (styleString) => style.textContent = styleString;
+})();
+
+const blobDownload = (blob) => {
+    if (typeof blob == 'object' && blob instanceof Blob) {
+        blob = URL.createObjectURL(blob); // 创建blob地址
+    }
+    const aLink = document.createElement('a');
+    aLink.href = blob;
+    aLink.download = live2d_settings.screenshotCaptureName || 'live2d.png'; // HTML5新增的属性，指定保存文件名，可以不要后缀，注意，file:///模式下不会生效
+    let event;
+    if (window.MouseEvent) event = new MouseEvent('click');
+    else {
+        event = document.createEvent('MouseEvents');
+        event.initMouseEvent('click', true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
+    }
+    aLink.dispatchEvent(event);
+}
+
+const waifuStyle = `
+/* ULTRA HIGH SPECIFICITY - Override everything */
+html body div.main-layout #waifu,
+html body #waifu,
+body #waifu {
+position: fixed !important;
+bottom: 0 !important;
+left: ${live2d_settings.waifuEdgeSide.split(':')[1]} !important;
+width: 500px !important;
+height: 500px !important;
+max-width: 500px !important;
+min-width: 500px !important;
+z-index: 998 !important;
+font-size: 0 !important;
+pointer-events: none !important;
+overflow: hidden !important;
+box-sizing: border-box !important;
+flex-shrink: 0 !important;
+flex-grow: 0 !important;
+flex-basis: auto !important;
+margin: 0 !important;
+padding: 0 !important;
+border: 5px solid #ff0000 !important; /* DIAG: Red border for waifu container */
+background: rgba(255,0,0,0.1) !important; /* DIAG: Red background for visibility */
+}
+
+/* DIAGNOSTIC: Override .hide class to ensure visibility during debugging */
+html body div.main-layout #waifu.hide,
+html body #waifu.hide,
+body #waifu.hide {
+display: block !important; /* Override display: none from .hide class */
+visibility: visible !important;
+opacity: 1 !important;
+}
+
+body #live2d2, body #live2d4 {
+position: absolute !important;
+top: 50% !important;
+left: 50% !important;
+transform: translate(-50%, calc(-50% + 100px)) scale(var(--model-zoom, 1)) !important;
+transform-origin: center center !important;
+width: 500px !important;
+height: 500px !important;
+max-width: 500px !important;
+min-width: 500px !important;
+display: none !important;
+z-index: 997 !important;
+pointer-events: auto !important;
+box-sizing: border-box !important;
+border: 3px solid #00ff00 !important; /* DIAG: Green border for canvas elements */
+}
+
+/* Zoom controls for testing */
+.zoom-controls {
+position: fixed;
+top: 10px;
+right: 10px;
+z-index: 999;
+background: rgba(0,0,0,0.7);
+padding: 10px;
+border-radius: 5px;
+display: ${live2d_settings.debug ? 'block' : 'none'};
+}
+
+.zoom-controls button {
+margin: 2px;
+padding: 5px 10px;
+background: #4CAF50;
+color: white;
+border: none;
+border-radius: 3px;
+cursor: pointer;
+font-size: 12px;
+}
+
+.zoom-controls button:hover {
+background: #45a049;
+}
+
+.waifu-tool {
+color:#d73b66;
+top:130px;
+${live2d_settings.waifuEdgeSide.split(":")[0]}:10px;
+position:absolute;
+z-index:998;
+border: 2px solid #ffff00 !important; /* DIAG: Yellow border for tools */
+background: rgba(255,255,0,0.3) !important; /* DIAG: Yellow background for tools */
+}
+
+#waifu-message {
+font-size:1rem;
+width:-moz-fit-content;
+width:fit-content;
+height:auto;
+left:2rem;
+top:20px;
+opacity:0;
+z-index:998;
+margin:auto;
+padding:5px 10px;
+border:3px solid #0000ff !important; /* DIAG: Blue border for messages */
+border-radius:12px;
+background-color:rgba(76,191,255,0.8);
+box-shadow:0 3px 15px 2px rgba(16,51,49,0.3);
+padding:5px 10px;
+border:1px solid rgba(104,216,255,0.62);
+border-radius:12px;
+background-color:rgba(76,191,255,0.8);
+box-shadow:0 3px 15px 2px rgba(16,51,49,0.3);
+text-overflow:ellipsis;
+overflow:hidden;
+position:relative;
+animation-delay:5s;
+animation-duration:50s;
+animation-iteration-count:infinite;
+animation-name:shake;
+animation-timing-function:ease-in-out;
+transition:opacity .3s ease
+}
+
+#waifu-message>a {
+color:#7500b7;
+}
+
+.waifu-tool {
+display:none;
+color:#d73b66;
+top:130px;
+${live2d_settings.waifuEdgeSide.split(":")[0]}:10px;
+position:absolute;
+z-index:998
+}
+
+#waifu:hover > .waifu-tool {
+display:block
+}
+
+.waifu-tool > span {
+font-family:"waifuico"!important;
+display:block;
+cursor:pointer;
+color:#0396FF;
+transition:.2s;
+font-size:18px;
+font-style:normal;
+-webkit-font-smoothing:antialiased;
+-moz-osx-font-smoothing:grayscale
+}
+
+.waifu-tool > span:hover {
+color:#43CBFF
+}
+
+.waifu-tool > .icon-next:before{padding-left:1px;content:"\\e6ba"}.waifu-tool > .icon-message:before{content:"\\e632"}.waifu-tool > .icon-cross:before{content:"\\e606"}.waifu-tool > .icon-about:before{content:"\\e60c"}.waifu-tool > .icon-home:before{content:"\\e604"}.waifu-tool > .icon-camera:before{content:"\\e635"}.waifu-tool > .icon-volumedown:before{content:"\\e6c2"}.waifu-tool > .icon-volumeup:before{content:"\\e6c3"}#waifu.hide,.waifu-tool > span.hide{display:none}@font-face{font-family:"waifuico";src:url(data:application/x-font-woff2;charset=utf-8;base64,d09GMgABAAAAAAWcAAsAAAAAC0gAAAVNAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHEIGVgCEAgqIVIcCATYCJAMkCxQABCAFhG0HchuYCVGUT06K7OeB7R6lCBOgbWnZzIYDWz+EMHANCwis4uG/tdf7dmbx/wC6VAGqgCuhAwBFIEwVsNJVwEb21LKO3q1lyz+tCZvx3+UrWlPV795l73pusllKVXgcRqIMCNk9wkGaA/IP1K2mWg6WmlnR1Qqa7lwLoaYD/FpfOAE/f7i06QU2n2W5rPV/cy2K44ACGrcnLqDD0wI/YTkL68xspUBnvQo9T6CzQkdr1/bhCczKuDJQdj1LDMwmDHIFPTTqquDavDGelJricfGKl+7w8d98zFIoE/6iA9e2Ylj9lX1P9TmTXns0nA3bm0jYCGTiTaHjmRQkNprQnXOzC8C4sE0w1P4qQ/OWvPO97zOkb72kik5d+CcPlJKsUAm1hqhw1ZCot5MNv7LiUvKr4pL4NVSqQvPQKYCWoNQMvYNOAH2DTg30HQ0a0JprJoEpEPsB4i2ON7lEyOJpoGWF9Uoz6iBtQmEZSR0YgyVVYPFeOIPN3GSY5uUOTjKmlLks4xwO30ihSfCIyrtB4/PlZurwHsUBoelpYahQGMsORi9mnmOcZ53Fz4BQ8IuaCKZRdi7BW+cZ52Szpw+ehI6b5uVwWNcZJrl5XEaG4Bld+DyO/5TGe5LbP7LAWhojkRiji8z5YcW4eTbOYXEZBO3YphYFXCQmlfO4fOOcAZytB5LH1+1A0uQ5B/DIGQ0gj8ejLuvzhMI4gSALZBJK9MFFEGbOK1D72SB4ZF2DPLFhL3v8OkqZ3MwXCOi1BHU/icfLYxIMLouDs5sWjxhRQR6VjJ+FINpJiKW8dBgVnzyUAzNnYNNHlnYjV2upFMVP6IFi1tXVmW8ihqPPJMWLn3H3seGju3ci3kxPEJTA0jrAQ0fD8Bh6dl1hXf0jKHdKaRsxTzcO0JWMCoNpvbEutxBvrD4E64xscguymJWl87Zjuz13sbN3o1/REc9hj2HPEfRfUA14VOUN+7FLSlHD9gF0AN/dJbxQrsdqTB3bWeDw0/XbbtrtD/xvuymCYSI3VzoM07Joq6QFcq1EreSY1AupY67wGmL52IowWn008LOtnCa+PdJrVOzu58O13kDd54MrhoRV1HZxf/zUr1jBGrG7pF/6h14kOo20kntvDF6kSO5t+TgvfqwJSQ/VSg0rQ5KRsjB/bGg60jQ9Ai1DI9N26w1XrItJXd3kYnKRURRvBJG8CHy8T2KLtC/qq2WL2gJ6vtlO77JfPuylAcBR1HTZpJf91SwxeD4oigJToj4caJer06uTaZep061vZt/78dVJJWe2AnU4gB5PDpTgyF6yu7ScXvf3eIak4yE/dIofEGczzzlM3ABqvZvHHD39P3t+ZdNyM/gthH9c/L6TBMMoWrqXvkajeBuRb7kuP60g/JddpNzY5pNEGfo/hx8k0VMSdQi2thsxVqATC3y7PZM+hsUzjVX+THgmgkJtDpLGSmKmboTSwCJUGluhs8HOzQNTxITILdZ7ZBDGvUBh1GdIxr0RM/UdSrN+oTIeE9A5FlP3HFgd2fxOIaMUo73CLOLaSbPO+/IjSkJpJC51jDMSn4Vx2Buk0ztUkwxxgT9PRqoOnXCF2+xlVJaMjXBOkfZS1Wbc77uib+pFXMG8nQQxFIkh6wrKRFjNmeVqPrP/IyQRlAyp6HvmPUOEl62PhnoGDYg7qrpR36XUeucSI0oxB7ltKaugbbKRUiQYaoqPypGI6kk7xBpjfZrnmqp60+PqsV6BDv+YNopIkaOMKupooo1OvkmXOnODvDcJTV0W9tVTFy0Hnb6Xmpwrmr5sqjtz7PwxLkNFMV/Us6E/NAAAAAA=) format("woff2"),url(waifuico.woff?t=1597741284606) format("woff")}@keyframes shake{2%{transform:translate(0.5px,-1.5px) rotate(-0.5deg)}4%{transform:translate(0.5px,1.5px) rotate(1.5deg)}6%{transform:translate(1.5px,1.5px) rotate(1.5deg)}8%{transform:translate(2.5px,1.5px) rotate(0.5deg)}10%{transform:translate(0.5px,2.5px) rotate(0.5deg)}12%{transform:translate(1.5px,1.5px) rotate(0.5deg)}14%{transform:translate(0.5px,0.5px) rotate(0.5deg)}16%{transform:translate(-1.5px,-0.5px) rotate(1.5deg)}18%{transform:translate(0.5px,0.5px) rotate(1.5deg)}20%{transform:translate(2.5px,2.5px) rotate(1.5deg)}22%{transform:translate(0.5px,-1.5px) rotate(1.5deg)}24%{transform:translate(-1.5px,1.5px) rotate(-0.5deg)}26%{transform:translate(1.5px,0.5px) rotate(1.5deg)}28%{transform:translate(-0.5px,-0.5px) rotate(-0.5deg)}30%{transform:translate(1.5px,-0.5px) rotate(-0.5deg)}32%{transform:translate(2.5px,-1.5px) rotate(1.5deg)}34%{transform:translate(2.5px,2.5px) rotate(-0.5deg)}36%{transform:translate(0.5px,-1.5px) rotate(0.5deg)}38%{transform:translate(2.5px,-0.5px) rotate(-0.5deg)}40%{transform:translate(-0.5px,2.5px) rotate(0.5deg)}42%{transform:translate(-1.5px,2.5px) rotate(0.5deg)}44%{transform:translate(-1.5px,1.5px) rotate(0.5deg)}46%{transform:translate(1.5px,-0.5px) rotate(-0.5deg)}48%{transform:translate(2.5px,-0.5px) rotate(0.5deg)}50%{transform:translate(-1.5px,1.5px) rotate(0.5deg)}52%{transform:translate(-0.5px,1.5px) rotate(0.5deg)}54%{transform:translate(-1.5px,1.5px) rotate(0.5deg)}56%{transform:translate(0.5px,2.5px) rotate(1.5deg)}58%{transform:translate(2.5px,2.5px) rotate(0.5deg)}60%{transform:translate(2.5px,-1.5px) rotate(1.5deg)}62%{transform:translate(-1.5px,0.5px) rotate(1.5deg)}64%{transform:translate(-1.5px,1.5px) rotate(1.5deg)}66%{transform:translate(0.5px,2.5px) rotate(1.5deg)}68%{transform:translate(2.5px,-1.5px) rotate(1.5deg)}70%{transform:translate(2.5px,2.5px) rotate(0.5deg)}72%{transform:translate(-0.5px,-1.5px) rotate(1.5deg)}74%{transform:translate(-1.5px,2.5px) rotate(1.5deg)}76%{transform:translate(-1.5px,2.5px) rotate(1.5deg)}78%{transform:translate(-1.5px,2.5px) rotate(0.5deg)}80%{transform:translate(-1.5px,0.5px) rotate(-0.5deg)}82%{transform:translate(-1.5px,0.5px) rotate(-0.5deg)}84%{transform:translate(-0.5px,0.5px) rotate(1.5deg)}86%{transform:translate(2.5px,1.5px) rotate(0.5deg)}88%{transform:translate(-1.5px,0.5px) rotate(1.5deg)}90%{transform:translate(-1.5px,-0.5px) rotate(-0.5deg)}92%{transform:translate(-1.5px,-1.5px) rotate(1.5deg)}94%{transform:translate(0.5px,0.5px) rotate(-0.5deg)}96%{transform:translate(2.5px,-0.5px) rotate(-0.5deg)}98%{transform:translate(-1.5px,-1.5px) rotate(-0.5deg)}0%,100%{transform:translate(0,0) rotate(0)}}
+`;
+
+// Wait for Live2D SDK to be available before initializing
+function waitForLive2DAndInit() {
+    if (typeof window.live2dv4 !== 'undefined') {
+        console.log('[WaifuTips] Live2D SDK detected, initializing...');
+        if (typeof window.debugLog === 'function') {
+            window.debugLog('🚀 Live2D SDK detected, starting initialization...');
+        }
+        
+        // Wait a bit for DOM elements to be ready
+        setTimeout(() => {
+            if (initWaifuElements()) {
+                console.log('[WaifuTips] DOM elements ready, starting model initialization...');
+                if (typeof window.debugLog === 'function') {
+                    window.debugLog('✅ DOM elements ready, calling initModel()...');
+                }
+                initModel();
+            } else {
+                console.warn('[WaifuTips] DOM elements not ready, retrying...');
+                if (typeof window.debugLog === 'function') {
+                    window.debugLog('⚠️ DOM elements not ready, retrying...', 'warn');
+                }
+                setTimeout(waitForLive2DAndInit, 500);
+            }
+        }, 100);
+    } else {
+        console.log('[WaifuTips] Waiting for Live2D SDK...');
+        setTimeout(waitForLive2DAndInit, 100);
+    }
+}
+
+// Start checking for SDK availability with more robust timing
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('[WaifuTips] DOM loaded, waiting for SDK...');
+        setTimeout(waitForLive2DAndInit, 500);
+    });
+} else {
+    console.log('[WaifuTips] DOM already loaded, checking SDK...');
+    // Give a moment to ensure SDK is loaded
+    setTimeout(waitForLive2DAndInit, 100);
+}
+
+// Performance monitoring display for debug
+function displayPerformanceStats() {
+    if (typeof window.debugLog === 'function') {
+        const stats = window.modelLoadingStats;
+        if (stats.loadCount > 0) {
+            window.debugLog(`📊 Performance Stats:`);
+            window.debugLog(`  ⚡ Last load: ${stats.lastLoadTime.toFixed(2)}ms`);
+            window.debugLog(`  📈 Average load: ${stats.averageLoadTime.toFixed(2)}ms`);
+            window.debugLog(`  🔄 Total loads: ${stats.loadCount}`);
+            window.debugLog(`  💾 Cache hits: ${stats.cacheHits}/${stats.cacheHits + stats.cacheMisses}`);
+            window.debugLog(`  🎯 Cache efficiency: ${(stats.cacheHits / (stats.cacheHits + stats.cacheMisses) * 100).toFixed(1)}%`);
+            window.debugLog(`  📦 Assets cached: ${window.modelAssetCache.size}`);
+            window.debugLog(`  🚀 Preload queue: ${window.preloadQueue.size}`);
+        }
+    }
+}
+
+// Expose performance stats globally for debugging
+window.getPerformanceStats = function() {
+    return {
+        loadingStats: window.modelLoadingStats,
+        cacheSize: window.modelAssetCache.size,
+        preloadQueueSize: window.preloadQueue.size,
+        cacheKeys: Array.from(window.modelAssetCache.keys()),
+        preloadQueue: Array.from(window.preloadQueue)
+    };
+};
+
+// Initialize performance monitoring on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Clean up old cache entries on startup
+    setTimeout(cleanupModelCache, 2000);
+    
+    // Monitor performance every 30 seconds
+    setInterval(() => {
+        if (window.modelLoadingStats.loadCount > 0) {
+            console.log(`[WaifuTips] 📊 Performance: ${window.modelLoadingStats.averageLoadTime.toFixed(2)}ms avg load time`);
+        }
+    }, 30000);
+    
+    // Add performance stats to debug console if available
+    if (typeof window.debugLog === 'function') {
+        setTimeout(() => {
+            window.debugLog('⚡ Performance optimization system initialized');
+            window.debugLog('   • Asset preloading enabled');
+            window.debugLog('   • Progressive loading enabled');
+            window.debugLog('   • Intelligent caching enabled');
+            window.debugLog('   • Memory management enabled');
+        }, 1000);
+    }
+});
+
+// Position Live2D model at bottom center of canvas (anchor feet)
+
+// Global loadModel function
+window.loadModel = loadModel;
+
+// Force waifu container to 500px (fallback if CSS fails)
+function enforceWaifuContainerSize() {
+    console.log('[WaifuTips] 🚩 enforceWaifuContainerSize() called');
+    const waifu = document.getElementById('waifu');
+    if (waifu) {
+        // Remove .hide class if present
+        waifu.classList.remove('hide');
+        // NUCLEAR OPTION: Apply all relevant styles inline with !important
+        waifu.style.cssText = `
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            width: 500px !important;
+            height: 500px !important;
+            max-width: 500px !important;
+            min-width: 500px !important;
+            max-height: 500px !important;
+            min-height: 500px !important;
+            z-index: 9999 !important;
+            font-size: 0 !important;
+            pointer-events: none !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
+            flex-shrink: 0 !important;
+            flex-grow: 0 !important;
+            flex-basis: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 10px solid #ff0000 !important;
+            background: rgba(255,0,0,0.3) !important;
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        `;
+        // Log computed style
+        const computed = window.getComputedStyle(waifu);
+        console.log('[WaifuTips] 🚩 After style enforcement, waifu computed width:', computed.width, 'height:', computed.height, 'position:', computed.position, 'display:', computed.display);
+        // Log parent info
+        if (waifu.parentElement) {
+            const parent = waifu.parentElement;
+            const parentStyle = window.getComputedStyle(parent);
+            console.log('[WaifuTips] 🚩 Parent element:', parent.tagName, 'id:', parent.id, 'class:', parent.className);
+            console.log('[WaifuTips] 🚩 Parent computed width:', parentStyle.width, 'height:', parentStyle.height, 'display:', parentStyle.display, 'position:', parentStyle.position);
+        }
+    }
+}
+
+// Run size enforcement when DOM is ready and after any layout changes
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(enforceWaifuContainerSize, 100);
+});
+
+// Also run after window resize
+window.addEventListener('resize', () => {
+    setTimeout(enforceWaifuContainerSize, 100);
+});
+
+// Make function globally available for debugging
+window.enforceWaifuContainerSize = enforceWaifuContainerSize;

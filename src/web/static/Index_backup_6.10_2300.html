@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Companion - Live2D Viewer</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+    <style>
+        /* Base styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header h1 {
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 300;
+        }
+
+        /* Main container */
+        .main-container {
+            flex: 1;
+            display: flex;
+            padding: 2rem;
+            gap: 2rem;
+        }
+
+        /* Control panel */
+        .control-panel {
+            min-width: 300px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            padding: 1.5rem;
+            height: fit-content;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .control-panel h2 {
+            margin-bottom: 1rem;
+            color: #333;
+            font-size: 1.2rem;
+        }
+
+        .control-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin: 0.25rem;
+            transition: all 0.3s ease;
+            display: inline-block;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn.btn-danger {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+        }
+
+        .btn.btn-success {
+            background: linear-gradient(45deg, #51cf66, #40c057);
+        }
+
+        select, input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        /* Live2D container */
+        .live2d-container {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            min-height: 600px;
+            background: #f8f9fa;
+        }
+
+        #live2d2, #live2d4 {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .canvas-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        /* Status bar */
+        .status-bar {
+            background: rgba(0, 0, 0, 0.05);
+            padding: 0.75rem 1.5rem;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            font-size: 0.9rem;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-indicator.success { background: #51cf66; }
+        .status-indicator.error { background: #ff6b6b; }
+        .status-indicator.info { background: #339af0; }
+
+        /* Debug panel */
+        .debug-panel {
+            background: rgba(0, 0, 0, 0.9);
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            height: 200px;
+            overflow-y: auto;
+            padding: 1rem;
+            white-space: pre-wrap;
+            display: none;
+        }
+
+        .debug-panel.visible {
+            display: block;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+                padding: 1rem;
+            }
+            
+            .control-panel {
+                min-width: auto;
+            }
+        }
+
+        /* Loading spinner */
+        .loading-spinner {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        .waifu-tool {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 5px;
+        }
+
+        .waifu-tool span {
+            width: 32px;
+            height: 32px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .waifu-tool span:hover {
+            background: rgba(255, 255, 255, 1);
+            transform: scale(1.1);
+        }
+
+        #waifu-message {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        /* Live2D Widget Styles */
+        #waifu {
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            z-index: 1000;
+            font-size: 0;
+            transition: all 0.3s ease-in-out;
+        }
+
+        #waifu.hide {
+            bottom: -500px;
+        }
+
+        #waifu #live2d2, #waifu #live2d4 {
+            position: relative;
+            border: 0;
+            cursor: grab;
+        }
+
+        #waifu #live2d2:active, #waifu #live2d4:active {
+            cursor: grabbing;
+        }
+
+        #waifu #waifu-message {
+            position: absolute;
+            right: 10px;
+            bottom: 80px;
+            width: 280px;
+            min-height: 70px;
+            margin: -20px 20px;
+            padding: 5px 10px;
+            border: 1px solid rgba(224, 186, 140, 0.62);
+            border-radius: 12px;
+            background-color: rgba(236, 217, 188, 0.5);
+            box-shadow: 0 3px 15px 2px rgba(191, 158, 118, 0.2);
+            font-size: 14px;
+            line-height: 24px;
+            text-overflow: ellipsis;
+            text-align: center;
+            color: #715648;
+            animation: shake 50s ease-in-out 5s infinite;
+            user-select: none;
+            border-collapse: separate;
+        }
+
+        #waifu .waifu-tool {
+            color: #aaa;
+            opacity: 0;
+            position: absolute;
+            right: -10px;
+            top: 70px;
+            transition: all 0.3s ease-in-out;
+            user-select: none;
+        }
+
+        #waifu:hover .waifu-tool {
+            opacity: 1;
+        }
+
+        #waifu .waifu-tool span {
+            display: block;
+            width: 32px;
+            height: 32px;
+            margin: 2px;
+            background-color: #f6f2ec;
+            border: 1px solid #e9e5dc;
+            border-radius: 50%;
+            box-shadow: 0 2px 2px 0 rgba(37, 26, 10, 0.2);
+            color: #786c5a;
+            font-size: 14px;
+            line-height: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+
+        #waifu .waifu-tool span:hover {
+            background-color: #eff2f7;
+            border-color: #dde4ef;
+            color: #685cf0;
+        }
+
+        @keyframes shake {
+            2% { transform: translate(0.5px, -1.5px) rotate(-0.5deg); }
+            4% { transform: translate(0.5px, 1.5px) rotate(1.5deg); }
+            6% { transform: translate(1.5px, 1.5px) rotate(1.5deg); }
+            8% { transform: translate(2.5px, 1.5px) rotate(0.5deg); }
+            10% { transform: translate(0.5px, 2.5px) rotate(0.5deg); }
+            12% { transform: translate(1.5px, 1.5px) rotate(0.5deg); }
+            14% { transform: translate(0.5px, 0.5px) rotate(0.5deg); }
+            16% { transform: translate(-1.5px, -0.5px) rotate(1.5deg); }
+            18% { transform: translate(0.5px, 0.5px) rotate(1.5deg); }
+            20% { transform: translate(2.5px, 2.5px) rotate(1.5deg); }
+            22% { transform: translate(0.5px, -1.5px) rotate(1.5deg); }
+            24% { transform: translate(-1.5px, 1.5px) rotate(-0.5deg); }
+            26% { transform: translate(1.5px, 0.5px) rotate(1.5deg); }
+            28% { transform: translate(-0.5px, -0.5px) rotate(-0.5deg); }
+            30% { transform: translate(1.5px, -0.5px) rotate(-0.5deg); }
+            32%, 100% { transform: translate(0, 0) rotate(0deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🤖 AI Companion - Live2D Model Viewer</h1>
+    </div>
+
+    <div class="main-container">
+        <div class="control-panel">
+            <h2>🎮 Model Controls</h2>
+            
+            <div class="control-group">
+                <label>Select Model:</label>
+                <select id="modelSelect">
+                    <option value="">Choose a model...</option>
+                    <option value="kanade">Kanade (SDK 4)</option>
+                    <option value="v2_kanade">V2 Kanade (SDK 4)</option>
+                    <option value="miku">Miku (SDK 4)</option>
+                    <option value="kuromi">Kuromi (SDK 4)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <button class="btn" onclick="loadSelectedModel()">Load Model</button>
+                <button class="btn btn-danger" onclick="clearModel()">Clear Model</button>
+            </div>
+
+            <div class="control-group">
+                <h3>🎭 Interactions</h3>
+                <button class="btn" onclick="triggerRandomMotion()">Random Motion</button>
+                <button class="btn" onclick="triggerExpression()">Random Expression</button>
+                <button class="btn" onclick="lookAtCenter()">Look at Center</button>
+            </div>
+
+            <div class="control-group">
+                <h3>🔧 Debug Tools</h3>
+                <button class="btn" onclick="toggleDebug()">Toggle Debug</button>
+                <button class="btn btn-success" onclick="forceShowAll()">Force Show All</button>
+                <button class="btn" onclick="inspectModel()">Inspect Model</button>
+            </div>
+
+            <div class="control-group">
+                <h3>⚙️ Settings</h3>
+                <label>
+                    <input type="checkbox" id="debugMode" onchange="toggleDebugMode()">
+                    Debug Mode
+                </label>
+                <label>
+                    <input type="checkbox" id="autoMotion" onchange="toggleAutoMotion()">
+                    Auto Motion
+                </label>
+            </div>
+        </div>
+
+        <div class="live2d-container">
+            <div class="canvas-container">
+                <canvas id="live2d2" width="800" height="600"></canvas>
+                <canvas id="live2d4" width="800" height="600"></canvas>
+                <div class="canvas-overlay">
+                    <span id="modelInfo">No model loaded</span>
+                </div>
+                <div class="loading-spinner" id="loadingSpinner"></div>
+                
+                <!-- Live2D widget tools -->
+                <div class="waifu-tool">
+                    <span class="icon-next" onclick="switchModel()" title="Switch Model">🔄</span>
+                    <span class="icon-home" onclick="window.location.reload()" title="Home">🏠</span>
+                    <span class="icon-message" onclick="showRandomMessage()" title="Message">💬</span>
+                    <span class="icon-camera" onclick="takeScreenshot()" title="Screenshot">📷</span>
+                    <span class="icon-about" onclick="showAbout()" title="About">ℹ️</span>
+                </div>
+
+                <!-- Message display -->
+                <div id="waifu-message"></div>
+            </div>
+            
+            <div class="status-bar">
+                <span class="status-indicator info" id="statusIndicator"></span>
+                <span id="statusText">Ready</span>
+            </div>
+
+            <div class="debug-panel" id="debugPanel"></div>
+        </div>
+    </div>
+
+    <!-- Live2D Widget (Live2dOnWeb integration) -->
+    <div id="waifu">
+        <div id="waifu-message"></div>
+        <div class="waifu-tool">
+            <span class="icon-next"></span>
+            <span class="icon-home"></span>
+            <span class="icon-message"></span>
+            <span class="icon-camera"></span>
+            <span class="icon-volumeup"></span>
+            <span class="icon-volumedown"></span>
+            <span class="icon-about"></span>
+            <span class="icon-cross"></span>
+        </div>
+    </div>
+
+    <!-- Live2D Scripts -->
+    <script src="js/live2d_config.js"></script>
+    <script src="dist/live2d_bundle.js"></script>
+    <script type="module" src="js/waifu-tips.js"></script>
+
+    <script>
+        // Global variables
+        let currentModel = null;
+        let currentModelVersion = null;
+        let debugMode = false;
+        let autoMotionInterval = null;
+        
+        // Model configurations
+        const modelConfigs = {
+            'kanade': {
+                path: 'assets/kanade/',
+                configFile: '17kanade_unit2_t04.model3.json',
+                version: 3
+            },
+            'v2_kanade': {
+                path: 'assets/v2_kanade/',
+                configFile: 'v2_17kanade_casual_t08.model3.json',
+                version: 3
+            },
+            'miku': {
+                path: 'assets/miku/runtime/',
+                configFile: 'miku.model3.json',
+                version: 3
+            },
+            'kuromi': {
+                path: 'assets/kuromi/',
+                configFile: 'sub_sanrio_kuromi_t10.model3.json',
+                version: 3
+            }
+        };
+
+        // Utility functions
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            console.log(`[Live2D] ${message}`);
+            
+            if (debugMode) {
+                const debugPanel = document.getElementById('debugPanel');
+                debugPanel.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+                debugPanel.scrollTop = debugPanel.scrollHeight;
+            }
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusElement = document.getElementById('statusText');
+            const indicator = document.getElementById('statusIndicator');
+            
+            statusElement.textContent = message;
+            indicator.className = `status-indicator ${type}`;
+            
+            log(message, type);
+        }
+
+        function showLoading(show) {
+            const spinner = document.getElementById('loadingSpinner');
+            spinner.style.display = show ? 'block' : 'none';
+        }
+
+        // Model loading functions
+        function loadSelectedModel() {
+            const select = document.getElementById('modelSelect');
+            const modelName = select.value;
+            
+            if (!modelName) {
+                updateStatus('Please select a model first', 'error');
+                return;
+            }
+
+            const config = modelConfigs[modelName];
+            if (!config) {
+                updateStatus('Model configuration not found', 'error');
+                return;
+            }
+
+            // Diagnostic: Check if SDKs are present
+            if (!window.live2dv4 && !window.live2dv2) {
+                log('Neither live2dv4 nor live2dv2 is present on window. Check if live2d_bundle.js loaded.', 'error');
+                updateStatus('Live2D SDK not loaded. Check console for errors.', 'error');
+                return;
+            }
+
+            loadModel(modelName, config);
+        }
+
+        function loadModel(modelName, config) {
+            updateStatus(`Loading ${modelName}...`, 'info');
+            showLoading(true);
+            
+            try {
+                const modelUrl = config.path;
+                const modelFile = config.configFile;
+                currentModelVersion = config.version;
+                
+                // Clear existing model
+                clearModel();
+                
+                // Load based on version
+                if (config.version === 3) {
+                    // SDK 4 model
+                    if (window.live2dv4 && window.live2dv4.load) {
+                        window.live2dv4.load('live2d4', modelUrl, modelFile);
+                        document.getElementById('live2d4').style.display = 'block';
+                        document.getElementById('live2d2').style.display = 'none';
+                        updateStatus(`${modelName} loaded successfully`, 'success');
+                        document.getElementById('modelInfo').textContent = `${modelName} (SDK ${config.version})`;
+                    } else {
+                        throw new Error('Live2D SDK v4 not available');
+                    }
+                } else {
+                    // SDK 2 model
+                    if (window.live2dv2 && window.live2dv2.load) {
+                        window.live2dv2.load('live2d2', modelUrl + modelFile);
+                        document.getElementById('live2d2').style.display = 'block';
+                        document.getElementById('live2d4').style.display = 'none';
+                        updateStatus(`${modelName} loaded successfully`, 'success');
+                        document.getElementById('modelInfo').textContent = `${modelName} (SDK ${config.version})`;
+                    } else {
+                        throw new Error('Live2D SDK v2 not available');
+                    }
+                }
+                
+                currentModel = modelName;
+                // Start auto motion if enabled
+                if (document.getElementById('autoMotion').checked) {
+                    startAutoMotion();
+                }
+                
+            } catch (error) {
+                updateStatus(`Failed to load model: ${error.message}`, 'error');
+                log(`Error loading ${modelName}: ${error.message}`, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function clearModel() {
+            if (currentModel) {
+                try {
+                    if (currentModelVersion === 3 && window.live2dv4 && window.live2dv4.release) {
+                        window.live2dv4.release();
+                    }
+                    // Note: SDK v2 doesn't have a clean release method in the basic implementation
+                    
+                    currentModel = null;
+                    currentModelVersion = null;
+                    document.getElementById('modelInfo').textContent = 'No model loaded';
+                    updateStatus('Model cleared', 'info');
+                    
+                    stopAutoMotion();
+                } catch (error) {
+                    log(`Error clearing model: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        // Interaction functions
+        function triggerRandomMotion() {
+            if (!currentModel) {
+                updateStatus('No model loaded', 'error');
+                return;
+            }
+            
+            // This would need to be implemented based on the specific Live2D framework
+            log('Triggering random motion', 'info');
+            updateStatus('Motion triggered', 'success');
+        }
+
+        function triggerExpression() {
+            if (!currentModel) {
+                updateStatus('No model loaded', 'error');
+                return;
+            }
+            
+            log('Triggering random expression', 'info');
+            updateStatus('Expression triggered', 'success');
+        }
+
+        function lookAtCenter() {
+            if (!currentModel) {
+                updateStatus('No model loaded', 'error');
+                return;
+            }
+            
+            log('Looking at center', 'info');
+            updateStatus('Model centered', 'success');
+        }
+
+        // Debug functions
+        function toggleDebug() {
+            debugMode = !debugMode;
+            const debugPanel = document.getElementById('debugPanel');
+            debugPanel.classList.toggle('visible', debugMode);
+            document.getElementById('debugMode').checked = debugMode;
+            
+            if (debugMode) {
+                log('Debug mode enabled', 'info');
+            } else {
+                debugPanel.textContent = '';
+                log('Debug mode disabled', 'info');
+            }
+        }
+
+        function toggleDebugMode() {
+            const checked = document.getElementById('debugMode').checked;
+            if (checked !== debugMode) {
+                toggleDebug();
+            }
+        }
+
+        function forceShowAll() {
+            if (!currentModel) {
+                updateStatus('No model loaded', 'error');
+                return;
+            }
+            
+            log('Force showing all model parts', 'info');
+            updateStatus('All parts forced visible', 'success');
+            
+            // This would need to be implemented based on the specific Live2D framework
+            // For now, just log the action
+        }
+
+        function inspectModel() {
+            if (!currentModel) {
+                updateStatus('No model loaded', 'error');
+                return;
+            }
+            
+            log(`Inspecting ${currentModel} (SDK ${currentModelVersion})`, 'info');
+            
+            // Basic model inspection
+            const config = modelConfigs[currentModel];
+            log(`Model path: ${config.path}`, 'info');
+            log(`Config file: ${config.configFile}`, 'info');
+            log(`Version: ${config.version}`, 'info');
+            
+            updateStatus('Model inspection complete', 'success');
+        }
+
+        // Auto motion
+        function toggleAutoMotion() {
+            const checked = document.getElementById('autoMotion').checked;
+            
+            if (checked && currentModel) {
+                startAutoMotion();
+            } else {
+                stopAutoMotion();
+            }
+        }
+
+        function startAutoMotion() {
+            stopAutoMotion(); // Clear any existing interval
+            
+            autoMotionInterval = setInterval(() => {
+                if (currentModel) {
+                    triggerRandomMotion();
+                }
+            }, 10000); // Every 10 seconds
+            
+            log('Auto motion started', 'info');
+        }
+
+        function stopAutoMotion() {
+            if (autoMotionInterval) {
+                clearInterval(autoMotionInterval);
+                autoMotionInterval = null;
+                log('Auto motion stopped', 'info');
+            }
+        }
+
+        // Widget functions
+        function switchModel() {
+            const select = document.getElementById('modelSelect');
+            const options = select.options;
+            let nextIndex = 0;
+            
+            // Find current selection and move to next
+            for (let i = 0; i < options.length; i++) {
+                if (options[i].value === currentModel) {
+                    nextIndex = (i + 1) % options.length;
+                    if (nextIndex === 0) nextIndex = 1; // Skip "Choose a model..."
+                    break;
+                }
+            }
+            
+            if (nextIndex < options.length) {
+                select.selectedIndex = nextIndex;
+                loadSelectedModel();
+            }
+        }
+
+        function showRandomMessage() {
+            const messages = [
+                "Hello! I'm your Live2D companion! 👋",
+                "Click on me to see my animations! ✨",
+                "I can express different emotions! 😊",
+                "Try switching between different models! 🔄",
+                "Debug mode shows detailed information! 🔍"
+            ];
+            
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+            showMessage(randomMessage, 3000);
+        }
+
+        function showMessage(text, duration = 3000) {
+            const messageElement = document.getElementById('waifu-message');
+            messageElement.textContent = text;
+            messageElement.style.display = 'block';
+            
+            setTimeout(() => {
+                messageElement.style.display = 'none';
+            }, duration);
+        }
+
+        function takeScreenshot() {
+            if (!currentModel) {
+                updateStatus('No model loaded for screenshot', 'error');
+                return;
+            }
+            
+            const canvas = currentModelVersion === 3 ? 
+                document.getElementById('live2d4') : 
+                document.getElementById('live2d2');
+            
+            try {
+                const link = document.createElement('a');
+                link.download = `${currentModel}_screenshot.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+                
+                updateStatus('Screenshot saved', 'success');
+                showMessage('Screenshot saved! 📷', 2000);
+            } catch (error) {
+                updateStatus('Screenshot failed', 'error');
+                log(`Screenshot error: ${error.message}`, 'error');
+            }
+        }
+
+        function showAbout() {
+            const aboutText = `
+AI Companion Live2D Viewer
+Built with Live2dOnWeb framework
+Supports both SDK v2 and SDK v4 models
+            `;
+            showMessage(aboutText, 5000);
+        }
+
+        // Canvas interaction
+        function setupCanvasInteraction() {
+            const canvas2 = document.getElementById('live2d2');
+            const canvas4 = document.getElementById('live2d4');
+            
+            [canvas2, canvas4].forEach(canvas => {
+                canvas.addEventListener('click', (e) => {
+                    if (currentModel) {
+                        const rect = canvas.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const y = e.clientY - rect.top;
+                        
+                        log(`Canvas clicked at (${x}, ${y})`, 'info');
+                        triggerRandomMotion();
+                    }
+                });
+
+                canvas.addEventListener('mousemove', (e) => {
+                    if (currentModel) {
+                        const rect = canvas.getBoundingClientRect();
+                        const x = (e.clientX - rect.left) / rect.width * 2 - 1;
+                        const y = -((e.clientY - rect.top) / rect.height * 2 - 1);
+                        
+                        // This would control model head tracking
+                        // Implementation depends on the Live2D framework
+                    }
+                });
+            });
+        }
+
+        // Initialize
+        function initialize() {
+            updateStatus('Initializing Live2D viewer...', 'info');
+            setupCanvasInteraction();
+            
+            // Wait for Live2D bundles to load
+            setTimeout(() => {
+                // Check for Live2D SDKs
+                const hasSDK2 = typeof window.live2dv2 !== 'undefined';
+                const hasSDK4 = typeof window.live2dv4 !== 'undefined';
+                
+                log(`SDK v2 available: ${hasSDK2}`, 'info');
+                log(`SDK v4 available: ${hasSDK4}`, 'info');
+                
+                if (!hasSDK2 && !hasSDK4) {
+                    updateStatus('Live2D SDKs loading...', 'info');
+                    showMessage('Live2D SDKs are loading. Please wait...', 3000);
+                    
+                    // Try again after more time
+                    setTimeout(() => {
+                        const hasSDK2Retry = typeof window.live2dv2 !== 'undefined';
+                        const hasSDK4Retry = typeof window.live2dv4 !== 'undefined';
+                        
+                        if (!hasSDK2Retry && !hasSDK4Retry) {
+                            updateStatus('Live2D SDKs failed to load', 'error');
+                            showMessage('Live2D SDKs failed to load. Please refresh the page.', 5000);
+                        } else {
+                            initializeLive2D();
+                        }
+                    }, 2000);
+                } else {
+                    initializeLive2D();
+                }
+            }, 500);
+        }
+
+        function initializeLive2D() {
+            updateStatus('Live2D viewer ready', 'success');
+            showMessage('Welcome to Live2D Viewer! Select a model to get started! 🎉', 4000);
+            
+            // Initialize Live2D settings if available
+            if (window.live2d_settings) {
+                if (window.live2dv2) {
+                    window.live2dv2.debug = window.live2d_settings.debug;
+                    window.live2dv2.debugMousemove = window.live2d_settings.debugMousemove;
+                }
+                if (window.live2dv4) {
+                    window.live2dv4.debug = window.live2d_settings.debug;
+                    window.live2dv4.debugMousemove = window.live2d_settings.debugMousemove;
+                }
+                log('Live2D settings configured', 'info');
+            }
+
+            // Try to initialize the Live2dOnWeb widget if initModel exists
+            if (typeof window.initModel === 'function') {
+                log('Initializing Live2dOnWeb widget', 'info');
+                try {
+                    window.initModel();
+                    updateStatus('Live2dOnWeb widget initialized', 'success');
+                } catch (error) {
+                    log(`Error initializing widget: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        // Window events
+        window.addEventListener('beforeunload', () => {
+            clearModel();
+        });
+
+        // Start when page loads
+        document.addEventListener('DOMContentLoaded', initialize);
+    </script>
+</body>
+</html>

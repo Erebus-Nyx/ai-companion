@@ -1,0 +1,3032 @@
+<!--
+  index.html
+  Modern two-column layout: model on the left (centered vertically), controls on the right.
+  Based on working backup as of 2025-06-10.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Companion - Live2D Model Viewer</title>
+    <link rel="stylesheet" href="/static/css/demo.css">
+    <style>
+        body {
+            /* background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); */
+            min-height: 100vh;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .main-layout {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+        
+        .control-column {
+            flex: 1; /* Take remaining space */
+            background: rgba(255,255,255,0.92);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: stretch;
+            padding: 2.5rem 2rem;
+            min-width: 400px;
+            box-shadow: -4px 0 24px rgba(102,126,234,0.08);
+            z-index: 10; /* Ensure control column is above model */
+            position: relative;
+        }
+        
+        .model-column {
+            flex: 0 0 600px; /* Fixed 800px width */
+            width: 600px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.92);
+            min-width: 0;
+            height: 100vh;
+            flex-direction: column;
+        }
+        .canvas-container {
+            position: relative;
+            width: 100%; /* Take full width of parent model column */
+            max-width: none; /* Remove max-width restriction */
+            min-width: 0;
+            height: 80vh; /* Use viewport height instead of fixed height */
+            max-height: none; /* Remove max-height restriction */
+            aspect-ratio: 7/6; /* maintain aspect ratio for large models */
+            /* Remove background, border-radius, and box-shadow for no box effect */
+            margin: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border-radius: 0;
+            box-shadow: none;
+            overflow: hidden; /* Prevent model from overflowing container */
+        }
+        #live2d2, #live2d4 {
+            position: absolute;
+            top: 0; left: 0;
+            width: 600px;
+            height: 100%;
+            z-index: -1; /* Move model behind other UI elements */
+            transform: scale(2) translateX(-50px); /* Scale model larger and move 100px left (50px at 2x scale) */
+            transform-origin: center center; /* Scale from center */
+            image-rendering: -webkit-optimize-contrast; /* Webkit browsers */
+            filter: contrast(1.1) brightness(1.05) saturate(1.1); /* Enhance clarity */
+            -webkit-font-smoothing: antialiased;
+            cursor: pointer; /* Show pointer cursor for interaction */
+        }
+        #live2d4 {
+            /* Remove debug background and border */
+            background: none;
+            border: none;
+            z-index: -1; /* Move model behind other UI elements */
+            transform: scale(2) translateX(-50px); /* Scale model larger and move 100px left (50px at 2x scale) */
+            transform-origin: center center; /* Scale from center */
+            image-rendering: -webkit-optimize-contrast; /* Webkit browsers */
+            filter: contrast(1.1) brightness(1.05) saturate(1.1); /* Enhance clarity */
+            -webkit-font-smoothing: antialiased;
+            cursor: pointer; /* Show pointer cursor for interaction */
+        }
+        .canvas-overlay {
+            position: absolute;
+            top: 10px; left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            z-index: 2;
+        }
+        /* Center status bar and model selector horizontally in control column */
+        .status-and-selector {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1em;
+            margin-top: 1.2em;
+            margin-bottom: 0.5em;
+        }
+        .status-bar {
+            margin: 0;
+            text-align: center;
+            font-size: 1rem;
+        }
+        .model-selector {
+            margin: 0;
+            background: none;
+            box-shadow: none;
+            padding: 0;
+            text-align: left;
+        }
+        .model-selector label {
+            color: #333;
+            font-weight: 500;
+            margin-right: 0.5em;
+        }
+        .header {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .header h1 {
+            color: #333;
+            font-size: 2rem;
+            font-weight: 400;
+        }
+        .chat-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        #chat-window {
+            flex: 1;
+            background: #fff;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            margin-bottom: 1rem;
+            z-index: 5;
+            position: relative;
+        }
+        .debug-panel {
+            margin-top: 1.5rem;
+            background: #222;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            border-radius: 6px;
+            padding: 1rem;
+            min-height: 80px;
+            max-height: 180px;
+            overflow-y: auto;
+            display: none;
+        }
+        .debug-panel.visible { display: block; }
+        
+        /* Enhanced Debug UI Panel */
+        .debug-ui-panel {
+            margin-top: 1rem;
+            background: rgba(0, 0, 0, 0.9);
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            border-radius: 8px;
+            padding: 1rem;
+            border: 2px solid #333;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 5;
+            position: relative;
+        }
+        
+        .debug-header {
+            color: #00ffff;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            border-bottom: 1px solid #333;
+            padding-bottom: 0.3rem;
+        }
+        
+        .debug-section {
+            margin-bottom: 0.8rem;
+        }
+        
+        .debug-section h4 {
+            color: #ffff00;
+            margin: 0 0 0.3rem 0;
+            font-size: 0.9rem;
+        }
+        
+        .debug-item {
+            margin: 0.2rem 0;
+            padding-left: 1rem;
+        }
+        
+        .debug-status-ok { color: #00ff00; }
+        .debug-status-warn { color: #ffaa00; }
+        .debug-status-error { color: #ff0000; }
+        
+        .debug-log {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 0.5rem;
+            max-height: 120px;
+            overflow-y: auto;
+            font-size: 0.75rem;
+        }
+        
+        .debug-controls {
+            margin-top: 0.5rem;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .debug-btn {
+            background: #333;
+            color: #00ff00;
+            border: 1px solid #555;
+            border-radius: 3px;
+            padding: 0.3rem 0.6rem;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .debug-btn:hover {
+            background: #444;
+            border-color: #777;
+        }
+        /* Chat Message Styles */
+        .message {
+            margin-bottom: 1rem;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+        }
+        .message.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .message.user {
+            text-align: right;
+        }
+        .message.ai {
+            text-align: left;
+        }
+        .message.system {
+            text-align: center;
+            opacity: 0.7;
+        }
+        .message-content {
+            display: inline-block;
+            max-width: 85%;
+            padding: 0.75rem 1rem;
+            border-radius: 18px;
+            background: #f0f0f0;
+            color: #333;
+        }
+        .message.user .message-content {
+            background: #667eea;
+            color: white;
+        }
+        .message.ai .message-content {
+            background: #e8f0ff;
+            color: #333;
+        }
+        .message.system .message-content {
+            background: #ffeb3b;
+            color: #333;
+            font-size: 0.9rem;
+        }
+        .message.system.error .message-content {
+            background: #f44336;
+            color: white;
+        }
+        .message-header {
+            font-size: 0.8rem;
+            margin-bottom: 0.3rem;
+            opacity: 0.8;
+        }
+        .timestamp {
+            font-weight: normal;
+            margin-left: 0.5rem;
+        }
+        .message-text {
+            line-height: 1.4;
+        }
+        /* Input and Button Styles */
+        #user-input {
+            padding: 0.75rem 1rem;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+        #user-input:focus {
+            border-color: #667eea;
+        }
+        #send-button, #voice-button {
+            padding: 0.75rem 1.5rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        #send-button:hover, #voice-button:hover {
+            background: #5a6fd8;
+        }
+        /* Status Indicator */
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        .status-indicator.success { background: #4caf50; }
+        .status-indicator.error { background: #f44336; }
+        .status-indicator.info { background: #2196f3; }
+        /* Loading Spinner */
+        .loading-spinner {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            z-index: 3;
+        }
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        /* Live2D Waifu Widget Styles */
+        #waifu {
+            position: relative;
+            width: 100%;
+            height: 600px;
+            z-index: 1;
+        }
+        #waifu-message {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            max-width: 300px;
+            min-height: 40px;
+            padding: 8px 12px;
+            background-color: rgba(76,191,255,0.8);
+            color: white;
+            border-radius: 12px;
+            box-shadow: 0 3px 15px 2px rgba(16,51,49,0.3);
+            font-size: 14px;
+            line-height: 1.4;
+            z-index: 999;
+            display: none;
+            word-wrap: break-word;
+        }
+        .waifu-tool {
+            position: absolute;
+            top: 130px;
+            left: 10px;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 998;
+        }
+        #waifu:hover .waifu-tool {
+            display: flex;
+        }
+        .waifu-tool > span {
+            display: block;
+            width: 32px;
+            height: 32px;
+            background: rgba(0,150,255,0.8);
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 32px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 16px;
+        }
+        .waifu-tool > span:hover {
+            background: rgba(67,203,255,0.9);
+            transform: scale(1.1);
+        }
+        .waifu-tool > span.hide {
+            display: none;
+        }
+        #waifu.hide {
+            display: none;
+        }
+        /* Icon fonts for waifu tools */
+        .icon-next::before { content: "🔄"; }
+        .icon-home::before { content: "🏠"; }
+        .icon-message::before { content: "💬"; }
+        .icon-camera::before { content: "📷"; }
+        .icon-volumeup::before { content: "🔊"; }
+        .icon-volumedown::before { content: "🔉"; }
+        .icon-about::before { content: "🔍"; }
+        .icon-cross::before { content: "❌"; }
+    </style>
+</head>
+<body>
+<div class="main-layout">
+    <div class="model-column">
+        <div class="canvas-container">
+            <!-- Live2D Widget Structure Required by waifu-tips.js -->
+            <div id="waifu">
+                <div id="waifu-message"></div>
+                <div class="waifu-tool">
+                    <span class="icon-next" title="Switch Model"></span>
+                    <span class="icon-home" title="Home"></span>
+                    <span class="icon-message" title="Message"></span>
+                    <span class="icon-camera" title="Screenshot"></span>
+                    <span class="icon-volumeup" title="Volume Up"></span>
+                    <span class="icon-volumedown" title="Volume Down"></span>
+                    <span class="icon-about" title="Debug Motions"></span>
+                    <span class="icon-cross" title="Close"></span>
+                </div>
+                <canvas id="live2d2" width="800" height="600"></canvas>
+                <canvas id="live2d4" width="800" height="600"></canvas>
+            </div>
+            <div class="loading-spinner" id="loadingSpinner"></div>
+        </div>
+    </div>
+    <div class="control-column">
+        <div class="header"><h1>🤖 AI Companion Chat</h1></div>
+        <div class="chat-section">
+            <div id="chat-window"></div>
+            <div style="display:flex;gap:0.5em;margin-top:1em;">
+                <input type="text" id="user-input" placeholder="Type your message..." style="flex:1;" />
+                <button id="send-button">Send</button>
+                <button id="voice-button">🎤</button>
+            </div>
+        </div>
+        <div class="status-and-selector">
+            <div class="status-bar">
+                <span class="status-indicator info" id="statusIndicator"></span>
+                <span id="statusText">Ready</span>
+            </div>
+            <div class="model-selector">
+                <label for="modelSelect">Choose Avatar:</label>
+                <select id="modelSelect">
+                    <option value="kanade">Kanade (SDK 4)</option>
+                    <option value="v2_kanade">V2 Kanade (SDK 4)</option>
+                    <option value="miku">Miku (SDK 4)</option>
+                    <option value="miku_3">Miku 3 (SDK 4)</option>
+                    <option value="kuromi">Kuromi (SDK 4)</option>
+                    <option value="v2_saki_child">V2 Saki Child (SDK 4)</option>
+                </select>
+            </div>
+        </div>
+        <div class="debug-panel" id="debugPanel"></div>
+        
+        <!-- Enhanced Debug UI Panel -->
+        <div class="debug-ui-panel" id="debugUIPanel">
+            <div class="debug-header">🔍 Live2D Debug Console</div>
+            
+            <div class="debug-section">
+                <h4>System Status</h4>
+                <div class="debug-item" id="debug-sdk-status">SDK: <span class="debug-status-warn">Checking...</span></div>
+                <div class="debug-item" id="debug-model-status">Model: <span class="debug-status-warn">Loading...</span></div>
+                <div class="debug-item" id="debug-canvas-status">Canvas: <span class="debug-status-warn">Initializing...</span></div>
+            </div>
+            
+            <div class="debug-section">
+                <h4>Model Info</h4>
+                <div class="debug-item" id="debug-model-name">Name: <span id="debug-current-model">None</span></div>
+                <div class="debug-item" id="debug-motion-groups">Motion Groups: <span id="debug-motion-count">0</span></div>
+                <div class="debug-item" id="debug-last-motion">Last Motion: <span id="debug-last-motion-name">None</span></div>
+            </div>
+            
+            <div class="debug-section">
+                <h4>Real-time Log</h4>
+                <div class="debug-log" id="debug-realtime-log">
+                    Debug output will appear here...
+                </div>
+            </div>
+            
+            <div class="debug-controls">
+                <button class="debug-btn" onclick="window.debugRefreshStatus()" title="Refresh debug status">↻ Refresh</button>
+                <button class="debug-btn" onclick="window.debugTestMotion()" title="Test a random motion">🎭 Test Motion</button>
+                <button class="debug-btn" onclick="window.debugLogMotions()" title="Log available motions to console">📝 Log Motions</button>
+                <button class="debug-btn" onclick="window.debugClearLog()" title="Clear debug log">🗑 Clear Log</button>
+                <button class="debug-btn" onclick="window.debugToggleVerbose()" title="Toggle verbose logging">💬 Verbose</button>
+                <button class="debug-btn" onclick="window.testDebugUI()" title="Test if debug UI is working" style="background: #e91e63;">🧪 Test UI</button>
+                <button class="debug-btn" id="debug-load-default-model" style="display:none;background:#4caf50;color:white;" onclick="window.loadDefaultModel()" title="Load default model">📦 Load Default Model</button>
+            </div>
+            
+            <div class="debug-section">
+                <h4>Motion Testing</h4>
+                <div class="debug-controls" style="flex-wrap: wrap; gap: 0.25rem;">
+                    <button class="debug-btn" onclick="window.testBasicLive2D && window.testBasicLive2D(); window.debugLog && window.debugLog('🧪 Basic test executed');" title="Run basic Live2D test">🧪 Basic Test</button>
+                    <button class="debug-btn" onclick="window.debugLive2D && window.debugLive2D(); window.debugLog && window.debugLog('🔍 Debug executed');" title="Debug Live2D motions">🔍 Debug Motions</button>
+                    <button class="debug-btn" onclick="triggerRandomMotion(); window.debugLog && window.debugLog('🎭 Random motion triggered');" title="Trigger random motion">🎭 Random Motion</button>
+                    <button class="debug-btn" onclick="window.testAllMotions && window.testAllMotions(); window.debugLog && window.debugLog('🧪 Test all executed');" title="Test all available motions">🧪 Test All</button>
+                    <button class="debug-btn" onclick="window.live2dv4 && window.live2dv4.startMotion && window.live2dv4.startMotion('w-adult01-pose', 0); window.debugLog && window.debugLog('🎭 Pose test executed');" title="Test pose motion">🎭 Test Pose</button>
+                    <button class="debug-btn" onclick="window.live2dv4 && window.live2dv4.startMotion && window.live2dv4.startMotion('Tap', 0); window.debugLog && window.debugLog('👆 Tap test executed');" title="Test tap motion">👆 Test Tap</button>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+<script src="/static/js/live2d_config.js"></script>
+<script src="/static/dist/live2d_bundle.js"></script>
+<!-- <script type="module" src="/static/js/waifu-tips.js"></script> -->
+<script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+<script>
+// Global variables
+let currentModel = null;
+let lastInteractionTime = Date.now();
+
+// Debug system variables - initialize early to prevent "before initialization" errors
+let debugLogBuffer = [];
+let debugLastMotionName = null;
+let debugVerboseMode = false;
+const MAX_DEBUG_LOG_ENTRIES = 50;
+
+// DOM element references - declare early so they're available to all functions
+let modelInfo, statusText, statusIndicator, modelSelect, debugPanel, loadingSpinner;
+let chatWindow, userInput, sendButton, voiceButton;
+
+// Debug UI Elements
+let debugSDKStatus, debugModelStatus, debugCanvasStatus;
+let debugCurrentModel, debugMotionCount;
+let debugRealtimeLog;
+
+// Initialize DOM references after page loads
+function initDOMReferences() {
+    modelInfo = document.getElementById('statusText'); // Use statusText as modelInfo equivalent
+    statusText = document.getElementById('statusText');
+    statusIndicator = document.getElementById('statusIndicator');
+    modelSelect = document.getElementById('modelSelect');
+    debugPanel = document.getElementById('debugPanel');
+    loadingSpinner = document.getElementById('loadingSpinner');
+    chatWindow = document.getElementById('chat-window');
+    userInput = document.getElementById('user-input');
+    sendButton = document.getElementById('send-button');
+    voiceButton = document.getElementById('voice-button');
+}
+
+// --- PATCH: Ensure waifu-tips.json is loaded from the correct path ---
+if (window.live2d_settings) {
+    window.live2d_settings.tipsMessage = '/static/js/waifu-tips.json';
+    window.live2d_settings.modelUrl = '/static/assets';
+}
+if (window.live2d_models) {
+    // Patch model list to use correct configFile for kanade
+    for (const model of window.live2d_models) {
+        if (model.name === 'kanade' || model.name === 'v2_kanade') {
+            model.configFile = '17kanade_unit2_t04.model3.json';
+        }
+        if (model.name === 'miku') {
+            model.configFile = 'miku_t01.model3.json';
+        }
+        if (model.name === 'kuromi') {
+            model.configFile = 'sub_sanrio_kuromi_t10.model3.json';
+        }
+    }
+}
+// Patch waifu-tips.js loadModel to always use configFile if present
+if (window.live2dv4 && window.live2d_models) {
+    const origLoadModel = window.loadModel;
+    window.loadModel = function(modelName) {
+        const modelObj = window.live2d_models.find(m => m.name === modelName);
+        const configFile = modelObj && modelObj.configFile ? modelObj.configFile : `${modelName}.model3.json`;
+        window.live2dv4.load('live2d4', `/static/assets/${modelName}`, configFile);
+    };
+}
+
+// --- Live2D Model Path Fix ---
+function getModelJsonFile(modelName) {
+    // Map model names to their .model3.json files (actual file names)
+    const modelJsonMap = {
+        'kanade': '17kanade_unit2_t04.model3.json',
+        'v2_kanade': '17kanade_unit2_t04.model3.json',
+        'miku': 'miku_t01.model3.json',
+        'miku_3': 'miku_t01.model3.json',
+        'kuromi': 'sub_sanrio_kuromi_t10.model3.json',
+        'v2_saki_child': 'sub_sanrio_saki_child_t10.model3.json', // Assuming similar naming pattern
+        // Add more mappings as needed
+    };
+    // Only use fallback if mapping does not exist and the file actually exists
+    if (modelJsonMap[modelName]) {
+        return modelJsonMap[modelName];
+    } else {
+        // Optionally, check if the fallback file exists before returning it
+        return `${modelName}.model3.json`;
+    }
+}
+
+function loadModel(modelName) {
+    // Clear previous model first
+    if (currentModel && window.live2dv4) {
+        try {
+            // Proper model disposal to fix switching issues
+            window.live2dv4.release();
+            console.log(`🗑️ Released previous model: ${currentModel}`);
+        } catch (e) {
+            console.warn('Failed to release previous model:', e);
+        }
+    }
+    
+    // Do NOT hide both canvases here (fixes flashing/disappearing)
+    // Only set the correct canvas to display:block
+    const canvas2D = document.getElementById('live2d2');
+    const canvas4D = document.getElementById('live2d4');
+    // Always show SDK4 canvas for all current models
+    canvas4D.style.display = 'block';
+    canvas2D.style.display = 'none';
+    modelInfo.textContent = `Loading model: ${modelName}...`;
+    
+    // Save to localStorage as last used model
+    setLastUsedModel(modelName);
+    
+    // Use correct model JSON file from mapping
+    const modelJsonFile = getModelJsonFile(modelName);
+    const modelFolder = `/static/assets/${modelName}`;
+    console.log('[Live2D DEBUG] Loading model:', modelName, 'from', modelFolder, 'with JSON', modelJsonFile);
+    // Use Live2dOnWeb global API
+    if (window.live2dv4 && window.live2dv4.load) {
+        showLoadingSpinner();
+        let loadCompleted = false;
+        // Try to use callback if supported
+        try {
+            if (window.live2dv4.load.length >= 4) {
+                // load(canvasId, modelFolder, modelJsonFile, callback, options)
+                window.live2dv4.load('live2d4', modelFolder, modelJsonFile, function(success) {
+                    loadCompleted = true;
+                    hideLoadingSpinner();
+                    if (success) {
+                        // Removed all attempts to zoom/scale model here
+                        modelInfo.textContent = `Model loaded: ${modelName}`;
+                        statusText.textContent = 'Model loaded';
+                        statusIndicator.className = 'status-indicator success';
+                        currentModel = modelName;
+                        // Setup mouse tracking after successful load
+                        setTimeout(() => setupMouseTracking(), 500);
+                        // Start idle motion system
+                        setTimeout(() => startIdleMotionSystem(), 1000);
+                        // Debug model structure
+                        setTimeout(() => debugModelStructure(), 1500);
+                        // Log available motions
+                        setTimeout(() => logAvailableMotions(), 2000);
+                        // Auto-trigger debug display
+                        setTimeout(() => {
+                            console.log('🔍 Auto-triggering debug display...');
+                            if (window.debugLive2D) {
+                                window.debugLive2D();
+                            }
+                        }, 3000);
+                        
+                        // Test real motion names
+                        setTimeout(() => {
+                            console.log('🎭 Testing real model motions...');
+                            if (window.live2dv4 && window.live2dv4.startMotion) {
+                                // Test Kanade motions
+                                console.log('🎭 Trying w-adult01-pose (Kanade)...');
+                                let result = window.live2dv4.startMotion('w-adult01-pose', 0);
+                                console.log('🎭 w-adult01-pose result:', result);
+                                
+                                // If that didn't work, try Miku motions
+                                if (result === false || result === undefined) {
+                                    console.log('🎭 Trying Tap motion (Miku)...');
+                                    result = window.live2dv4.startMotion('Tap', 0);
+                                    console.log('🎭 Tap result:', result);
+                                }
+                                
+                                // If still no luck, try basic Idle
+                                if (result === false || result === undefined) {
+                                    console.log('🎭 Trying Idle motion...');
+                                    result = window.live2dv4.startMotion('Idle', 0);
+                                    console.log('🎭 Idle result:', result);
+                                }
+                            }
+                        }, 4000);
+                    } else {
+                        modelInfo.textContent = `Failed to load model: ${modelName}`;
+                        statusText.textContent = 'Model load failed';
+                        statusIndicator.className = 'status-indicator error';
+                        if (debugPanel) {
+                            debugPanel.innerText = `Failed to load model: ${modelName}`;
+                            debugPanel.classList.add('visible');
+                        }
+                        currentModel = null;
+                    }
+                }, { live2dHeight: 680, live2dWidth: 500 });
+                return;
+            }
+        } catch (e) {
+            // fallback to polling
+        }
+        // Fallback: poll for model load completion (max 10s)
+        let pollCount = 0;
+        const maxPolls = 100; // 10s at 100ms interval
+        const pollInterval = setInterval(() => {
+            pollCount++;
+            // Heuristic: check if live2dv4 reports model loaded
+            if (window.live2dv4 && window.live2dv4.isModelLoaded && window.live2dv4.isModelLoaded()) {
+                clearInterval(pollInterval);
+                hideLoadingSpinner();
+                modelInfo.textContent = `Model loaded: ${modelName}`;
+                statusText.textContent = 'Model loaded';
+                statusIndicator.className = 'status-indicator success';
+                currentModel = modelName;
+                // Setup mouse tracking after successful load
+                setTimeout(() => setupMouseTracking(), 500);
+                // Start idle motion system
+                setTimeout(() => startIdleMotionSystem(), 1000);
+                // Debug model structure
+                setTimeout(() => debugModelStructure(), 1500);
+                // Log available motions
+                setTimeout(() => logAvailableMotions(), 2000);
+            } else if (pollCount > maxPolls) {
+                clearInterval(pollInterval);
+                hideLoadingSpinner();
+                modelInfo.textContent = `Failed to load model: ${modelName}`;
+                statusText.textContent = 'Model load failed';
+                statusIndicator.className = 'status-indicator error';
+                if (debugPanel) {
+                    debugPanel.innerText = `Failed to load model: ${modelName}`;
+                    debugPanel.classList.add('visible');
+                }
+                currentModel = null;
+            }
+        }, 100);
+        // Start loading with options for fallback
+        window.live2dv4.load('live2d4', modelFolder, modelJsonFile, { live2dHeight: 680, live2dWidth: 500 });
+    } else {
+        modelInfo.textContent = 'Live2D SDK not loaded';
+        statusText.textContent = 'Live2D SDK not loaded';
+        statusIndicator.className = 'status-indicator error';
+        if (debugPanel) {
+            debugPanel.innerText = 'Live2D SDK not loaded. Check live2d_bundle.js.';
+            debugPanel.classList.add('visible');
+        }
+        return;
+    }
+}
+
+// Local storage functions for last used model
+function getLastUsedModel() {
+    try {
+        return localStorage.getItem('lastUsedModel');
+    } catch (e) {
+        return null;
+    }
+}
+
+function setLastUsedModel(modelName) {
+    try {
+        localStorage.setItem('lastUsedModel', modelName);
+    } catch (e) {
+        console.warn('Failed to save last used model to localStorage');
+    }
+}
+
+// Available models list (based on assets directory)
+const availableModels = ['kanade', 'kuromi', 'miku', 'miku_3', 'v2_kanade', 'v2_saki_child'];
+
+// Random model selection for waifu switch button
+function switchToRandomModel() {
+    // Filter out current model from available options
+    const otherModels = availableModels.filter(model => model !== currentModel);
+    
+    if (otherModels.length === 0) {
+        console.warn('No other models available to switch to');
+        return;
+    }
+    
+    // Select random model
+    const randomIndex = Math.floor(Math.random() * otherModels.length);
+    const randomModel = otherModels[randomIndex];
+    
+    console.log(`🔄 Switching from ${currentModel} to ${randomModel}`);
+    
+    // Update the dropdown selection to match
+    const modelSelect = document.getElementById('modelSelect');
+    if (modelSelect) {
+        modelSelect.value = randomModel;
+    }
+    
+    // Load the random model
+    loadModel(randomModel);
+}
+
+// Auto-load last used model or default on page load
+window.addEventListener('DOMContentLoaded', () => {
+    // Initialize DOM references first
+    initDOMReferences();
+    
+    initCanvas();
+    
+    // Setup mouse tracking for Live2D model
+    setupMouseTracking();
+    
+    // Setup waifu tool event handlers
+    setupWaifuToolHandlers();
+    
+    // Setup model selector change handler
+    modelSelect.addEventListener('change', () => {
+        const modelName = modelSelect.value;
+        if (modelName) {
+            loadModel(modelName);
+        } else {
+            clearModel();
+        }
+    });
+    
+    // Setup chat functionality event listeners
+    if (sendButton && userInput) {
+        sendButton.addEventListener('click', sendMessage);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                updateLastInteractionTime();
+                sendMessage();
+            }
+        });
+    } else {
+        console.warn('⚠️ Chat elements not found during initialization');
+    }
+    
+    // Try to load last used model, fallback to dropdown selection or default
+    const lastUsedModel = getLastUsedModel();
+    const defaultModel = modelSelect.value || 'kanade';
+    const modelToLoad = lastUsedModel || defaultModel;
+    
+    console.log(`📱 Loading model: ${modelToLoad} ${lastUsedModel ? '(last used)' : '(default)'}`);
+    
+    // Update dropdown to match loaded model
+    if (modelSelect && availableModels.includes(modelToLoad)) {
+        modelSelect.value = modelToLoad;
+    }
+    
+    loadModel(modelToLoad);
+});
+
+// Setup mouse tracking for Live2D model
+function setupMouseTracking() {
+    if (!window.live2dv4 || !currentModel) {
+        console.log('⚠️ Cannot setup mouse tracking: Live2D not ready');
+        return;
+    }
+    
+    const canvas = document.getElementById('live2d4');
+    if (!canvas) {
+        console.log('⚠️ Cannot setup mouse tracking: Canvas not found');
+        return;
+    }
+    
+    console.log('🖱️ Setting up mouse tracking for canvas');
+    
+    // Remove any existing listeners to avoid duplicates
+    canvas.removeEventListener('click', handleCanvasClick);
+    canvas.removeEventListener('mousemove', handleMouseMove);
+    canvas.removeEventListener('mouseleave', handleMouseLeave);
+    
+    // Add mouse event handlers
+    canvas.addEventListener('click', handleCanvasClick);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseleave', handleMouseLeave);
+    
+    console.log('🖱️ Mouse tracking enabled with head-centered tracking');
+    
+    // Start the idle motion system
+    startIdleMotionSystem();
+}
+
+// Handle mouse movement for Live2D tracking (centered on head)
+function handleMouseMove(e) {
+    if (!window.live2dv4 || !currentModel) return;
+    
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    // Calculate the actual head center based on canvas position and model transforms
+    // Model has: transform: scale(2) translateX(-50px)
+    // Canvas is 600px wide, model is scaled 2x and moved left by 50px (100px in original coords)
+    const canvasCenterX = rect.width / 2; // Center of canvas
+    const modelTranslateX = -50; // Model is translated left by 50px (at 2x scale)
+    const headCenterX = canvasCenterX + modelTranslateX; // Actual head center in canvas coordinates
+    const headCenterY = rect.height * 0.25; // Upper quarter for head position
+    
+    // Calculate offset from head center using canvas coordinates
+    const offsetX = (mouseX - headCenterX) / (rect.width * 0.3); // Tracking sensitivity
+    const offsetY = (mouseY - headCenterY) / (rect.height * 0.2); // Smaller vertical range
+    
+    // Clamp to reasonable range and invert X for correct direction
+    const normalizedX = -Math.max(-1, Math.min(1, offsetX)); // Negative to fix direction
+    const normalizedY = Math.max(-1, Math.min(1, offsetY));
+    
+    // Debug logging (enable to see coordinates)
+    console.log(`🖱️ Mouse: (${mouseX.toFixed(0)}, ${mouseY.toFixed(0)}), Head: (${headCenterX.toFixed(0)}, ${headCenterY.toFixed(0)}), Normalized: (${normalizedX.toFixed(2)}, ${normalizedY.toFixed(2)})`);
+    
+    // Apply mouse tracking to Live2D model
+    try {
+        if (window.live2dv4.setMousePosition) {
+            window.live2dv4.setMousePosition(normalizedX, normalizedY);
+        } else if (window.live2dv4._view && window.live2dv4._view.onTouchesMoved) {
+            // Alternative method for some Live2D implementations
+            window.live2dv4._view.onTouchesMoved([{x: normalizedX, y: normalizedY}]);
+        } else if (window.live2dv4.onMouseMove) {
+            window.live2dv4.onMouseMove(normalizedX, normalizedY);
+        }
+    } catch (error) {
+        console.error('Mouse tracking error:', error);
+    }
+}
+
+// Handle mouse leaving canvas
+function handleMouseLeave(e) {
+    if (!window.live2dv4 || !currentModel) return;
+    
+    // Reset to neutral position when mouse leaves
+    try {
+        if (window.live2dv4.setMousePosition) {
+            window.live2dv4.setMousePosition(0, 0);
+        } else if (window.live2dv4._view && window.live2dv4._view.onTouchesMoved) {
+            window.live2dv4._view.onTouchesMoved([{x: 0, y: 0}]);
+        } else if (window.live2dv4.onMouseMove) {
+            window.live2dv4.onMouseMove(0, 0);
+        }
+    } catch (error) {
+        // Silently handle errors
+    }
+}
+
+// Handle canvas clicks to trigger motions
+function handleCanvasClick(e) {
+    if (!window.live2dv4 || !currentModel) return;
+    
+    updateLastInteractionTime();
+    
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    
+    // Normalize click position
+    const normalizedX = clickX / rect.width;
+    const normalizedY = clickY / rect.height;
+    
+    console.log(`🖱️ Canvas clicked at (${clickX.toFixed(1)}, ${clickY.toFixed(1)})`);
+    
+    // Trigger different motions based on click location
+    if (normalizedY < 0.3) {
+        // Head area - trigger head/face related motions
+        triggerHeadAreaMotion();
+    } else if (normalizedY > 0.7) {
+        // Lower body area - trigger body motions
+        triggerBodyAreaMotion();
+    } else {
+        // Middle area - trigger general motions
+        triggerRandomMotion();
+    }
+    
+    // Show feedback message
+    showWaifuMessage('Thanks for the interaction! ✨', 1500);
+}
+
+function triggerHeadAreaMotion() {
+    const headMotions = [
+        // Real Kanade model head motions  
+        { group: 'w-adult01-nod', index: 0 },
+        { group: 'w-adult02-nod', index: 0 },
+        { group: 'w-adult05-nod', index: 0 },
+        { group: 'w-adult01-tilthead', index: 0 },
+        { group: 'w-adult02-tilthead', index: 0 },
+        { group: 'w-adult05-tilthead', index: 0 },
+        { group: 'w-adult01-think', index: 0 },
+        { group: 'w-adult05-think', index: 0 },
+        
+        // Generic fallbacks
+        { group: 'TapHead', index: 0 },
+        { group: 'tap_head', index: 0 },
+        { group: 'FlickHead', index: 0 },
+        { group: 'flick_head', index: 0 },
+        { group: 'Greeting', index: 0 },
+        { group: 'greeting', index: 0 },
+        { group: 'Special', index: 0 },
+        { group: 'special', index: 0 }
+    ];
+    
+    const motion = headMotions[Math.floor(Math.random() * headMotions.length)];
+    
+    try {
+        console.log(`🎭 Triggering head motion: ${motion.group}[${motion.index}]`);
+        
+        if (window.live2dv4.startMotion) {
+            const result = window.live2dv4.startMotion(motion.group, motion.index);
+            console.log(`🎭 Head motion result:`, result);
+        } else if (window.live2dv4._model && window.live2dv4._model.startMotion) {
+            const result = window.live2dv4._model.startMotion(motion.group, motion.index, 2);
+            console.log(`🎭 Head motion (_model) result:`, result);
+        }
+    } catch (error) {
+        console.warn('Failed to trigger head motion:', error);
+    }
+}
+
+function triggerBodyAreaMotion() {
+    const bodyMotions = [
+        // Real Kanade model body motions (these should work!)
+        { group: 'w-adult01-pose', index: 0 },
+        { group: 'w-adult02-pose', index: 0 },
+        { group: 'w-adult05-pose', index: 0 },
+        { group: 'w-adult01-shakehand', index: 0 },
+        
+        // Generic fallbacks
+        { group: 'TapBody', index: 0 },
+        { group: 'tap_body', index: 0 },
+        { group: 'Idle', index: 1 },
+        { group: 'Idle', index: 2 },
+        { group: 'idle', index: 1 },
+        { group: 'idle', index: 2 },
+        { group: 'Special', index: 1 },
+        { group: 'special', index: 1 },
+        { group: 'Touch', index: 0 },
+        { group: 'touch', index: 0 }
+    ];
+    
+    const motion = bodyMotions[Math.floor(Math.random() * bodyMotions.length)];
+    
+    try {
+        console.log(`🎭 Triggering body motion: ${motion.group}[${motion.index}]`);
+        
+        if (window.live2dv4.startMotion) {
+            const result = window.live2dv4.startMotion(motion.group, motion.index);
+            console.log(`🎭 Body motion result:`, result);
+        } else if (window.live2dv4._model && window.live2dv4._model.startMotion) {
+            const result = window.live2dv4._model.startMotion(motion.group, motion.index, 2);
+            console.log(`🎭 Body motion (_model) result:`, result);
+        }
+    } catch (error) {
+        console.warn('Failed to trigger body motion:', error);
+    }
+}
+
+// Mouse tracking functions removed
+
+function initCanvas() {
+    const canvasContainer = document.querySelector('.canvas-container');
+    if (!canvasContainer) {
+        console.warn('No .canvas-container found for canvas sizing');
+        return;
+    }
+    // Use fixed container dimensions instead of viewport-based sizing
+    const containerHeight = 800; // Fixed height to match CSS
+    const aspect = 7/6;
+    const containerWidth = Math.round(containerHeight * aspect);
+    
+    canvasContainer.style.width = containerWidth + 'px';
+    canvasContainer.style.height = containerHeight + 'px';
+    
+    const canvas2D = document.getElementById('live2d2');
+    const canvas4D = document.getElementById('live2d4');
+    // Set canvas size to match container
+    canvas2D.width = containerWidth;
+    canvas2D.height = containerHeight;
+    canvas4D.width = containerWidth;
+    canvas4D.height = containerHeight;
+    canvas2D.style.width = '100%';
+    canvas2D.style.height = '100%';
+    canvas4D.style.width = '100%';
+    canvas4D.style.height = '100%';
+    // Removed all attempts to scale/zoom model here
+}
+
+function loadSelectedModel() {
+    const modelName = modelSelect.value;
+    if (!modelName) {
+        alert('Please select a model to load.');
+        return;
+    }
+    loadModel(modelName);
+}
+
+function clearModel() {
+    // Stop idle motion system
+    stopIdleMotionSystem();
+    
+    const canvas2D = document.getElementById('live2d2');
+    const canvas4D = document.getElementById('live2d4');
+    canvas2D.getContext('2d').clearRect(0, 0, canvas2D.width, canvas2D.height);
+    canvas4D.getContext('2d').clearRect(0, 0, canvas4D.width, canvas4D.height);
+    // Only hide both canvases when explicitly clearing
+    canvas2D.style.display = 'none';
+    canvas4D.style.display = 'none';
+    currentModel = null;
+    modelInfo.textContent = 'No model loaded';
+    statusText.textContent = 'Model cleared';
+    statusIndicator.className = 'status-indicator info';
+}
+
+function handleEmotionalResponse(personalityState, animationTriggers) {
+    if (!window.live2dv4 || !currentModel) {
+        console.log('⚠️ No Live2D model loaded for emotion animation');
+        debugLog('⚠️ No Live2D model for emotion animation', 'warn');
+        return;
+    }
+    
+    const { primary_emotion, intensity, emotion_tags } = animationTriggers;
+    const { bonding_level, emotional_state, energy_level } = personalityState;
+    
+    debugLog(`🎭 Emotion: ${primary_emotion} (${(intensity * 100).toFixed(0)}%)`);
+    debugLog(`💝 Bonding: ${bonding_level.toFixed(2)}, Energy: ${energy_level.toFixed(2)}`);
+    
+    // Map emotions to Live2D animations
+    const emotionAnimationMap = {
+        // High-energy positive emotions
+        'excited': { expression: 'happy', motion: 'wave', intensity: 1.0 },
+        'ecstatic': { expression: 'happy', motion: 'wave', intensity: 1.0 },
+        'thrilled': { expression: 'happy', motion: 'wave', intensity: 1.0 },
+        
+        // Moderate positive emotions
+        'happy': { expression: 'happy', motion: 'idle', intensity: 0.8 },
+        'joyful': { expression: 'happy', motion: 'idle', intensity: 0.9 },
+        'cheerful': { expression: 'happy', motion: 'idle', intensity: 0.7 },
+        
+        // Surprise/wonder emotions
+        'surprised': { expression: 'surprised', motion: 'tap_head', intensity: 0.9 },
+        'amazed': { expression: 'surprised', motion: 'tap_head', intensity: 0.8 },
+        'curious': { expression: 'neutral', motion: 'idle', intensity: 0.4 },
+        
+        // Empathetic/caring emotions
+        'empathetic': { expression: 'sad', motion: 'idle', intensity: 0.6 },
+        'supportive': { expression: 'neutral', motion: 'idle', intensity: 0.5 },
+        'caring': { expression: 'neutral', motion: 'idle', intensity: 0.5 },
+        
+        // Sad/melancholy emotions
+        'sad': { expression: 'sad', motion: 'idle', intensity: 0.4 },
+        'disappointed': { expression: 'sad', motion: 'idle', intensity: 0.5 },
+        
+        // Default/neutral
+        'neutral': { expression: 'neutral', motion: 'idle', intensity: 0.3 },
+        'thinking': { expression: 'neutral', motion: 'idle', intensity: 0.3 }
+    };
+    
+    // Get animation config for primary emotion
+    const animConfig = emotionAnimationMap[primary_emotion] || emotionAnimationMap['neutral'];
+    
+    // Adjust intensity based on bonding level and energy
+    const finalIntensity = Math.min(
+        intensity * (bonding_level / 10.0 + 0.3) * energy_level,
+        1.0
+    );
+    
+    // Apply the animation
+    triggerEmotionAnimation(animConfig, finalIntensity, emotion_tags);
+    
+    // Log the animation trigger
+    console.log(`🎭 Triggering ${primary_emotion} animation:`, {
+        expression: animConfig.expression,
+        motion: animConfig.motion,
+        intensity: finalIntensity.toFixed(2),
+        bondLevel: bonding_level,
+        energyLevel: energy_level
+    });
+    
+    // Log to debug UI
+    debugLog(`🎭 Animation: ${animConfig.motion || 'default'} for ${primary_emotion}`);
+    debugLog(`📊 Intensity: ${(finalIntensity * 100).toFixed(0)}%, Bond: ${bonding_level.toFixed(1)}`);
+}
+
+function triggerEmotionAnimation(animConfig, intensity, emotionTags) {
+    if (!window.live2dv4 || !currentModel) return;
+    
+    debugLog(`🎭 Triggering emotion animation: ${animConfig.motion || 'none'}`);
+    
+    try {
+        // Set facial expression
+        if (animConfig.expression && animConfig.expression !== 'neutral') {
+            triggerExpressionByName(animConfig.expression);
+            debugLog(`😊 Expression: ${animConfig.expression}`);
+        }
+        
+        // Trigger motion if specified
+        if (animConfig.motion && animConfig.motion !== 'idle') {
+            triggerMotionByName(animConfig.motion);
+            debugLog(`🎬 Motion: ${animConfig.motion}`);
+            
+            // Update last motion in debug UI
+            if (debugLastMotionName) {
+                debugLastMotionName.textContent = `${animConfig.motion} (emotion)`;
+            }
+        } else if (intensity > 0.6) {
+            // High intensity emotions trigger random motion
+            debugLog(`⚡ High intensity (${(intensity * 100).toFixed(0)}%) - triggering random motion`);
+            triggerRandomMotion();
+        }
+        
+        // Handle special emotion combinations
+        if (emotionTags.includes('excited') && emotionTags.includes('happy')) {
+            // Double positive emotions = extra animation
+            setTimeout(() => {
+                if (window.live2dv4 && currentModel) {
+                    triggerRandomMotion();
+                }
+            }, 1500);
+        }
+        
+        // Automatic return to neutral after animation
+        setTimeout(() => {
+            if (window.live2dv4 && currentModel) {
+                resetToNeutralExpression();
+            }
+        }, 3000 + (intensity * 2000)); // Longer display for higher intensity
+        
+    } catch (error) {
+        console.error('Error triggering emotion animation:', error);
+    }
+}
+
+// Animation trigger functions for Live2D expressions and motions
+function triggerExpressionByName(expressionName) {
+    if (!window.live2dv4 || !currentModel) return;
+    
+    try {
+        // Map expression names to Live2D expression indices or IDs
+        const expressionMap = {
+            'happy': 0,
+            'surprised': 1, 
+            'sad': 2,
+            'angry': 3,
+            'neutral': -1  // Default expression
+        };
+        
+        const expressionId = expressionMap[expressionName];
+        if (expressionId !== undefined && expressionId >= 0) {
+            window.live2dv4.setExpression(expressionId);
+            console.log(`🎭 Set expression: ${expressionName} (ID: ${expressionId})`);
+        }
+    } catch (error) {
+        console.warn('Failed to set expression:', error);
+    }
+}
+
+function triggerMotionByName(motionName) {
+    if (!window.live2dv4 || !currentModel) return;
+    
+    try {
+        // Map motion names to Live2D motion groups or specific motions
+        const motionMap = {
+            'wave': 'greeting',
+            'nod': 'affirmation',
+            'shake': 'negation',
+            'bow': 'greeting',
+            'dance': 'happy',
+            'idle': 'idle'
+        };
+        
+        const motionGroup = motionMap[motionName] || 'idle';
+        window.live2dv4.startMotion(motionGroup, 0); // Start first motion in group
+        console.log(`🎭 Triggered motion: ${motionName} (group: ${motionGroup})`);
+    } catch (error) {
+        console.warn('Failed to trigger motion:', error);
+    }
+}
+
+// Random motion triggering system - Enhanced with multiple API approaches
+function triggerRandomMotion() {
+    if (!window.live2dv4 || !currentModel) return;
+    
+    try {
+        console.log('🎭 === ATTEMPTING TO TRIGGER RANDOM MOTION ===');
+        debugLog('🎭 Triggering random motion...');
+        
+        // Get available motions with enhanced detection
+        const availableMotions = getAvailableMotions();
+        const randomMotion = availableMotions[Math.floor(Math.random() * availableMotions.length)];
+        
+        console.log(`🎭 Selected motion: ${randomMotion.group}[${randomMotion.index}]`);
+        debugLog(`🎲 Selected: ${randomMotion.group}[${randomMotion.index}]`);
+        
+        // Update last motion in debug UI
+        if (debugLastMotionName) {
+            debugLastMotionName.textContent = `${randomMotion.group}[${randomMotion.index}]`;
+        }
+        
+        // Method 1: Try direct startMotion
+        if (window.live2dv4.startMotion && typeof window.live2dv4.startMotion === 'function') {
+            console.log('🎭 Trying startMotion...');
+            const result = window.live2dv4.startMotion(randomMotion.group, randomMotion.index);
+            console.log('🎭 startMotion result:', result);
+            if (result !== false) {
+                debugLog(`✅ Motion triggered: ${randomMotion.group}[${randomMotion.index}]`);
+                return true;
+            }
+        }
+        
+        // Method 2: Try with priority parameter
+        if (window.live2dv4.startMotion && typeof window.live2dv4.startMotion === 'function') {
+            console.log('🎭 Trying startMotion with priority...');
+            const result = window.live2dv4.startMotion(randomMotion.group, randomMotion.index, 2);
+            console.log('🎭 startMotion with priority result:', result);
+            if (result !== false) return true;
+        }
+        
+        // Method 3: Try _model.startMotion
+        if (window.live2dv4._model && window.live2dv4._model.startMotion) {
+            console.log('🎭 Trying _model.startMotion...');
+            const result = window.live2dv4._model.startMotion(randomMotion.group, randomMotion.index, 2);
+            console.log('🎭 _model.startMotion result:', result);
+            if (result !== false) return true;
+        }
+        
+        // Method 4: Try startRandomMotion
+        if (window.live2dv4.startRandomMotion && typeof window.live2dv4.startRandomMotion === 'function') {
+            console.log('🎭 Trying startRandomMotion...');
+            const result = window.live2dv4.startRandomMotion(randomMotion.group, 2);
+            console.log('🎭 startRandomMotion result:', result);
+            if (result !== false) return true;
+        }
+        
+        // Method 5: Try motion manager directly
+        if (window.live2dv4._model && window.live2dv4._model._motionManager) {
+            const motionMgr = window.live2dv4._model._motionManager;
+            console.log('🎭 Trying motion manager methods...');
+            
+            if (motionMgr.startMotionPriority && typeof motionMgr.startMotionPriority === 'function') {
+                console.log('🎭 Trying motionManager.startMotionPriority...');
+                const result = motionMgr.startMotionPriority(randomMotion.group, randomMotion.index, 2);
+                console.log('🎭 startMotionPriority result:', result);
+                if (result !== false) return true;
+            }
+            
+            if (motionMgr.startMotion && typeof motionMgr.startMotion === 'function') {
+                console.log('🎭 Trying motionManager.startMotion...');
+                const result = motionMgr.startMotion(randomMotion.group, randomMotion.index);
+                console.log('🎭 motionManager.startMotion result:', result);
+                if (result !== false) return true;
+            }
+        }
+        
+        // Method 6: Force trigger with available API methods
+        console.log('🎭 Trying force trigger...');
+        return forceMotionTrigger(randomMotion);
+        
+    } catch (error) {
+        console.error('🎭 Failed to trigger random motion:', error);
+        return false;
+    }
+}
+
+// Force motion trigger using any available method
+function forceMotionTrigger(motion) {
+    try {
+        // Try all possible API calls
+        const apiCalls = [
+            () => window.live2dv4?.startMotion?.(motion.group, motion.index),
+            () => window.live2dv4?.startMotion?.(motion.group, motion.index, 2),
+            () => window.live2dv4?._model?.startMotion?.(motion.group, motion.index, 2),
+            () => window.live2dv4?.startRandomMotion?.(motion.group, 2),
+            () => window.live2dv4?._model?._motionManager?.startMotionPriority?.(motion.group, motion.index, 2),
+            () => window.live2dv4?._model?._motionManager?.startMotion?.(motion.group, motion.index),
+            // Try common motion names as fallback
+            () => window.live2dv4?.startMotion?.('Idle', 0),
+            () => window.live2dv4?.startMotion?.('idle', 0),
+            () => window.live2dv4?.startMotion?.('TapBody', 0),
+            () => window.live2dv4?.startMotion?.('tap_body', 0)
+        ];
+        
+        for (let i = 0; i < apiCalls.length; i++) {
+            try {
+                const result = apiCalls[i]();
+                if (result !== false && result !== undefined) {
+                    console.log(`🎭 Force trigger succeeded with method ${i + 1}:`, result);
+                    return true;
+                }
+            } catch (e) {
+                // Continue to next method
+            }
+        }
+        
+        console.warn('🎭 All force trigger methods failed');
+        return false;
+    } catch (error) {
+        console.error('🎭 Force motion trigger error:', error);
+        return false;
+    }
+}
+
+function tryDirectModelMotionTrigger() {
+    try {
+        if (window.live2dv4._model) {
+            const model = window.live2dv4._model;
+            console.log('🎭 Available model methods:', Object.keys(model));
+            
+            // Try different motion triggering approaches
+            const motionMethods = [
+                'startMotion',
+                'startRandomMotion', 
+                'setRandomExpression',
+                'startMotionByGroup',
+                'playMotion'
+            ];
+            
+            for (const method of motionMethods) {
+                if (typeof model[method] === 'function') {
+                    console.log(`🎭 Found method: ${method}`);
+                    try {
+                        if (method === 'startRandomMotion') {
+                            model[method]('Idle', 2);
+                        } else if (method === 'startMotion') {
+                            model[method]('Idle', 0, 2);
+                        } else {
+                            model[method]();
+                        }
+                        console.log(`🎭 Successfully called ${method}`);
+                        break;
+                    } catch (e) {
+                        console.log(`🎭 ${method} failed:`, e.message);
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        console.warn('🎭 Direct model motion trigger failed:', error);
+    }
+}
+
+function getAvailableMotions() {
+    // Try to inspect the actual model for available motions
+    if (window.live2dv4 && window.live2dv4._model) {
+        try {
+            // Log model structure to debug
+            console.log('🔍 Inspecting Live2D model for motions:', window.live2dv4._model);
+            
+            // Try different ways to get motion information
+            const model = window.live2dv4._model;
+            
+            // Check if model has motion manager
+            if (model._motionManager || model.motionManager) {
+                const motionMgr = model._motionManager || model.motionManager;
+                console.log('🎭 Found motion manager:', motionMgr);
+            }
+            
+            // Check if model has settings
+            if (model._modelSetting || model.modelSetting) {
+                const settings = model._modelSetting || model.modelSetting;
+                console.log('🎭 Found model settings:', settings);
+                
+                // Try to get motion group names
+                if (settings.getMotionGroupCount && settings.getMotionGroupName) {
+                    const motions = [];
+                    const groupCount = settings.getMotionGroupCount();
+                    console.log(`🎭 Found ${groupCount} motion groups`);
+                    
+                    for (let i = 0; i < groupCount; i++) {
+                        const groupName = settings.getMotionGroupName(i);
+                        const motionCount = settings.getMotionCount(groupName);
+                        console.log(`🎭 Group "${groupName}" has ${motionCount} motions`);
+                        
+                        for (let j = 0; j < motionCount; j++) {
+                            motions.push({ group: groupName, index: j });
+                        }
+                    }
+                    
+                    if (motions.length > 0) {
+                        console.log('🎭 Using actual model motions:', motions);
+                        return motions;
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('🎭 Error inspecting model motions:', error);
+        }
+    }
+    
+    // Enhanced fallback with comprehensive motion list including body/arm movements
+    const commonMotionGroups = [
+        // === REAL KANADE MODEL MOTIONS ===
+        // Body poses (visible movement)
+        { group: 'w-adult01-pose', index: 0 },
+        { group: 'w-adult02-pose', index: 0 },
+        { group: 'w-adult05-pose', index: 0 },
+        
+        // Hand/arm movements
+        { group: 'w-adult01-shakehand', index: 0 },
+        
+        // Head movements
+        { group: 'w-adult01-nod', index: 0 },
+        { group: 'w-adult02-nod', index: 0 },
+        { group: 'w-adult05-nod', index: 0 },
+        { group: 'w-adult01-tilthead', index: 0 },
+        { group: 'w-adult02-tilthead', index: 0 },
+        { group: 'w-adult05-tilthead', index: 0 },
+        
+        // Thinking animations
+        { group: 'w-adult01-think', index: 0 },
+        { group: 'w-adult05-think', index: 0 },
+        
+        // Emotional expressions  
+        { group: 'w-adult01-blushed', index: 0 },
+        { group: 'w-adult02-blushed', index: 0 },
+        { group: 'w-adult05-blushed', index: 0 },
+        { group: 'w-adult11-blushed03', index: 0 },
+        { group: 'w-adult02-glad', index: 0 },
+        { group: 'w-adult02-delicious', index: 0 },
+        { group: 'w-adult11-delicious02', index: 0 },
+        { group: 'w-adult02-trouble', index: 0 },
+        { group: 'w-adult05-trouble', index: 0 },
+        
+        // === REAL MIKU MODEL MOTIONS ===
+        { group: 'Tap', index: 0 },
+        { group: 'Tap', index: 1 }, 
+        { group: 'Tap', index: 2 },
+        { group: 'Flick', index: 0 },
+        { group: 'Flick', index: 1 },
+        { group: 'Flick', index: 2 },
+        { group: 'Flick3', index: 0 },
+        { group: 'Idle', index: 0 },
+        
+        // === GENERIC FALLBACKS (for other models) ===
+        // Standard idle motions
+        { group: 'Idle', index: 1 },
+        { group: 'Idle', index: 2 },
+        { group: 'Idle', index: 3 },
+        { group: 'idle', index: 0 },
+        { group: 'idle', index: 1 },
+        { group: 'idle', index: 2 },
+        { group: 'idle', index: 3 },
+        
+        // === BODY INTERACTION MOTIONS ===
+        { group: 'TapBody', index: 0 },
+        { group: 'TapBody', index: 1 },
+        { group: 'TapBody', index: 2 },
+        { group: 'tap_body', index: 0 },
+        { group: 'tap_body', index: 1 },
+        { group: 'tap_body', index: 2 },
+        
+        // === ARM/HAND MOTIONS ===
+        { group: 'TapArm', index: 0 },
+        { group: 'tap_arm', index: 0 },
+        { group: 'Wave', index: 0 },
+        { group: 'wave', index: 0 },
+        { group: 'Hand', index: 0 },
+        { group: 'hand', index: 0 },
+        
+        // === HEAD MOTIONS ===
+        { group: 'TapHead', index: 0 },
+        { group: 'TapHead', index: 1 },
+        { group: 'tap_head', index: 0 },
+        { group: 'tap_head', index: 1 },
+        
+        // === GREETING & INTERACTION ===
+        { group: 'Greeting', index: 0 },
+        { group: 'Greeting', index: 1 },
+        { group: 'greeting', index: 0 },
+        { group: 'greeting', index: 1 },
+        
+        // === SPECIAL ANIMATIONS ===
+        { group: 'Special', index: 0 },
+        { group: 'Special', index: 1 },
+        { group: 'Special', index: 2 },
+        { group: 'special', index: 0 },
+        { group: 'special', index: 1 },
+        { group: 'special', index: 2 },
+        
+        // === TOUCH INTERACTIONS ===
+        { group: 'Touch', index: 0 },
+        { group: 'Touch', index: 1 },
+        { group: 'touch', index: 0 },
+        { group: 'touch', index: 1 },
+        
+        // === FLICK GESTURES ===
+        { group: 'FlickHead', index: 0 },
+        { group: 'flick_head', index: 0 },
+        { group: 'FlickBody', index: 0 },
+        { group: 'flick_body', index: 0 },
+        
+        // === PINCH GESTURES ===
+        { group: 'PinchIn', index: 0 },
+        { group: 'PinchOut', index: 0 },
+        { group: 'pinch_in', index: 0 },
+        { group: 'pinch_out', index: 0 },
+        
+        // === EMOTIONAL MOTIONS ===
+        { group: 'Happy', index: 0 },
+        { group: 'happy', index: 0 },
+        { group: 'Sad', index: 0 },
+        { group: 'sad', index: 0 },
+        { group: 'Angry', index: 0 },
+        { group: 'angry', index: 0 },
+        { group: 'Surprised', index: 0 },
+        { group: 'surprised', index: 0 },
+        
+        // === MOVEMENT MOTIONS ===
+        { group: 'Move', index: 0 },
+        { group: 'move', index: 0 },
+        { group: 'Dance', index: 0 },
+        { group: 'dance', index: 0 },
+        { group: 'Action', index: 0 },
+        { group: 'action', index: 0 }
+    ];
+    
+    console.log('🎭 Using enhanced fallback motions:', commonMotionGroups.length, 'motions available');
+    return commonMotionGroups;
+}
+
+// Automatic idle motion system
+let idleMotionInterval = null;
+let blinkInterval = null;
+
+function startIdleMotionSystem() {
+    // Clear existing intervals
+    if (idleMotionInterval) {
+        clearInterval(idleMotionInterval);
+    }
+    if (blinkInterval) {
+        clearInterval(blinkInterval);
+    }
+    
+    console.log('🎭 Starting aggressive idle motion system...');
+    
+    // Start eye blinking system
+    startBlinkingSystem();
+    
+    // Immediately trigger a body/idle motion after model load (multiple attempts)
+    setTimeout(() => {
+        console.log('🎭 First body motion attempt...');
+        triggerBodyIdleMotion();
+    }, 500);
+    
+    setTimeout(() => {
+        console.log('🎭 Second body motion attempt...');
+        triggerBodyIdleMotion();
+    }, 1500);
+    
+    setTimeout(() => {
+        console.log('🎭 Third body motion attempt...');
+        triggerBodyIdleMotion();
+    }, 3000);
+    
+    // Start new interval - check every 2 seconds for idle motion
+    idleMotionInterval = setInterval(() => {
+        const timeSinceLastInteraction = Date.now() - lastInteractionTime;
+        
+        // If no interaction for 3+ seconds, trigger body/arm motion
+        if (timeSinceLastInteraction > 3000 && currentModel) {
+            console.log('🎭 Interval body motion trigger...');
+            triggerBodyIdleMotion();
+        }
+    }, 2000); // Fixed 2-second intervals
+    
+    console.log('🎭 Aggressive idle motion system started with body/arm motions');
+}
+
+// Eye blinking system for more lifelike animation
+function startBlinkingSystem() {
+    console.log('👁️ Starting eye blinking system...');
+    
+    // Schedule random blinks every 2-4 seconds
+    function scheduleNextBlink() {
+        const delay = 2000 + Math.random() * 2000; // 2-4 seconds
+        blinkInterval = setTimeout(() => {
+            triggerBlink();
+            scheduleNextBlink();
+        }, delay);
+    }
+    
+    scheduleNextBlink();
+}
+
+function triggerBlink() {
+    if (!window.live2dv4 || !currentModel) return;
+    
+    try {
+        // Try different blinking methods
+        if (window.live2dv4.setExpression) {
+            // Quick blink by setting expression
+            window.live2dv4.setExpression('blink');
+            setTimeout(() => {
+                window.live2dv4.setExpression('normal');
+            }, 150);
+        } else if (window.live2dv4._model && window.live2dv4._model.setExpression) {
+            window.live2dv4._model.setExpression('blink');
+            setTimeout(() => {
+                window.live2dv4._model.setExpression('normal');
+            }, 150);
+        } else if (window.live2dv4.startMotion) {
+            // Try blink motion - many models have this
+            window.live2dv4.startMotion('Blink', 0);
+        }
+    } catch (error) {
+        // Silently handle blink errors
+    }
+}
+
+function stopIdleMotionSystem() {
+    if (idleMotionInterval) {
+        clearInterval(idleMotionInterval);
+        idleMotionInterval = null;
+        console.log('🎭 Idle motion system stopped');
+    }
+    if (blinkInterval) {
+        clearInterval(blinkInterval);
+        blinkInterval = null;
+        console.log('👁️ Eye blinking system stopped');
+    }
+}
+
+function triggerBodyIdleMotion() {
+    if (!window.live2dv4 || !currentModel) return;
+    
+    console.log('🎭 === FORCING BODY IDLE MOTION ===');
+    
+    try {
+        // Force trigger the most basic body motions that should exist
+        const basicBodyMotions = [
+            // Real Kanade model motions (these should definitely work!)
+            { group: 'w-adult01-pose', index: 0 },
+            { group: 'w-adult02-pose', index: 0 },
+            { group: 'w-adult05-pose', index: 0 },
+            { group: 'w-adult01-nod', index: 0 },
+            { group: 'w-adult02-nod', index: 0 },
+            { group: 'w-adult01-shakehand', index: 0 },
+            { group: 'w-adult01-think', index: 0 },
+            
+            // Generic fallbacks
+            { group: 'Idle', index: 1 },
+            { group: 'Idle', index: 2 },
+            { group: 'idle', index: 1 },
+            { group: 'idle', index: 2 },
+            { group: 'TapBody', index: 0 },
+            { group: 'tap_body', index: 0 },
+            { group: 'Special', index: 1 },
+            { group: 'special', index: 1 }
+        ];
+        
+        const randomMotion = basicBodyMotions[Math.floor(Math.random() * basicBodyMotions.length)];
+        
+        console.log(`🎭 FORCE Triggering body motion: ${randomMotion.group}[${randomMotion.index}]`);
+        
+        // Try the most direct approaches first
+        if (window.live2dv4.startMotion) {
+            const result = window.live2dv4.startMotion(randomMotion.group, randomMotion.index);
+            console.log(`🎭 Direct startMotion result:`, result);
+            if (result !== false) return true;
+        }
+        
+        if (window.live2dv4._model && window.live2dv4._model.startMotion) {
+            const result = window.live2dv4._model.startMotion(randomMotion.group, randomMotion.index, 2);
+            console.log(`🎭 _model.startMotion result:`, result);
+            if (result !== false) return true;
+        }
+        
+        // Force trigger any motion if body motions fail
+        console.log('🎭 Body motions failed, trying any motion...');
+        if (window.live2dv4.startMotion) {
+            window.live2dv4.startMotion('Idle', 0);
+        }
+        
+        return true;
+        
+    } catch (error) {
+        console.warn('Failed to trigger body idle motion:', error);
+        return false;
+    }
+}
+
+// Debug function to log available motions
+function logAvailableMotions() {
+    console.log('🔍 === COMPREHENSIVE MOTION DEBUG ===');
+    
+    if (!window.live2dv4) {
+        console.log('❌ window.live2dv4 not available');
+        return;
+    }
+    
+    console.log('✅ window.live2dv4 available:', window.live2dv4);
+    console.log('🔍 Live2D methods:', Object.keys(window.live2dv4));
+    
+    if (!window.live2dv4._model) {
+        console.log('❌ window.live2dv4._model not available');
+        return;
+    }
+    
+    console.log('✅ window.live2dv4._model available:', window.live2dv4._model);
+    console.log('🔍 Model methods:', Object.keys(window.live2dv4._model));
+    
+    const settings = window.live2dv4._model._modelSetting;
+    if (settings && settings.getMotionGroupCount && settings.getMotionGroupName && settings.getMotionCount) {
+        console.log('🎭 === AVAILABLE MOTION GROUPS ===');
+        const groupCount = settings.getMotionGroupCount();
+        console.log(`Total motion groups: ${groupCount}`);
+        
+        for (let i = 0; i < groupCount; i++) {
+            const groupName = settings.getMotionGroupName(i);
+            const motionCount = settings.getMotionCount(groupName);
+            console.log(`📁 Group: "${groupName}" (${motionCount} motions)`);
+            for (let j = 0; j < motionCount; j++) {
+                console.log(`  ⚡ ${groupName}[${j}]`);
+            }
+        }
+        console.log('🎭 === END MOTION GROUPS ===');
+        
+        // Test trigger first available motion
+        if (groupCount > 0) {
+            const firstGroup = settings.getMotionGroupName(0);
+            console.log(`🧪 Testing first motion: ${firstGroup}[0]`);
+            testSingleMotion(firstGroup, 0);
+        }
+    } else {
+        console.warn('❌ Could not access model settings to log motions');
+        console.log('🔍 Available on _model:', Object.keys(window.live2dv4._model));
+        if (window.live2dv4._model._modelSetting) {
+            console.log('🔍 Available on _modelSetting:', Object.keys(window.live2dv4._model._modelSetting));
+        }
+    }
+}
+
+// Test a single motion with all possible methods
+function testSingleMotion(group, index) {
+    console.log(`🧪 === TESTING MOTION ${group}[${index}] ===`);
+    
+    // Method 1: Direct startMotion
+    try {
+        if (window.live2dv4.startMotion) {
+            console.log('🧪 Method 1: window.live2dv4.startMotion');
+            const result1 = window.live2dv4.startMotion(group, index);
+            console.log(`   Result:`, result1);
+        }
+    } catch (e) {
+        console.log('   Failed:', e.message);
+    }
+    
+    // Method 2: Model startMotion
+    try {
+        if (window.live2dv4._model && window.live2dv4._model.startMotion) {
+            console.log('🧪 Method 2: window.live2dv4._model.startMotion');
+            const result2 = window.live2dv4._model.startMotion(group, index, 2);
+            console.log(`   Result:`, result2);
+        }
+    } catch (e) {
+        console.log('   Failed:', e.message);
+    }
+    
+    // Method 3: Motion manager
+    try {
+        if (window.live2dv4._model && window.live2dv4._model._motionManager) {
+            console.log('🧪 Method 3: window.live2dv4._model._motionManager.startMotionPriority');
+            const result3 = window.live2dv4._model._motionManager.startMotionPriority(group, index, 2);
+            console.log(`   Result:`, result3);
+        }
+    } catch (e) {
+        console.log('   Failed:', e.message);
+    }
+    
+    console.log(`🧪 === END TEST ${group}[${index}] ===`);
+}
+
+// Test ALL available motions to see which ones actually work
+window.testAllMotions = function() {
+    if (!window.live2dv4 || !window.live2dv4._model) {
+        console.log('❌ Live2D model not available');
+        return;
+    }
+    
+    const settings = window.live2dv4._model._modelSetting;
+    if (!settings || !settings.getMotionGroupCount) {
+        console.log('❌ Model settings not available');
+        return;
+    }
+    
+    console.log('🧪 === TESTING ALL MOTIONS ===');
+    const groupCount = settings.getMotionGroupCount();
+    
+    let testIndex = 0;
+    const allTests = [];
+    
+    // Collect all motions to test
+    for (let i = 0; i < groupCount; i++) {
+        const groupName = settings.getMotionGroupName(i);
+        const motionCount = settings.getMotionCount(groupName);
+        
+        for (let j = 0; j < motionCount; j++) {
+            allTests.push({ group: groupName, index: j });
+        }
+    }
+    
+    console.log(`Found ${allTests.length} total motions to test`);
+    
+    // Test each motion with a delay to see them clearly
+    function testNext() {
+        if (testIndex >= allTests.length) {
+            console.log('🧪 === ALL MOTION TESTS COMPLETE ===');
+            return;
+        }
+        
+        const motion = allTests[testIndex];
+        console.log(`🧪 Testing ${testIndex + 1}/${allTests.length}: ${motion.group}[${motion.index}]`);
+        
+        // Try to trigger the motion
+        try {
+            if (window.live2dv4.startMotion) {
+                const result = window.live2dv4.startMotion(motion.group, motion.index);
+                console.log(`✅ Motion ${motion.group}[${motion.index}] triggered:`, result);
+            }
+        } catch (e) {
+            console.log(`❌ Motion ${motion.group}[${motion.index}] failed:`, e.message);
+        }
+        
+        testIndex++;
+        setTimeout(testNext, 2000); // Wait 2 seconds between tests
+    }
+    
+    testNext();
+};
+
+function triggerSubtleIdleMotion() {
+    // Simple fallback function if not defined elsewhere
+    if (typeof triggerBodyIdleMotion === 'function') {
+        return triggerBodyIdleMotion();
+    } else {
+        return triggerRandomMotion();
+    }
+}
+
+// Update last interaction time on user activity
+function updateLastInteractionTime() {
+    lastInteractionTime = Date.now();
+}
+
+// Global debug function accessible from browser console
+window.debugLive2D = function() {
+    console.log('🔍 === MANUAL DEBUG TRIGGER ===');
+    console.log('🔍 window.live2dv4 exists:', !!window.live2dv4);
+    console.log('🔍 window.live2dv4:', window.live2dv4);
+    console.log('🔍 currentModel:', currentModel);
+    
+    if (window.live2dv4) {
+        console.log('🔍 live2dv4 methods:', Object.keys(window.live2dv4));
+        console.log('🔍 live2dv4._model exists:', !!window.live2dv4._model);
+        
+        if (window.live2dv4._model) {
+            console.log('🔍 _model:', window.live2dv4._model);
+            console.log('🔍 _model methods:', Object.keys(window.live2dv4._model));
+        }
+        
+        debugModelStructure();
+        logAvailableMotions();
+        console.log('🔍 Attempting to trigger test motion...');
+        triggerRandomMotion();
+        
+        // Also show debug info in the debug panel
+        const debugPanel = document.getElementById('debugPanel');
+        if (debugPanel) {
+            let debugInfo = '🔍 === LIVE2D DEBUG INFO ===\n';
+            debugInfo += `Live2D SDK: ${window.live2dv4 ? 'Available' : 'Missing'}\n`;
+            debugInfo += `Model loaded: ${currentModel || 'None'}\n`;
+            debugInfo += `_model object: ${window.live2dv4?._model ? 'Available' : 'Missing'}\n`;
+            
+            if (window.live2dv4?._model?._modelSetting) {
+                const settings = window.live2dv4._model._modelSetting;
+                if (settings.getMotionGroupCount) {
+                    const groupCount = settings.getMotionGroupCount();
+                    debugInfo += `Motion Groups: ${groupCount}\n`;
+                    
+                    for (let i = 0; i < groupCount; i++) {
+                        if (settings.getMotionGroupName) {
+                            const groupName = settings.getMotionGroupName(i);
+                            const motionCount = settings.getMotionCount ? settings.getMotionCount(groupName) : 'unknown';
+                            debugInfo += `  ${i}: "${groupName}" (${motionCount} motions)\n`;
+                        }
+                    }
+                } else {
+                    debugInfo += 'Could not access motion groups\n';
+                }
+            } else {
+                debugInfo += 'Model or settings not accessible\n';
+            }
+            
+            debugInfo += '\nCheck browser console (F12) for detailed logs';
+            debugPanel.textContent = debugInfo;
+            debugPanel.classList.add('visible');
+        }
+    } else {
+        console.log('❌ Live2D not loaded');
+        const debugPanel = document.getElementById('debugPanel');
+        if (debugPanel) {
+            debugPanel.textContent = '❌ Live2D SDK not loaded!\nCheck if live2d_bundle.js is loading correctly.';
+            debugPanel.classList.add('visible');
+        }
+    }
+};
+
+// Simple test function to check basic Live2D functionality
+window.testBasicLive2D = function() {
+    console.log('🧪 === BASIC LIVE2D TEST ===');
+    console.log('🧪 Checking window.live2dv4:', window.live2dv4);
+    
+    if (!window.live2dv4) {
+        console.log('❌ window.live2dv4 is not available');
+        return false;
+    }
+    
+    console.log('✅ window.live2dv4 is available');
+    console.log('🧪 Available methods:', Object.keys(window.live2dv4));
+    
+    if (window.live2dv4.startMotion) {
+        console.log('✅ startMotion method is available');
+        console.log('🧪 Testing startMotion call...');
+        try {
+            const result = window.live2dv4.startMotion('test', 0);
+            console.log('🧪 startMotion test result:', result);
+        } catch (e) {
+            console.log('❌ startMotion test failed:', e);
+        }
+    } else {
+        console.log('❌ startMotion method is not available');
+    }
+    
+    return true;
+};
+
+// Debug function to inspect model structure
+function debugModelStructure() {
+    if (!window.live2dv4 || !currentModel) {
+        console.log('🔍 No model to debug');
+        return;
+    }
+    
+    console.log('🔍 === DEBUGGING LIVE2D MODEL STRUCTURE ===');
+    console.log('🔍 window.live2dv4:', window.live2dv4);
+    console.log('🔍 Available methods on live2dv4:', Object.keys(window.live2dv4));
+    
+    if (window.live2dv4._model) {
+        console.log('🔍 _model found:', window.live2dv4._model);
+        console.log('🔍 _model methods:', Object.keys(window.live2dv4._model));
+        
+        const model = window.live2dv4._model;
+        
+        // Check for motion manager
+        if (model._motionManager) {
+            console.log('🔍 _motionManager found:', model._motionManager);
+            console.log('🔍 _motionManager methods:', Object.keys(model._motionManager));
+        }
+        
+        // Check for model setting
+        if (model._modelSetting) {
+            console.log('🔍 _modelSetting found:', model._modelSetting);
+            console.log('🔍 _modelSetting methods:', Object.keys(model._modelSetting));
+            
+            const settings = model._modelSetting;
+            if (settings.getMotionGroupCount) {
+                const groupCount = settings.getMotionGroupCount();
+                console.log(`🔍 Motion groups count: ${groupCount}`);
+                
+                for (let i = 0; i < groupCount; i++) {
+                    if (settings.getMotionGroupName) {
+                        const groupName = settings.getMotionGroupName(i);
+                        const motionCount = settings.getMotionCount ? settings.getMotionCount(groupName) : 'unknown';
+                        console.log(`🔍 Group ${i}: "${groupName}" (${motionCount} motions)`);
+                    }
+                }
+            }
+        }
+    }
+    
+    // Try to trigger a test motion
+    console.log('🔍 Testing motion trigger...');
+    try {
+        if (window.live2dv4.startMotion) {
+            const result = window.live2dv4.startMotion('Idle', 0);
+            console.log('🔍 Test motion result:', result);
+        }
+    } catch (error) {
+        console.log('🔍 Test motion failed:', error);
+    }
+    
+    console.log('🔍 === END MODEL DEBUG ===');
+}
+
+// === Chat Functions ===
+
+function addMessage(sender, message, type = 'info') {
+    if (!chatWindow) {
+        console.warn('Chat window not found');
+        return;
+    }
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${sender} ${type}`.trim();
+    const timestamp = new Date().toLocaleTimeString();
+    
+    messageDiv.innerHTML = `
+        <div class="message-content">
+            <div class="message-header">
+                <strong>${sender === 'user' ? 'You' : 'AI Companion'}</strong>
+                <span class="timestamp">${timestamp}</span>
+            </div>
+            <div class="message-text">${formatMessage(message)}</div>
+        </div>
+    `;
+    chatWindow.appendChild(messageDiv);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+    setTimeout(() => { messageDiv.classList.add('visible'); }, 10);
+}
+
+function formatMessage(message) {
+    return message
+        .replace(/\n/g, '<br>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>');
+}
+
+async function sendMessage() {
+    if (!userInput || !userInput.value) {
+        console.warn('User input not available');
+        return;
+    }
+    
+    const message = userInput.value.trim();
+    if (!message) return;
+    
+    addMessage('user', message);
+    userInput.value = '';
+    
+    if (statusText) statusText.textContent = 'Thinking...';
+    
+    try {
+        const response = await fetch('/api/v1/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+        });
+        
+        const data = await response.json();
+        addMessage('ai', data.response);
+        
+        if (statusText) statusText.textContent = 'Ready';
+        
+    } catch (err) {
+        addMessage('system', 'Error: ' + err.message, 'error');
+        console.error('Chat error:', err);
+    }
+}
+
+// --- Chat Backend Integration ---
+function addMessage(sender, message, type = '') {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${sender} ${type}`.trim();
+    const timestamp = new Date().toLocaleTimeString();
+    messageDiv.innerHTML = `
+        <div class="message-content">
+            <div class="message-header">
+                <strong>${sender === 'user' ? 'You' : 'AI Companion'}</strong>
+                <span class="timestamp">${timestamp}</span>
+            </div>
+            <div class="message-text">${formatMessage(message)}</div>
+        </div>
+    `;
+    chatWindow.appendChild(messageDiv);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+    setTimeout(() => { messageDiv.classList.add('visible'); }, 10);
+}
+
+function addSystemMessage(message, type = 'info') {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message system ${type}`;
+    messageDiv.innerHTML = `
+        <div class="message-content">
+            <div class="message-text">${message}</div>
+        </div>
+    `;
+    chatWindow.appendChild(messageDiv);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+}
+
+function formatMessage(message) {
+    return message
+        .replace(/\n/g, '<br>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>');
+}
+
+// Enhanced sendMessage function to handle personality data
+async function sendMessage() {
+    const message = userInput.value.trim();
+    if (!message) return;
+    
+    // Update interaction time
+    updateLastInteractionTime();
+    
+    addMessage('user', message);
+    userInput.value = '';
+    statusText.textContent = 'Thinking...';
+    statusIndicator.className = 'status-indicator info';
+    
+    debugLog(`💬 User message: "${message.substring(0, 30)}${message.length > 30 ? '...' : ''}"`);
+    
+    // Trigger thinking gesture
+    if (Math.random() < 0.4) { // 40% chance
+        setTimeout(() => triggerSubtleIdleMotion(), 500);
+    }
+    
+    try {
+        const response = await fetch('/api/v1/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+        });
+        
+        const data = await response.json();
+        
+        // Add AI response to chat
+        addMessage('ai', data.response);
+        debugLog(`🤖 AI response received (${data.response.length} chars)`);
+        
+        // Handle emotional response and trigger animations
+        if (data.personality_state && data.animation_triggers) {
+            debugLog(`🧠 Personality data received`);
+            handleEmotionalResponse(data.personality_state, data.animation_triggers);
+        } else {
+            // If no specific emotion data, trigger a random speaking motion
+            debugLog(`🎭 No emotion data - triggering random motion`);
+            setTimeout(() => triggerRandomMotion(), 300);
+        }
+        
+        // Handle emotional TTS audio playback
+        if (data.tts_audio && data.tts_audio.audio_data) {
+            playEmotionalTTSAudio(data.tts_audio);
+        }
+        
+        // Update status
+        statusText.textContent = 'Ready';
+        statusIndicator.className = 'status-indicator success';
+        
+        // Log personality data for debugging
+        console.log('🧠 Personality State:', data.personality_state);
+        console.log('🎭 Animation Triggers:', data.animation_triggers);
+        if (data.tts_audio) {
+            console.log('🔊 TTS Audio:', data.tts_audio.emotion, 'intensity:', data.tts_audio.intensity);
+        }
+        
+    } catch (err) {
+        addSystemMessage('Error contacting AI backend', 'error');
+        statusText.textContent = 'Error';
+        statusIndicator.className = 'status-indicator error';
+        console.error('Chat error:', err);
+    }
+}
+
+/**
+ * Enhanced API Documentation:
+ * POST /api/v1/chat
+ *   Request: { message: string }
+ *   Response: {
+ *     response: string,
+ *     personality_state: {
+ *       bonding_level: number,
+ *       relationship_stage: string,
+ *       dominant_traits: [[string, number], ...],
+ *       emotional_state: string,
+ *       energy_level: number,
+ *       mood_stability: number
+ *     },
+ *     animation_triggers: {
+ *       primary_emotion: string,
+ *       emotion_tags: string[],
+ *       intensity: number
+ *     },
+ *     personality: object,
+ *     timestamp: number
+ *   }
+ *
+ * The backend now provides enhanced personality data for Live2D avatar animations
+ * and emotional expression mapping.
+ */
+
+sendButton.addEventListener('click', sendMessage);
+userInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        updateLastInteractionTime();
+        sendMessage();
+    }
+});
+
+window.addEventListener('resize', initCanvas);
+
+// Add keyboard shortcuts for debugging
+window.addEventListener('keydown', (e) => {
+    // Ctrl+D = debug
+    if (e.ctrlKey && e.key === 'd') {
+        e.preventDefault();
+        console.log('🔍 Keyboard shortcut: Ctrl+D - Running debug...');
+        if (window.debugLive2D) {
+            window.debugLive2D();
+        }
+    }
+    // Ctrl+T = test all motions
+    if (e.ctrlKey && e.key === 't') {
+        e.preventDefault();
+        console.log('🧪 Keyboard shortcut: Ctrl+T - Testing all motions...');
+        if (window.testAllMotions) {
+            window.testAllMotions();
+        }
+    }
+    // Ctrl+R = trigger random motion
+    if (e.ctrlKey && e.key === 'r') {
+        e.preventDefault();
+        console.log('🎭 Keyboard shortcut: Ctrl+R - Random motion...');
+        triggerRandomMotion();
+    }
+});
+
+// Setup waifu tool button event handlers
+function setupWaifuToolHandlers() {
+    // Wait a bit for DOM to be ready
+    setTimeout(() => {
+        // Switch model button (icon-next) - random model selection
+        const switchButton = document.querySelector('.waifu-tool .icon-next');
+        if (switchButton) {
+            // Remove any existing listeners
+            switchButton.removeEventListener('click', handleSwitchModel);
+            switchButton.addEventListener('click', handleSwitchModel);
+            console.log('🔄 Waifu switch model button handler set up');
+        } else {
+            console.warn('🔄 Switch model button not found');
+        }
+        
+        // Home button
+        const homeButton = document.querySelector('.waifu-tool .icon-home');
+        if (homeButton) {
+            homeButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.location.reload();
+            });
+        }
+        
+        // Message button
+        const messageButton = document.querySelector('.waifu-tool .icon-message');
+        if (messageButton) {
+            messageButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                showRandomWaifuMessage();
+            });
+        }
+        
+        // Camera/Screenshot button
+        const cameraButton = document.querySelector('.waifu-tool .icon-camera');
+        if (cameraButton) {
+            cameraButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                takeModelScreenshot();
+            });
+        }
+        
+        // Close button
+        const closeButton = document.querySelector('.waifu-tool .icon-cross');
+        if (closeButton) {
+            closeButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                hideWaifu();
+            });
+        }
+        
+        // Debug button (repurposed About button)
+        const debugButton = document.querySelector('.waifu-tool .icon-about');
+        if (debugButton) {
+            debugButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log('🔍 Debug button clicked - Running motion debugging...');
+                if (window.debugLive2D) {
+                    window.debugLive2D();
+                } else {
+                    console.log('🔍 Running manual debugging...');
+                    debugModelStructure();
+                    logAvailableMotions();
+                    triggerRandomMotion();
+                }
+                showWaifuMessage('Debug info logged to console! Check F12 → Console 🔍', 3000);
+            });
+        }
+    }, 1000); // Wait 1 second for DOM to be ready
+}
+
+// Handler function for switch model button
+function handleSwitchModel(e) {
+    e.preventDefault();
+    console.log('🔄 Switch model button clicked!');
+    switchToRandomModel();
+}
+
+// Show random waifu message
+function showRandomWaifuMessage() {
+    const messages = [
+        "Hello! I'm your Live2D companion! 👋",
+        "Click on me to see my animations! ✨", 
+        "I can express different emotions! 😊",
+        "Try switching between different models! 🔄",
+        "Debug mode shows detailed information! 🔍",
+        `Currently loaded: ${currentModel || 'Unknown'} 🤖`,
+        "Hope you're having a great day! 💕"
+    ];
+    
+    const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+    showWaifuMessage(randomMessage, 3000);
+}
+
+// Show waifu message
+function showWaifuMessage(text, duration = 3000) {
+    const messageElement = document.getElementById('waifu-message');
+    if (messageElement) {
+        messageElement.textContent = text;
+        messageElement.style.display = 'block';
+        
+        setTimeout(() => {
+            messageElement.style.display = 'none';
+        }, duration);
+    }
+}
+
+// Take model screenshot
+function takeModelScreenshot() {
+    if (!currentModel) {
+        showWaifuMessage('No model loaded for screenshot! 📷❌', 2000);
+        return;
+    }
+    
+    try {
+        if (window.live2dv4 && typeof window.live2dv4.CaptureCanvas === 'function') {
+            window.live2dv4.CaptureCanvas();
+            showWaifuMessage(`Screenshot taken of ${currentModel}! 📷✨`, 2000);
+        } else {
+            showWaifuMessage('Screenshot feature not available! 📷❌', 2000);
+        }
+    } catch (error) {
+        console.error('Screenshot error:', error);
+        showWaifuMessage('Screenshot failed! 📷❌', 2000);
+    }
+}
+
+// Hide waifu
+function hideWaifu() {
+    const waifuElement = document.getElementById('waifu');
+    if (waifuElement) {
+        try {
+            sessionStorage.setItem('waifuHide', '1');
+        } catch (e) {
+            console.warn('Failed to save waifu hide state');
+        }
+        
+        waifuElement.style.transition = 'opacity 0.5s ease';
+        waifuElement.style.opacity = '0';
+        
+        setTimeout(() => {
+            waifuElement.classList.add('hide');
+            waifuElement.style.opacity = '';
+            waifuElement.style.transition = '';
+        }, 500);
+        
+        showWaifuMessage('Goodbye! Click to show me again! 👋', 1000);
+    }
+}
+
+function resetToNeutralExpression() {
+    if (!window.live2dv4 || !currentModel) return;
+    
+    try {
+        // Reset to neutral/default expression (usually index -1 or 0)
+        window.live2dv4.setExpression(-1); // -1 typically resets to default
+        console.log('🎭 Reset to neutral expression');
+    } catch (error) {
+        console.warn('Failed to reset expression:', error);
+    }
+}
+
+// --- Emotional TTS Audio Playback System ---
+
+function playEmotionalTTSAudio(ttsData) {
+    try {
+        const { audio_data, emotion, intensity, voice } = ttsData;
+        
+        if (!audio_data || audio_data.length === 0) {
+            console.warn('No TTS audio data to play');
+            return;
+        }
+        
+        // Create audio context if not exists
+        if (!window.audioContext) {
+            window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        // Convert audio data to Float32Array
+        const audioArray = new Float32Array(audio_data);
+        
+        // Create audio buffer
+        const audioBuffer = window.audioContext.createBuffer(1, audioArray.length, 24000); // 24kHz sample rate
+        audioBuffer.copyToChannel(audioArray, 0);
+        
+        // Create audio source
+        const source = window.audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        
+        // Apply emotional audio effects based on emotion
+        const { gainNode, filterNode } = createEmotionalAudioEffects(emotion, intensity);
+        
+        // Connect audio graph: source -> effects -> output
+        source.connect(gainNode);
+        gainNode.connect(filterNode);
+        filterNode.connect(window.audioContext.destination);
+        
+        // Play audio
+        source.start(0);
+        
+        console.log(`🔊 Playing emotional TTS: ${emotion} (intensity: ${intensity})`);
+        
+        // Show TTS playback indicator
+        showTTSPlaybackIndicator(emotion, intensity);
+        
+    } catch (error) {
+        console.error('Error playing emotional TTS audio:', error);
+        // Fallback: try to play via simple audio element
+        fallbackTTSPlayback(ttsData);
+    }
+}
+
+function createEmotionalAudioEffects(emotion, intensity) {
+    const audioContext = window.audioContext;
+    
+    // Create gain node for volume control
+    const gainNode = audioContext.createGain();
+    
+    // Create filter node for tone shaping
+    const filterNode = audioContext.createBiquadFilter();
+    
+    // Apply emotion-specific audio processing
+    switch (emotion) {
+        case 'excited':
+        case 'happy':
+        case 'joyful':
+            // Brighter, more energetic sound
+            gainNode.gain.value = 1.0 + (intensity * 0.2);
+            filterNode.type = 'highpass';
+            filterNode.frequency.value = 100 + (intensity * 50);
+            break;
+            
+        case 'sad':
+        case 'disappointed':
+        case 'empathetic':
+            // Warmer, softer sound
+            gainNode.gain.value = 0.8 - (intensity * 0.1);
+            filterNode.type = 'lowpass';
+            filterNode.frequency.value = 3000 - (intensity * 500);
+            break;
+            
+        case 'surprised':
+        case 'amazed':
+            // Sharp, attention-grabbing sound
+            gainNode.gain.value = 1.1 + (intensity * 0.3);
+            filterNode.type = 'peaking';
+            filterNode.frequency.value = 2000;
+            filterNode.Q.value = 2;
+            filterNode.gain.value = intensity * 6;
+            break;
+            
+        case 'curious':
+        case 'thoughtful':
+            // Clear, focused sound
+            gainNode.gain.value = 0.9 + (intensity * 0.1);
+            filterNode.type = 'peaking';
+            filterNode.frequency.value = 1500;
+            filterNode.Q.value = 1;
+            filterNode.gain.value = intensity * 3;
+            break;
+            
+        default: // neutral, calm
+            gainNode.gain.value = 1.0;
+            filterNode.type = 'allpass';
+            filterNode.frequency.value = 1000;
+            break;
+    }
+    
+    return { gainNode, filterNode };
+}
+
+function fallbackTTSPlayback(ttsData) {
+    try {
+        // Create a simple audio element as fallback
+        const audio = new Audio();
+        
+        // Convert audio data to blob
+        const audioArray = new Float32Array(ttsData.audio_data);
+        const audioBuffer = new ArrayBuffer(audioArray.length * 4);
+        const view = new DataView(audioBuffer);
+        
+        for (let i = 0; i < audioArray.length; i++) {
+            view.setFloat32(i * 4, audioArray[i], true);
+        }
+        
+        const blob = new Blob([audioBuffer], { type: 'audio/wav' });
+        const url = URL.createObjectURL(blob);
+        
+        audio.src = url;
+        audio.play();
+        
+        // Clean up
+        audio.addEventListener('ended', () => {
+            URL.revokeObjectURL(url);
+        });
+        
+        console.log('🔊 TTS playback via fallback method');
+        
+    } catch (error) {
+        console.error('Fallback TTS playback failed:', error);
+    }
+}
+
+function showTTSPlaybackIndicator(emotion, intensity) {
+    // Create or update TTS status indicator
+    let ttsIndicator = document.getElementById('tts-indicator');
+    
+    if (!ttsIndicator) {
+        ttsIndicator = document.createElement('div');
+        ttsIndicator.id = 'tts-indicator';
+        ttsIndicator.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 123, 255, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 1000;
+            transition: opacity 0.3s ease;
+        `;
+        document.body.appendChild(ttsIndicator);
+    }
+    
+    // Update indicator content
+    ttsIndicator.textContent = `🔊 ${emotion} (${(intensity * 100).toFixed(0)}%)`;
+    ttsIndicator.style.opacity = '1';
+    
+    // Hide after 3 seconds
+    setTimeout(() => {
+        ttsIndicator.style.opacity = '0';
+    }, 3000);
+}
+
+// Show and hide loading spinner
+function showLoadingSpinner() {
+    if (loadingSpinner) loadingSpinner.style.display = 'block';
+}
+function hideLoadingSpinner() {
+    if (loadingSpinner) loadingSpinner.style.display = 'none';
+}
+
+// =============================================================================
+// Enhanced Debug UI System
+// =============================================================================
+
+// Initialize debug UI elements
+function initDebugUI() {
+    // Ensure global debug variables exist
+    if (!window.debugLogBuffer) {
+        window.debugLogBuffer = [];
+    }
+    if (!window.debugLastMotionName) {
+        window.debugLastMotionName = null;
+    }
+    
+    debugSDKStatus = document.querySelector('#debug-sdk-status span');
+    debugModelStatus = document.querySelector('#debug-model-status span');
+    debugCanvasStatus = document.querySelector('#debug-canvas-status span');
+    debugCurrentModel = document.getElementById('debug-current-model');
+    debugMotionCount = document.getElementById('debug-motion-count');
+    debugLastMotionName = document.getElementById('debug-last-motion-name');
+    debugRealtimeLog = document.getElementById('debug-realtime-log');
+    
+    // Start periodic status updates
+    setInterval(updateDebugStatus, 2000);
+    
+    // Initial status update
+    updateDebugStatus();
+    
+    debugLog('🔍 Debug UI initialized');
+}
+
+// Add entry to debug log
+function debugLog(message, type = 'info') {
+    // Ensure debugLogBuffer exists
+    if (!window.debugLogBuffer) {
+        window.debugLogBuffer = [];
+    }
+    
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = {
+        timestamp,
+        message,
+        type,
+        full: `[${timestamp}] ${message}`
+    };
+    
+    window.debugLogBuffer.push(logEntry);
+    
+    // Keep buffer size manageable
+    if (window.debugLogBuffer.length > MAX_DEBUG_LOG_ENTRIES) {
+        window.debugLogBuffer.shift();
+    }
+    
+    // Update real-time log display
+    updateDebugLogDisplay();
+    
+    // Also log to console if verbose mode
+    if (debugVerboseMode) {
+        console.log(`[DEBUG UI] ${message}`);
+    }
+}
+
+// Update the debug log display
+function updateDebugLogDisplay() {
+    if (!debugRealtimeLog) return;
+    
+    // Ensure debugLogBuffer exists
+    if (!window.debugLogBuffer) {
+        window.debugLogBuffer = [];
+    }
+    
+    const logHtml = window.debugLogBuffer
+        .slice(-10) // Show last 10 entries
+        .map(entry => {
+            const typeClass = entry.type === 'error' ? 'debug-status-error' : 
+                             entry.type === 'warn' ? 'debug-status-warn' : 
+                             'debug-status-ok';
+            return `<div class="${typeClass}">${entry.full}</div>`;
+        })
+        .join('');
+    
+    debugRealtimeLog.innerHTML = logHtml;
+    debugRealtimeLog.scrollTop = debugRealtimeLog.scrollHeight;
+}
+
+// Update debug status indicators
+function updateDebugStatus() {
+    // Check SDK status
+    if (window.live2dv4) {
+        setDebugStatus(debugSDKStatus, 'Live2D SDK Loaded', 'ok');
+    } else {
+        setDebugStatus(debugSDKStatus, 'SDK Missing', 'error');
+    }
+    
+    // Check model status
+    if (currentModel && window.live2dv4?._model) {
+        setDebugStatus(debugModelStatus, `${currentModel} Loaded`, 'ok');
+        if (debugCurrentModel) debugCurrentModel.textContent = currentModel;
+    } else if (currentModel) {
+        setDebugStatus(debugModelStatus, `${currentModel} Loading...`, 'warn');
+        if (debugCurrentModel) debugCurrentModel.textContent = currentModel;
+    } else {
+        setDebugStatus(debugModelStatus, 'No Model', 'warn');
+        if (debugCurrentModel) debugCurrentModel.textContent = 'None';
+    }
+    
+    // Check canvas status
+    const canvas = document.getElementById('live2d4');
+    if (canvas && canvas.getContext) {
+        try {
+            const ctx = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            if (ctx) {
+                setDebugStatus(debugCanvasStatus, 'WebGL Ready', 'ok');
+            } else {
+                setDebugStatus(debugCanvasStatus, 'WebGL Failed', 'error');
+            }
+        } catch (e) {
+            setDebugStatus(debugCanvasStatus, 'Canvas Error', 'error');
+        }
+    } else {
+        setDebugStatus(debugCanvasStatus, 'Canvas Missing', 'error');
+    }
+    
+    // Update motion count
+    if (window.live2dv4?._model?._modelSetting) {
+        try {
+            const settings = window.live2dv4._model._modelSetting;
+            if (settings.getMotionGroupCount) {
+                const count = settings.getMotionGroupCount();
+                if (debugMotionCount) debugMotionCount.textContent = count.toString();
+            }
+        } catch (e) {
+            if (debugMotionCount) debugMotionCount.textContent = 'Error';
+        }
+    } else {
+        if (debugMotionCount) debugMotionCount.textContent = '0';
+    }
+}
+
+// Set debug status with color coding
+function setDebugStatus(element, text, status) {
+    if (!element) return;
+    
+    element.textContent = text;
+    element.className = `debug-status-${status}`;
+}
+
+// Debug control functions
+function debugRefreshStatus() {
+    debugLog('🔄 Manual status refresh requested');
+    updateDebugStatus();
+    
+    // Also refresh model info
+    if (window.live2dv4) {
+        debugLog(`📊 SDK Methods: ${Object.keys(window.live2dv4).length}`);
+        if (window.live2dv4._model) {
+            debugLog(`📊 Model Methods: ${Object.keys(window.live2dv4._model).length}`);
+        }
+    }
+}
+
+function debugTestMotion() {
+    debugLog('🎭 Testing random motion...');
+    const result = triggerRandomMotion();
+    if (result) {
+        debugLog('✅ Motion test completed');
+    } else {
+        debugLog('❌ Motion test failed', 'error');
+    }
+}
+
+function debugLogMotions() {
+    debugLog('📝 Logging available motions...');
+    logAvailableMotions();
+    
+    if (window.live2dv4?._model?._modelSetting) {
+        try {
+            const settings = window.live2dv4._model._modelSetting;
+            if (settings.getMotionGroupCount) {
+                const groupCount = settings.getMotionGroupCount();
+                debugLog(`📊 Found ${groupCount} motion groups`);
+                
+                for (let i = 0; i < Math.min(groupCount, 5); i++) {
+                    const groupName = settings.getMotionGroupName(i);
+                    const motionCount = settings.getMotionCount ? settings.getMotionCount(groupName) : '?';
+                    debugLog(`  ${i + 1}. ${groupName} (${motionCount} motions)`);
+                }
+                
+                if (groupCount > 5) {
+                    debugLog(`  ... and ${groupCount - 5} more groups`);
+                }
+            }
+        } catch (e) {
+            debugLog('❌ Failed to log motions: ' + e.message, 'error');
+        }
+    } else {
+        debugLog('❌ No model loaded for motion logging', 'error');
+    }
+}
+
+function debugClearLog() {
+    if (!window.debugLogBuffer) {
+        window.debugLogBuffer = [];
+    }
+    window.debugLogBuffer = [];
+    updateDebugLogDisplay();
+    debugLog('🗑 Debug log cleared');
+}
+
+function debugToggleVerbose() {
+    debugVerboseMode = !debugVerboseMode;
+    debugLog(`💬 Verbose mode: ${debugVerboseMode ? 'ON' : 'OFF'}`);
+}
+
+// Make debug functions globally accessible
+window.debugRefreshStatus = debugRefreshStatus;
+window.debugTestMotion = debugTestMotion;
+window.debugLogMotions = debugLogMotions;
+window.debugClearLog = debugClearLog;
+window.debugToggleVerbose = debugToggleVerbose;
+window.debugLog = debugLog; // Make debugLog globally accessible
+
+// Make debug variables globally accessible
+window.debugLogBuffer = debugLogBuffer;
+window.debugLastMotionName = debugLastMotionName;
+
+// Hook into existing functions to add debug logging
+const originalTriggerRandomMotion = triggerRandomMotion;
+triggerRandomMotion = function() {
+    const result = originalTriggerRandomMotion.apply(this, arguments);
+    if (result && debugLastMotionName) {
+        // Try to get the last motion name
+        debugLastMotionName.textContent = 'Random Motion';
+    }
+    return result;
+};
+
+// Hook into model loading to update debug UI
+const originalLoadModel = loadModel;
+loadModel = function(modelName) {
+    debugLog(`🔄 Loading model: ${modelName}`);
+    const result = originalLoadModel.apply(this, arguments);
+    
+    // Update debug UI after a delay
+    setTimeout(() => {
+        updateDebugStatus();
+        debugLog(`✅ Model load completed: ${modelName}`);
+    }, 2000);
+    
+    return result;
+};
+
+// Initialize debug UI when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(initDebugUI, 1000);
+    
+    // Add a function to test if debug UI is working
+    window.testDebugUI = function() {
+        debugLog('🧪 Debug UI test function called!');
+        console.log('🧪 Debug UI test function called!');
+        alert('Debug UI is working! Check the debug log panel.');
+        return true;
+    };
+    
+    // Add function to load default model
+    window.loadDefaultModel = function() {
+        const defaultModel = 'kanade';
+        debugLog('📦 Loading default model: ' + defaultModel);
+        if (typeof loadModel === 'function') {
+            loadModel(defaultModel);
+        } else {
+            debugLog('❌ loadModel function not available', 'error');
+        }
+        setTimeout(() => {
+            updateDebugStatus();
+            debugLog('✅ Model load attempt completed');
+        }, 1500);
+    };
+
+    // Patch debug button handlers to check for model presence
+    ['debugTestMotion', 'debugLogMotions', 'testBasicLive2D', 'debugLive2D', 'testAllMotions'].forEach(fn => {
+        const orig = window[fn];
+        if (typeof orig === 'function') {
+            window[fn] = function() {
+                if (!currentModel || !window.live2dv4 || !window.live2dv4._model) {
+                    debugLog('❌ No model loaded. Please load a model first.', 'error');
+                    const loadBtn = document.getElementById('debug-load-default-model');
+                    if (loadBtn) loadBtn.style.display = 'inline-block';
+                    return false;
+                } else {
+                    const loadBtn = document.getElementById('debug-load-default-model');
+                    if (loadBtn) loadBtn.style.display = 'none';
+                    return orig.apply(this, arguments);
+                }
+            }
+        }
+    });
+
+    // Show/hide the load default model button based on model status
+    function updateDebugStatusPatched() {
+        if (typeof updateDebugStatus === 'function') {
+            updateDebugStatus();
+        }
+        const loadBtn = document.getElementById('debug-load-default-model');
+        if (loadBtn) {
+            if (!currentModel || !window.live2dv4 || !window.live2dv4._model) {
+                loadBtn.style.display = 'inline-block';
+            } else {
+                loadBtn.style.display = 'none';
+            }
+        }
+    }
+    
+    // Update debug status more frequently and show load button when needed
+    setInterval(updateDebugStatusPatched, 2000);
+    
+    // Add better error handling for button clicks
+    window.addEventListener('error', function(e) {
+        debugLog(`❌ JavaScript Error: ${e.message}`, 'error');
+        console.error('JavaScript Error caught:', e);
+    });
+    
+    // Debug button click handler
+    window.handleDebugButtonClick = function(action) {
+        try {
+            debugLog(`🔘 Button clicked: ${action}`);
+            switch(action) {
+                case 'refresh':
+                    debugRefreshStatus();
+                    break;
+                case 'test-motion':
+                    debugTestMotion();
+                    break;
+                case 'log-motions':
+                    debugLogMotions();
+                    break;
+                case 'clear-log':
+                    debugClearLog();
+                    break;
+                case 'toggle-verbose':
+                    debugToggleVerbose();
+                    break;
+                default:
+                    debugLog(`❓ Unknown action: ${action}`, 'warn');
+            }
+        } catch (error) {
+            debugLog(`❌ Error handling button click: ${error.message}`, 'error');
+            console.error('Button click error:', error);
+        }
+    };
+});
+</script>
+</body>
+</html>
