@@ -92,6 +92,11 @@ class Live2DIntegration {
         try {
             const model = await this.modelManager.loadModel(modelName);
             
+            // Debug model visibility
+            setTimeout(() => {
+                this.core.debugModelVisibility();
+            }, 1000);
+            
             // Load motions for the model
             await this.motionManager.loadModelMotions(modelName);
             

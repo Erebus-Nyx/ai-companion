@@ -29,16 +29,11 @@ class Live2DMotionManager {
             }
             
             const data = await response.json();
-            const motions = data.motions || [];
             
-            this.processMotions(motions);
+            // Process the motion groups data from the API
+            this.processMotionGroups(data.motions || {}, data.motion_groups || []);
             
-            // Try to get motions from the loaded model as well
-            if (this.core.model) {
-                this.extractModelMotions();
-            }
-            
-            this.log(`Loaded ${this.availableMotions.length} motions for ${modelName}`, 'success');
+            this.log(`Loaded ${this.availableMotions.length} motions in ${Object.keys(this.motionGroups).length} groups for ${modelName}`, 'success');
             return this.availableMotions;
             
         } catch (error) {
@@ -62,6 +57,38 @@ class Live2DMotionManager {
                 this.motionGroups[motion.group] = [];
             }
             this.motionGroups[motion.group].push(motion);
+        });
+    }
+
+    processMotionGroups(motionGroups, groupNames) {
+        this.availableMotions = [];
+        this.motionGroups = {};
+        
+        // Process each motion group from the API response
+        Object.keys(motionGroups).forEach(groupName => {
+            const motions = motionGroups[groupName];
+            
+            motions.forEach(motionData => {
+                const motion = {
+                    name: motionData.name,
+                    group: groupName,
+                    type: this.classifyMotionType(groupName),
+                    displayName: this.formatDisplayName(motionData.name),
+                    priority: this.getMotionPriority(this.classifyMotionType(groupName)),
+                    file: motionData.file,
+                    fadeInTime: motionData.fadeInTime || 0.5,
+                    fadeOutTime: motionData.fadeOutTime || 0.5,
+                    index: motionData.index || 0
+                };
+                
+                this.availableMotions.push(motion);
+                
+                // Group motions by category
+                if (!this.motionGroups[groupName]) {
+                    this.motionGroups[groupName] = [];
+                }
+                this.motionGroups[groupName].push(motion);
+            });
         });
     }
 

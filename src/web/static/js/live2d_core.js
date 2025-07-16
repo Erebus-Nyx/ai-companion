@@ -118,6 +118,33 @@ class Live2DCore {
         }
     }
 
+    // Debug function to check model visibility
+    debugModelVisibility() {
+        if (!this.model) {
+            this.log('No model loaded', 'warning');
+            return;
+        }
+        
+        this.log('=== MODEL VISIBILITY DEBUG ===', 'info');
+        this.log(`Model visible: ${this.model.visible}`, 'info');
+        this.log(`Model alpha: ${this.model.alpha}`, 'info');
+        this.log(`Model position: ${this.model.position.x}, ${this.model.position.y}`, 'info');
+        this.log(`Model scale: ${this.model.scale.x}, ${this.model.scale.y}`, 'info');
+        this.log(`Model bounds: ${JSON.stringify(this.model.getBounds())}`, 'info');
+        this.log(`Canvas size: ${this.app.screen.width}x${this.app.screen.height}`, 'info');
+        this.log(`Stage children count: ${this.app.stage.children.length}`, 'info');
+        
+        // Check if model is within screen bounds
+        const bounds = this.model.getBounds();
+        const onScreen = bounds.x < this.app.screen.width && 
+                        bounds.x + bounds.width > 0 && 
+                        bounds.y < this.app.screen.height && 
+                        bounds.y + bounds.height > 0;
+        
+        this.log(`Model on screen: ${onScreen}`, onScreen ? 'success' : 'warning');
+        this.log('=== END DEBUG ===', 'info');
+    }
+
     // Clear current model and all associated graphics
     clearModel() {
         // Reset drag state
@@ -281,17 +308,39 @@ class Live2DCore {
                     const model = await constructor.from(modelUrl);
                     this.log(`Successfully loaded model with ${name}!`, 'success');
                     
+                    // Add more detailed logging
+                    this.log(`Model dimensions: ${model.width}x${model.height}`, 'info');
+                    this.log(`Model bounds: ${JSON.stringify(model.getBounds())}`, 'info');
+                    
                     // Configure model (sekai.best style)
                     if (model.anchor && model.anchor.set) {
                         model.anchor.set(0.5, 0.5);
                     }
-                    model.position.set(this.app.screen.width / 2, this.app.screen.height / 2);
+                    
+                    // Position model in center
+                    const centerX = this.app.screen.width / 2;
+                    const centerY = this.app.screen.height / 2;
+                    model.position.set(centerX, centerY);
+                    
+                    this.log(`Model positioned at: ${centerX}, ${centerY}`, 'info');
+                    
                     // Smart model scaling: 75% of canvas height unless model is already smaller
                     const modelScale = this.calculateOptimalModelScale(model);
                     model.scale.set(modelScale);
                     
+                    this.log(`Model scaled to: ${modelScale}`, 'info');
+                    
+                    // Make model visible
+                    model.visible = true;
+                    model.alpha = 1.0;
+                    
                     this.app.stage.addChild(model);
                     this.model = model;
+                    
+                    // Force render update
+                    this.app.render();
+                    
+                    this.log(`Model added to stage! Stage children count: ${this.app.stage.children.length}`, 'success');
                     
                     // Enable mouse interaction
                     this.setupMouseInteraction(model);

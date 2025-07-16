@@ -33,7 +33,7 @@ class Live2DModelManager {
                 path: model.model_path,
                 configFile: model.config_file,
                 url: `http://localhost:13443${model.model_path}/${model.config_file}`,
-                info: model.info || `Model: ${model.model_name}`
+                info: model.info || model.model_name
             }));
             
             this.log(`Successfully loaded ${this.modelList.length} available models from API`, 'success');

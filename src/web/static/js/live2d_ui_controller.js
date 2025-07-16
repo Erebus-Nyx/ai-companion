@@ -631,7 +631,7 @@ class Live2DUIController {
             models.forEach(model => {
                 const option = document.createElement('option');
                 option.value = model.name;
-                option.textContent = `${model.name} (${model.info})`;
+                option.textContent = model.name;
                 this.elements.modelSelect.appendChild(option);
             });
             
