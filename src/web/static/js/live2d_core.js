@@ -5,13 +5,6 @@ class Live2DCore {
         this.model = null;
         this.logger = null;
         this.baseScale = 1.0;
-        this.dragState = {
-            isDragging: false,
-            dragStartX: 0,
-            dragStartY: 0,
-            modelStartX: 0,
-            modelStartY: 0
-        };
         this.hitBoxGraphics = null;
         this.modelFrameGraphics = null;
     }
@@ -69,16 +62,30 @@ class Live2DCore {
         const containerRect = canvasElement.getBoundingClientRect();
         const margin = options.canvasMargin || 40;
         
-        const dynamicWidth = containerRect.width - (margin * 2);
-        const dynamicHeight = containerRect.height - (margin * 2);
+        // Calculate dimensions - if options width/height are 0, use dynamic sizing
+        let targetWidth = options.width || 0;
+        let targetHeight = options.height || 0;
+        
+        // If explicit dimensions are 0 or not provided, use dynamic sizing
+        if (targetWidth === 0 || targetHeight === 0) {
+            const dynamicWidth = containerRect.width - (margin * 2);
+            const dynamicHeight = containerRect.height - (margin * 2);
+            
+            // Use container dimensions if available, otherwise use minimum
+            targetWidth = dynamicWidth > 0 ? dynamicWidth : 800;
+            targetHeight = dynamicHeight > 0 ? dynamicHeight : 600;
+        }
         
         // Ensure minimum canvas size
         const minWidth = 400;
         const minHeight = 400;
         
+        const finalWidth = Math.max(targetWidth, minWidth);
+        const finalHeight = Math.max(targetHeight, minHeight);
+        
         const defaultOptions = {
-            width: Math.max(dynamicWidth, minWidth),
-            height: Math.max(dynamicHeight, minHeight),
+            width: finalWidth,
+            height: finalHeight,
             backgroundColor: 0x000000,
             backgroundAlpha: 0,
             resolution: 1
@@ -92,6 +99,10 @@ class Live2DCore {
         this.canvasMargin = margin;
 
         try {
+            // Pre-configure canvas element dimensions before PIXI initialization
+            canvasElement.style.width = finalOptions.width + 'px';
+            canvasElement.style.height = finalOptions.height + 'px';
+            
             if (PIXI.VERSION.startsWith('8.')) {
                 this.app = new PIXI.Application();
                 await this.app.init(finalOptions);
@@ -101,16 +112,104 @@ class Live2DCore {
                 canvasElement.appendChild(this.app.view);
             }
             
-            // Center the canvas within the container
+            // Get the actual canvas element
             const canvas = this.app.canvas || this.app.view;
+            
+            // CRITICAL: Force canvas dimensions at multiple levels
+            canvas.width = finalOptions.width;
+            canvas.height = finalOptions.height;
+            canvas.style.width = finalOptions.width + 'px';
+            canvas.style.height = finalOptions.height + 'px';
+            
+            // Set explicit size on the canvas element
+            canvas.setAttribute('width', finalOptions.width);
+            canvas.setAttribute('height', finalOptions.height);
+            
+            // Force WebGL context dimensions if available
+            if (this.app.renderer.gl) {
+                this.app.renderer.gl.canvas.width = finalOptions.width;
+                this.app.renderer.gl.canvas.height = finalOptions.height;
+            }
+            
+            // Multiple resize attempts with different approaches
+            this.app.renderer.resize(finalOptions.width, finalOptions.height);
+            
+            // Force screen dimensions
+            if (this.app.screen) {
+                this.app.screen.width = finalOptions.width;
+                this.app.screen.height = finalOptions.height;
+            }
+            
+            // Try direct renderer view manipulation
+            if (this.app.renderer.view) {
+                this.app.renderer.view.width = finalOptions.width;
+                this.app.renderer.view.height = finalOptions.height;
+            }
+            
+            // Force internal renderer properties
+            if (this.app.renderer._width !== undefined) {
+                this.app.renderer._width = finalOptions.width;
+            }
+            if (this.app.renderer._height !== undefined) {
+                this.app.renderer._height = finalOptions.height;
+            }
+            
+            // Immediate render to apply changes
+            this.app.render();
+            
+            // Verify and retry if needed
+            let actualWidth = this.app.renderer.width || this.app.screen.width;
+            let actualHeight = this.app.renderer.height || this.app.screen.height;
+            
+            // If still 0x0, force one more time with alternative approach
+            if (actualWidth === 0 || actualHeight === 0) {
+                this.log('Renderer dimensions still 0x0, forcing final resize...', 'warning');
+                
+                // Try to force using renderer internal methods
+                if (this.app.renderer.gl) {
+                    const gl = this.app.renderer.gl;
+                    gl.canvas.width = finalOptions.width;
+                    gl.canvas.height = finalOptions.height;
+                    gl.viewport(0, 0, finalOptions.width, finalOptions.height);
+                }
+                
+                // Try to force through the renderer's framebuffer
+                if (this.app.renderer.framebuffer) {
+                    this.app.renderer.framebuffer.resize(finalOptions.width, finalOptions.height);
+                }
+                
+                // One more resize attempt
+                this.app.renderer.resize(finalOptions.width, finalOptions.height);
+                this.app.render();
+                
+                // Re-check
+                actualWidth = this.app.renderer.width || this.app.screen.width || finalOptions.width;
+                actualHeight = this.app.renderer.height || this.app.screen.height || finalOptions.height;
+            }
+            
+            // Store actual dimensions for fallback use - force use of target dimensions
+            this.actualWidth = finalOptions.width;  // Force use of target dimensions
+            this.actualHeight = finalOptions.height;
+            
+            // Center the canvas within the container and ensure visibility
             canvas.style.position = 'absolute';
             canvas.style.left = '50%';
             canvas.style.top = '50%';
             canvas.style.transform = 'translate(-50%, -50%)';
             canvas.style.border = '1px solid rgba(74, 144, 226, 0.3)';
             canvas.style.borderRadius = '8px';
+            canvas.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';  // Slight background to make canvas visible
+            canvas.style.display = 'block';
+            canvas.style.visibility = 'visible';
+            canvas.style.zIndex = '1';
+            
+            // Force canvas to be visible in the DOM
+            canvas.removeAttribute('hidden');
+            canvas.setAttribute('data-canvas-initialized', 'true');
             
             this.log(`PIXI application initialized: ${finalOptions.width}x${finalOptions.height} (container: ${containerRect.width}x${containerRect.height})`, 'success');
+            this.log(`Final canvas dimensions: ${canvas.width}x${canvas.height}, Renderer size: ${actualWidth}x${actualHeight}`, 'info');
+            
             return true;
         } catch (error) {
             this.log('Failed to initialize PIXI: ' + error.message, 'error');
@@ -131,14 +230,16 @@ class Live2DCore {
         this.log(`Model position: ${this.model.position.x}, ${this.model.position.y}`, 'info');
         this.log(`Model scale: ${this.model.scale.x}, ${this.model.scale.y}`, 'info');
         this.log(`Model bounds: ${JSON.stringify(this.model.getBounds())}`, 'info');
-        this.log(`Canvas size: ${this.app.screen.width}x${this.app.screen.height}`, 'info');
+        this.log(`Canvas size: ${this.canvasWidth || 800}x${this.canvasHeight || 600}`, 'info');
         this.log(`Stage children count: ${this.app.stage.children.length}`, 'info');
         
-        // Check if model is within screen bounds
+        // Check if model is within screen bounds using forced dimensions
+        const canvasWidth = this.canvasWidth || 800;
+        const canvasHeight = this.canvasHeight || 600;
         const bounds = this.model.getBounds();
-        const onScreen = bounds.x < this.app.screen.width && 
+        const onScreen = bounds.x < canvasWidth && 
                         bounds.x + bounds.width > 0 && 
-                        bounds.y < this.app.screen.height && 
+                        bounds.y < canvasHeight && 
                         bounds.y + bounds.height > 0;
         
         this.log(`Model on screen: ${onScreen}`, onScreen ? 'success' : 'warning');
@@ -147,15 +248,6 @@ class Live2DCore {
 
     // Clear current model and all associated graphics
     clearModel() {
-        // Reset drag state
-        this.dragState = {
-            isDragging: false,
-            dragStartX: 0,
-            dragStartY: 0,
-            modelStartX: 0,
-            modelStartY: 0
-        };
-
         // Clear model
         if (this.model) {
             this.app.stage.removeChild(this.model);
@@ -312,23 +404,30 @@ class Live2DCore {
                     this.log(`Model dimensions: ${model.width}x${model.height}`, 'info');
                     this.log(`Model bounds: ${JSON.stringify(model.getBounds())}`, 'info');
                     
-                    // Configure model (sekai.best style)
+                    // Configure model (Live2D Viewer Web style)
                     if (model.anchor && model.anchor.set) {
                         model.anchor.set(0.5, 0.5);
                     }
                     
-                    // Position model in center
-                    const centerX = this.app.screen.width / 2;
-                    const centerY = this.app.screen.height / 2;
-                    model.position.set(centerX, centerY);
+                    // FORCE use of stored canvas dimensions - bypass renderer issue
+                    const rendererWidth = this.canvasWidth || 800;
+                    const rendererHeight = this.canvasHeight || 600;
                     
-                    this.log(`Model positioned at: ${centerX}, ${centerY}`, 'info');
+                    this.log(`Using forced dimensions: ${rendererWidth}x${rendererHeight}`, 'info');
                     
-                    // Smart model scaling: 75% of canvas height unless model is already smaller
+                    const centerX = rendererWidth / 2;
+                    const centerY = rendererHeight / 2;
+                    
+                    // Smart model scaling using Live2D Viewer Web pattern (before positioning)
                     const modelScale = this.calculateOptimalModelScale(model);
                     model.scale.set(modelScale);
                     
+                    // Position model in center AFTER scaling
+                    model.position.set(centerX, centerY);
+                    
+                    this.log(`Model positioned at: ${centerX}, ${centerY}`, 'info');
                     this.log(`Model scaled to: ${modelScale}`, 'info');
+                    this.log(`Final model bounds: ${JSON.stringify(model.getBounds())}`, 'info');
                     
                     // Make model visible
                     model.visible = true;
@@ -658,42 +757,50 @@ class Live2DCore {
         }, 33); // ~30 FPS
     }
     
-    // Calculate optimal model scale based on 75% of canvas height
+    // Calculate optimal model scale based on canvas size (Live2D Viewer Web pattern)
     calculateOptimalModelScale(model, container) {
-        const targetScale = 0.75; // 75% of canvas height
-        const canvasHeight = this.canvasHeight || this.app.screen.height;
+        if (!this.app) return 1.0;
         
-        // For pixi-live2d-display models, we can get bounds
-        if (model && model.getBounds) {
-            const bounds = model.getBounds();
-            const modelHeight = bounds.height;
+        // FORCE use of stored canvas dimensions - bypass renderer issue
+        const canvasWidth = this.canvasWidth || 800;
+        const canvasHeight = this.canvasHeight || 600;
+        
+        // Use Live2D Viewer Web's fit method pattern
+        if (model && (model.width || model.getBounds)) {
+            // Get model dimensions - try direct properties first (Live2D Viewer Web style)
+            let modelWidth, modelHeight;
             
-            if (modelHeight > 0) {
-                // Calculate scale to make model 75% of canvas height
-                const desiredScale = (canvasHeight * targetScale) / modelHeight;
+            if (model.width && model.height) {
+                modelWidth = model.width;
+                modelHeight = model.height;
+            } else if (model.getBounds) {
+                const bounds = model.getBounds();
+                modelWidth = bounds.width;
+                modelHeight = bounds.height;
+            }
+            
+            if (modelWidth > 0 && modelHeight > 0 && canvasWidth > 0 && canvasHeight > 0) {
+                // Live2D Viewer Web fit() method pattern
+                let scale = Math.min(
+                    canvasWidth / modelWidth,
+                    canvasHeight / modelHeight
+                );
                 
-                // Don't upscale beyond 1.0 if model is already small
-                const finalScale = Math.min(desiredScale, 1.0);
+                // Apply the same rounding as Live2D Viewer Web
+                scale = Math.round(scale * 10) / 10;
                 
-                // Store the base scale for zoom calculations
-                this.baseScale = finalScale;
+                // Store as base scale
+                this.baseScale = scale;
                 
-                this.log(`Model scaling: canvas=${canvasHeight}px, model=${modelHeight}px, base=${finalScale}`, 'info');
-                return finalScale;
+                this.log(`Model scaling (FORCED dimensions): canvas=${canvasWidth}x${canvasHeight}, model=${modelWidth}x${modelHeight}, scale=${scale}`, 'info');
+                return scale;
             }
         }
         
-        // For raw Cubism models or fallback, use logical size
-        // Live2D logical size is typically 2x2 units
-        const logicalHeight = 2;
-        const desiredScale = (canvasHeight * targetScale) / (logicalHeight * 100); // Adjust for coordinate system
-        const finalScale = Math.min(desiredScale, 1.0);
-        
-        // Store the base scale for zoom calculations
-        this.baseScale = finalScale;
-        
-        this.log(`Model scaling (fallback): canvas=${canvasHeight}px, logical=${logicalHeight}, base=${finalScale}`, 'info');
-        return finalScale;
+        // Default scale if no model bounds available
+        this.baseScale = 1.0;
+        this.log(`Model scaling (default): using scale=1.0`, 'info');
+        return 1.0;
     }
 
     // Scale model with zoom multiplier
@@ -718,119 +825,79 @@ class Live2DCore {
         }
     }
 
-    // Setup mouse interaction for model dragging
+    // Setup mouse interaction for model dragging (Live2D Viewer Web pattern)
     setupMouseInteraction(model) {
         if (!model) return;
         
         // Make model interactive
         model.interactive = true;
-        model.buttonMode = true;
+        model.eventMode = 'static';
         
-        // Store drag state
-        this.dragState = {
-            isDragging: false,
-            dragStartX: 0,
-            dragStartY: 0,
-            modelStartX: 0,
-            modelStartY: 0
-        };
+        // Add draggable behavior using Live2D Viewer Web pattern
+        model.dragging = false;
+        model._pointerX = 0;
+        model._pointerY = 0;
         
-        // Mouse/touch event handlers
-        model.on('pointerdown', (event) => {
-            this.onDragStart(event, model);
+        // Mouse/touch event handlers (Live2D Viewer Web pattern)
+        model.on('pointerdown', (e) => {
+            model.dragging = true;
+            model._pointerX = e.data.global.x - model.x;
+            model._pointerY = e.data.global.y - model.y;
+            model.alpha = 0.8; // Visual feedback
+            this.log('Model drag started', 'info');
         });
         
-        model.on('pointerup', (event) => {
-            this.onDragEnd(event, model);
-        });
-        
-        model.on('pointerupoutside', (event) => {
-            this.onDragEnd(event, model);
-        });
-        
-        model.on('pointermove', (event) => {
-            this.onDragMove(event, model);
-        });
-        
-        // Also add click handler for hit testing
-        model.on('pointerdown', (event) => {
-            this.onModelClick(event, model);
-        });
-        
-        this.log('Mouse interaction enabled for model', 'info');
-    }
-
-    // Handle drag start
-    onDragStart(event, model) {
-        this.dragState.isDragging = true;
-        this.dragState.dragStartX = event.global.x;
-        this.dragState.dragStartY = event.global.y;
-        this.dragState.modelStartX = model.position.x;
-        this.dragState.modelStartY = model.position.y;
-        
-        model.alpha = 0.8; // Visual feedback
-        this.log('Drag started', 'info');
-    }
-
-    // Handle drag move
-    onDragMove(event, model) {
-        if (!this.dragState.isDragging) return;
-        
-        const deltaX = event.global.x - this.dragState.dragStartX;
-        const deltaY = event.global.y - this.dragState.dragStartY;
-        
-        const newX = this.dragState.modelStartX + deltaX;
-        const newY = this.dragState.modelStartY + deltaY;
-        
-        // Keep model within canvas bounds
-        const bounds = this.getCanvasBounds();
-        const modelBounds = model.getBounds();
-        
-        const clampedX = Math.max(
-            bounds.minX + modelBounds.width / 2,
-            Math.min(bounds.maxX - modelBounds.width / 2, newX)
-        );
-        const clampedY = Math.max(
-            bounds.minY + modelBounds.height / 2,
-            Math.min(bounds.maxY - modelBounds.height / 2, newY)
-        );
-        
-        model.position.set(clampedX, clampedY);
-        
-        // Update frame visualizations if visible
-        if (this.modelFrameGraphics && this.modelFrameGraphics.visible) {
-            this.drawModelFrame();
-        }
-        if (this.hitBoxGraphics && this.hitBoxGraphics.visible) {
-            this.drawHitBoxes();
-        }
-    }
-
-    // Handle drag end
-    onDragEnd(event, model) {
-        this.dragState.isDragging = false;
-        model.alpha = 1.0; // Restore normal opacity
-        
-        this.log(`Model positioned at: ${model.position.x.toFixed(0)}, ${model.position.y.toFixed(0)}`, 'info');
-    }
-
-    // Handle model click (for hit testing)
-    onModelClick(event, model) {
-        if (this.dragState.isDragging) return; // Don't process clicks during drag
-        
-        // Get click position relative to model
-        const localPoint = model.toLocal(event.global);
-        
-        // Check for hit areas (if model supports it)
-        if (model.hitTest && typeof model.hitTest === 'function') {
-            const hitAreas = model.hitTest(localPoint.x, localPoint.y);
-            if (hitAreas && hitAreas.length > 0) {
-                this.log(`Hit areas clicked: ${hitAreas.join(', ')}`, 'info');
-                // Could trigger motions based on hit areas here
+        model.on('pointermove', (e) => {
+            if (model.dragging) {
+                model.position.x = e.data.global.x - model._pointerX;
+                model.position.y = e.data.global.y - model._pointerY;
+                
+                // Update frame visualizations if visible
+                if (this.modelFrameGraphics && this.modelFrameGraphics.visible) {
+                    this.drawModelFrame();
+                }
+                if (this.hitBoxGraphics && this.hitBoxGraphics.visible) {
+                    this.drawHitBoxes();
+                }
             }
-        }
+        });
         
-        this.log(`Model clicked at: ${localPoint.x.toFixed(0)}, ${localPoint.y.toFixed(0)}`, 'info');
+        model.on('pointerup', (e) => {
+            if (model.dragging) {
+                model.dragging = false;
+                model.alpha = 1.0; // Restore normal opacity
+                this.log(`Model positioned at: ${model.position.x.toFixed(0)}, ${model.position.y.toFixed(0)}`, 'info');
+            }
+        });
+        
+        model.on('pointerupoutside', (e) => {
+            if (model.dragging) {
+                model.dragging = false;
+                model.alpha = 1.0; // Restore normal opacity
+                this.log(`Model positioned at: ${model.position.x.toFixed(0)}, ${model.position.y.toFixed(0)}`, 'info');
+            }
+        });
+        
+        // Click handler for hit testing (separate from drag)
+        model.on('pointerdown', (e) => {
+            if (!model.dragging) {
+                // Get click position relative to model
+                const localPoint = model.toLocal(e.data.global);
+                
+                // Check for hit areas (if model supports it)
+                if (model.hitTest && typeof model.hitTest === 'function') {
+                    const hitAreas = model.hitTest(localPoint.x, localPoint.y);
+                    if (hitAreas && hitAreas.length > 0) {
+                        this.log(`Hit areas clicked: ${hitAreas.join(', ')}`, 'info');
+                        // Could trigger motions based on hit areas here
+                    }
+                }
+                
+                this.log(`Model clicked at: ${localPoint.x.toFixed(0)}, ${localPoint.y.toFixed(0)}`, 'info');
+            }
+        });
+        
+        this.log('Mouse interaction enabled for model (Live2D Viewer Web pattern)', 'info');
     }
 
     // Center model in canvas
@@ -840,8 +907,11 @@ class Live2DCore {
             return;
         }
 
-        const centerX = this.app.screen.width / 2;
-        const centerY = this.app.screen.height / 2;
+        const canvasWidth = this.app.renderer ? this.app.renderer.width : this.app.screen.width;
+        const canvasHeight = this.app.renderer ? this.app.renderer.height : this.app.screen.height;
+        
+        const centerX = canvasWidth / 2;
+        const centerY = canvasHeight / 2;
         
         this.model.position.set(centerX, centerY);
         
@@ -854,17 +924,6 @@ class Live2DCore {
         }
         
         this.log(`Model centered at: ${centerX.toFixed(0)}, ${centerY.toFixed(0)}`, 'info');
-    }
-
-    // Get canvas bounds for drag clamping
-    getCanvasBounds() {
-        const margin = 20; // Keep some margin from edges
-        return {
-            minX: margin,
-            minY: margin,
-            maxX: this.app.screen.width - margin,
-            maxY: this.app.screen.height - margin
-        };
     }
 
     // Toggle canvas frame visibility
