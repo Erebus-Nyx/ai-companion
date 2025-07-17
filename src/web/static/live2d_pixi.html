@@ -428,6 +428,24 @@
         </div>
     </div>
 
+    <!-- Model Selection Dialog -->
+    <div class="model-selection-dialog" id="modelSelectionDialog" style="display: none;">
+        <div class="dialog-overlay" onclick="closeAddModelDialog()"></div>
+        <div class="dialog-content">
+            <div class="dialog-header">
+                <h3>Add Live2D Model</h3>
+                <button class="dialog-close" onclick="closeAddModelDialog()">×</button>
+            </div>
+            <div class="dialog-body">
+                <div class="model-grid" id="modelGrid">
+                    <div style="text-align: center; padding: 20px; color: #aaa;">
+                        Loading available models...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 <!-- Load PIXI.js and Live2D libraries in correct order -->
 <!-- Step 1: Load PIXI.js 6.5.10 from dist folder -->
 <script src="dist/pixi-6.5.10.min.js"></script>
@@ -1155,6 +1173,14 @@ document.addEventListener('keydown', function(e) {
         console.log('Emergency rescue mode triggered');
         rescueOffScreenWindows();
     }
+    
+    // Escape key to close model selection dialog
+    if (e.key === 'Escape') {
+        const dialog = document.getElementById('modelSelectionDialog');
+        if (dialog && dialog.style.display === 'flex') {
+            closeAddModelDialog();
+        }
+    }
 });
 
 // Emergency function to bring off-screen windows back into view
@@ -1481,9 +1507,141 @@ function removeModel(modelId) {
 }
 
 function showAddModelDialog() {
-    // This would show the model selection dialog
-    // For now, just log
-    console.log('Show add model dialog');
+    console.log('Opening add model dialog...');
+    const dialog = document.getElementById('modelSelectionDialog');
+    if (dialog) {
+        dialog.style.display = 'flex';
+        loadAvailableModelsForDialog();
+    }
+}
+
+function closeAddModelDialog() {
+    console.log('Closing add model dialog...');
+    const dialog = document.getElementById('modelSelectionDialog');
+    if (dialog) {
+        dialog.style.display = 'none';
+    }
+}
+
+async function loadAvailableModelsForDialog() {
+    console.log('Loading available models for dialog...');
+    const modelGrid = document.getElementById('modelGrid');
+    
+    try {
+        // Get the list of models from the model select dropdown
+        const modelSelect = document.getElementById('modelSelect');
+        const availableModels = [];
+        
+        // Extract models from the dropdown options (excluding the first empty option)
+        for (let i = 1; i < modelSelect.options.length; i++) {
+            const option = modelSelect.options[i];
+            if (option.value) {
+                availableModels.push({
+                    name: option.text,
+                    value: option.value
+                });
+            }
+        }
+        
+        if (availableModels.length === 0) {
+            modelGrid.innerHTML = '<div style="text-align: center; padding: 20px; color: #aaa;">No models available. Please check your model directory.</div>';
+            return;
+        }
+        
+        // Create model cards
+        modelGrid.innerHTML = '';
+        availableModels.forEach(model => {
+            const modelCard = document.createElement('div');
+            modelCard.className = 'model-card';
+            modelCard.onclick = () => selectModelFromDialog(model.value, model.name);
+            
+            modelCard.innerHTML = `
+                <div class="model-preview">
+                    <div class="model-icon">🎭</div>
+                </div>
+                <div class="model-info">
+                    <div class="model-name">${model.name}</div>
+                    <div class="model-description">Live2D Model</div>
+                </div>
+            `;
+            
+            modelGrid.appendChild(modelCard);
+        });
+        
+    } catch (error) {
+        console.error('Error loading models for dialog:', error);
+        modelGrid.innerHTML = '<div style="text-align: center; padding: 20px; color: #f44;">Error loading models. Please try again.</div>';
+    }
+}
+
+function selectModelFromDialog(modelValue, modelName) {
+    console.log('Selected model from dialog:', modelName, modelValue);
+    
+    // Add to people panel (simulate adding to active models)
+    addModelToPeoplePanel(modelValue, modelName);
+    
+    // Close dialog
+    closeAddModelDialog();
+    
+    // Optionally load the model in the main view
+    const modelSelect = document.getElementById('modelSelect');
+    modelSelect.value = modelValue;
+    onModelChange();
+}
+
+function addModelToPeoplePanel(modelValue, modelName) {
+    const modelsList = document.getElementById('peopleModelsList');
+    
+    // Check if model already exists
+    const existingModels = modelsList.querySelectorAll('.people-model-item');
+    for (let model of existingModels) {
+        if (model.dataset.modelValue === modelValue) {
+            console.log('Model already in people panel');
+            return;
+        }
+    }
+    
+    // Create new model item
+    const modelItem = document.createElement('div');
+    modelItem.className = 'people-model-item';
+    modelItem.dataset.modelValue = modelValue;
+    modelItem.onclick = () => {
+        // Remove active class from all models
+        const allModels = modelsList.querySelectorAll('.people-model-item');
+        allModels.forEach(m => m.classList.remove('active'));
+        
+        // Add active class to clicked model
+        modelItem.classList.add('active');
+        
+        // Load the model
+        const modelSelect = document.getElementById('modelSelect');
+        modelSelect.value = modelValue;
+        onModelChange();
+    };
+    
+    modelItem.innerHTML = `
+        <div class="people-model-avatar">🎭</div>
+        <div class="people-model-info">
+            <div class="people-model-name">${modelName}</div>
+            <div class="people-model-status">Ready</div>
+        </div>
+        <button class="people-model-remove" onclick="removeModelFromPeoplePanel(event, '${modelValue}')" title="Remove model">×</button>
+    `;
+    
+    modelsList.appendChild(modelItem);
+    console.log('Added model to people panel:', modelName);
+}
+
+function removeModelFromPeoplePanel(event, modelValue) {
+    event.stopPropagation(); // Prevent triggering the model selection
+    
+    const modelsList = document.getElementById('peopleModelsList');
+    const modelItem = modelsList.querySelector(`.people-model-item[data-model-value="${modelValue}"]`);
+    
+    if (modelItem) {
+        modelItem.remove();
+        console.log('Removed model from people panel:', modelValue);
+    }
 }
 
 // Draggable functionality

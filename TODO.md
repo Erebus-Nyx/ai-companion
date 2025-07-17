@@ -47,7 +47,7 @@
 - [x] **Setup configuration management** - Expanded config.yaml with enhanced VAD settings
 - [ ] **Create logging system** - Implement structured logging for debugging and monitoring
 
-## 🚨 High Priority Issues (Current Status: June 12, 2025)
+## 🚨 High Priority Issues (Current Status: July 17, 2025)
 - [ ] **Fix TTS Model Download** - Kokoro ONNX model download failing (404 error from HuggingFace)
   - Error: `404 Client Error. Entry Not Found for url: https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/kokoro-v0_19.onnx`
   - Model not found at `models/tts/kokoro/onnx/model.onnx`
@@ -56,6 +56,10 @@
   - Current model may be too large for real-time interaction
   - Consider switching to smaller, faster model (7B or smaller)
   - Profile current inference times and memory usage
+- [ ] **Fix Pinned Panel onClick Event** - Pinned panels should not respond to click events for dragging
+  - Currently pinned panels still trigger drag events when clicked despite being pinned
+  - Pin state should disable all dragging functionality including onClick handlers
+  - Need to update event listeners to check pin state before initiating drag operations
 - [x] **Live2D Model System** - Complete production-ready implementation ✅
   - [x] **Dual Architecture Setup** - Support for both Cubism 2.x and modern model formats
   - [x] **Clean File Organization** - All Live2D components organized in dist/ folder
