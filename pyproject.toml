@@ -98,7 +98,6 @@ Documentation = "https://github.com/Erebus-Nyx/ai-companion/blob/main/README.md"
 
 [project.scripts]
 ai-companion = "cli:main"
-ai-companion-server = "main:main"
 
 [project.optional-dependencies]
 dev = [

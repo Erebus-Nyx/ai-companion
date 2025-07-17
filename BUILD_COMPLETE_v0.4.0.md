@@ -84,10 +84,12 @@ ai-companion --help
 ### Quick Start
 1. Install: `pipx install .`
 2. Start server: `ai-companion server`  
-3. Open browser: `http://localhost:19443/live2d`
+3. Open browser: `http://localhost:19443/`
 4. View API docs: `ai-companion api`
 
 ## 📋 API Endpoints (v0.4.0)
+
+**Base URL**: `http://localhost:19443/api/`
 
 ### System
 - `GET /api/system/version` - Version information
@@ -97,6 +99,7 @@ ai-companion --help
 
 ### Chat
 - `POST /api/chat` - Send messages to AI companion
+- `POST /api/v1/chat` - Alternative v1 chat endpoint
 
 ### TTS  
 - `POST /api/tts` - Convert text to speech with emotions

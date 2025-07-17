@@ -17,19 +17,44 @@ from tqdm import tqdm
 from .system_detector import SystemDetector
 
 
+def get_user_data_dir() -> Path:
+    """Get platform-appropriate user data directory for AI Companion models."""
+    if os.name == 'nt':  # Windows
+        data_dir = Path(os.environ.get('APPDATA', Path.home() / 'AppData' / 'Roaming'))
+    elif os.name == 'posix':  # Linux/macOS
+        # Use XDG_DATA_HOME or fallback to ~/.local/share
+        data_dir = Path(os.environ.get('XDG_DATA_HOME', Path.home() / '.local' / 'share'))
+    else:
+        data_dir = Path.home() / '.ai-companion'
+    
+    return data_dir / 'ai-companion'
+
+
 class ModelDownloader:
     """
     Handles downloading and managing AI models for the companion application.
+    Uses user data directories for cross-platform compatibility and pipx installation.
     """
     
-    def __init__(self, models_dir: str = "models", cache_dir: str = "cache"):
+    def __init__(self, models_dir: Optional[str] = None, cache_dir: Optional[str] = None):
         self.logger = logging.getLogger(__name__)
-        self.models_dir = Path(models_dir)
-        self.cache_dir = Path(cache_dir)
+        
+        # Use user data directory if not specified
+        if models_dir is None or models_dir == "models":
+            user_data_dir = get_user_data_dir()
+            self.models_dir = user_data_dir / "models"
+            self.cache_dir = user_data_dir / "cache"
+        else:
+            # Support legacy relative paths for development
+            self.models_dir = Path(models_dir)
+            self.cache_dir = Path(cache_dir) if cache_dir else Path("cache")
         
         # Create directories
         self.models_dir.mkdir(parents=True, exist_ok=True)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        
+        self.logger.info(f"AI Companion models directory: {self.models_dir}")
+        self.logger.info(f"AI Companion cache directory: {self.cache_dir}")
         
         self.system_detector = SystemDetector()
         

@@ -15,7 +15,7 @@ from datetime import datetime
 import threading
 import re
 
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, redirect
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_cors import CORS
 
@@ -103,8 +103,26 @@ app_globals.app_state = app_state
 # =============================================================================
 @app.route('/')
 def index():
-    """Serve the main application page"""
-    return render_template('index.html')
+    """Serve the main application page - redirects to Live2D interface"""
+    return send_from_directory('web/static', 'live2d_pixi.html')
+
+@app.route('/live2d')
+def live2d_interface():
+    """Serve the Live2D interface"""
+    return send_from_directory('web/static', 'live2d_pixi.html')
+
+@app.route('/api/docs')
+def api_docs():
+    """Serve Swagger UI documentation"""
+    json_param = request.args.get('json')
+    if json_param:
+        return jsonify(get_openapi_spec())
+    return get_swagger_ui_html()
+
+@app.route('/docs') 
+def docs_redirect():
+    """Redirect /docs to /api/docs"""
+    return redirect('/api/docs')
 
 @app.route('/api/status')
 def api_status():
@@ -224,7 +242,7 @@ class AICompanionApp:
             self._broadcast_status()
             
             # Initialize model downloader and download models
-            model_downloader = ModelDownloader("models", "cache")
+            model_downloader = ModelDownloader()  # Use default user data directories
             app_globals.model_downloader = model_downloader
             await self._download_models_async()
             

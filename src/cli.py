@@ -222,6 +222,7 @@ class AICompanionCLI:
             print("✅ AI Companion modules loaded successfully")
             print(f"🌐 Server will be available at: http://{host}:{port}")
             print("🎭 Live2D interface: http://localhost:19443/live2d")
+            print("📋 API endpoints: http://localhost:19443/api/...")
             print("⚡ Press Ctrl+C to stop the server")
             
             # Set environment
@@ -285,6 +286,53 @@ class AICompanionCLI:
             for component, version in version_info['components'].items():
                 print(f"  • {component}: {version}")
 
+    def show_models(self, list_models: bool = False, show_paths: bool = False):
+        """Show model information and storage locations."""
+        from utils.model_downloader import ModelDownloader, get_user_data_dir
+        
+        print("🧠 AI Companion Model Information")
+        print("=" * 50)
+        
+        # Show storage paths
+        if show_paths or not list_models:
+            data_dir = get_user_data_dir()
+            print(f"\n📁 Model Storage Locations:")
+            print(f"  • User Data Directory: {data_dir}")
+            print(f"  • Models Directory: {data_dir / 'models'}")
+            print(f"  • Cache Directory: {data_dir / 'cache'}")
+            
+            # Check if models exist
+            models_exist = (data_dir / 'models').exists()
+            cache_exists = (data_dir / 'cache').exists()
+            print(f"\n📊 Directory Status:")
+            print(f"  • Models Directory: {'✅ Exists' if models_exist else '❌ Not created yet'}")
+            print(f"  • Cache Directory: {'✅ Exists' if cache_exists else '❌ Not created yet'}")
+        
+        # List available models
+        if list_models or not show_paths:
+            try:
+                downloader = ModelDownloader()
+                available_models = downloader.list_available_models()
+                
+                print(f"\n🎯 Available Models:")
+                for model_type, variants in available_models.items():
+                    print(f"\n  📦 {model_type.upper()} Models:")
+                    for variant, downloaded in variants.items():
+                        status = "✅ Downloaded" if downloaded else "⬇️  Available for download"
+                        print(f"    • {variant}: {status}")
+                        
+                        if downloaded:
+                            path = downloader.get_model_path(model_type, variant)
+                            print(f"      📍 Path: {path}")
+                
+            except Exception as e:
+                print(f"\n❌ Error checking models: {e}")
+                print("💡 Models will be downloaded automatically when the server starts.")
+        
+        print(f"\n💡 Models are downloaded automatically when first needed.")
+        print(f"📦 Total storage location: {get_user_data_dir()}")
+        print(f"🗑️  To clear models: rm -rf {get_user_data_dir()}")
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -299,6 +347,11 @@ Examples:
   ai-companion api --format json        # Show API docs in JSON format
   ai-companion status                    # Show system status
   ai-companion version                   # Show version information
+  ai-companion models                    # Show model information
+  ai-companion models --list             # List available models
+  ai-companion models --paths            # Show model storage paths
+  ai-companion models                    # Show model storage paths
+  ai-companion models --list             # List all available models
         """
     )
     
@@ -326,6 +379,11 @@ Examples:
     # Version command
     subparsers.add_parser("version", help="Show detailed version information")
     
+    # Models command
+    models_parser = subparsers.add_parser("models", help="Show model information and locations")
+    models_parser.add_argument("--list", "-l", action="store_true", help="List available models")
+    models_parser.add_argument("--paths", "-p", action="store_true", help="Show model storage paths")
+    
     args = parser.parse_args()
     
     cli = AICompanionCLI()
@@ -346,6 +404,9 @@ Examples:
     elif args.command == "version":
         version_info = get_version_info()
         print(json.dumps(version_info, indent=2))
+    
+    elif args.command == "models":
+        cli.show_models(list_models=args.list, show_paths=args.paths)
     
     else:
         # No command specified, show help
