@@ -37,31 +37,9 @@ class Live2DMultiModelManager {
         const canvasContainer = document.querySelector('.canvas-container');
         if (!canvasContainer) return;
 
-        // Create character icons bar
-        const iconsContainer = document.createElement('div');
-        iconsContainer.id = 'characterIcons';
-        iconsContainer.className = 'character-icons-container';
-        iconsContainer.innerHTML = `
-            <div class="character-icons-bar">
-                <div class="character-icons-list" id="characterIconsList">
-                    <!-- Character icons will be populated here -->
-                </div>
-                <div class="character-icons-controls">
-                    <button class="add-model-btn" id="addModelBtn" title="Add new model">
-                        <span class="add-icon">+</span>
-                    </button>
-                </div>
-            </div>
-        `;
-
-        canvasContainer.appendChild(iconsContainer);
-
-        // Add event listener for add model button
-        document.getElementById('addModelBtn').addEventListener('click', () => {
-            this.showAddModelDialog();
-        });
-
-        this.log('Character icons container created', 'info');
+        // The character icons are now handled by the people panel
+        // No need to create the bottom character icons container
+        this.log('Multi-model manager initialized - using people panel for model selection', 'info');
     }
 
     showAddModelDialog() {
@@ -220,8 +198,8 @@ class Live2DMultiModelManager {
             const modelId = `model_${++this.modelCounter}`;
             
             // Load the model using core without clearing existing models
-            // Explicitly disable autoMotion to allow our custom neutral motion logic to work
-            const pixiModel = await this.loadModelWithoutClearing(modelInfo.url, { autoMotion: false });
+            // Enable autoMotion to prevent T-pose, then add our custom motions
+            const pixiModel = await this.loadModelWithoutClearing(modelInfo.url, { autoMotion: true });
             
             // Store model data
             const modelData = {
@@ -251,6 +229,8 @@ class Live2DMultiModelManager {
             
             // Set initial scale (0.2 for default zoom 1.0)
             if (pixiModel && pixiModel.scale) {
+                modelData.baseScale = 0.2;
+                pixiModel.baseScale = modelData.baseScale; // Store base scale on model for interaction manager
                 pixiModel.scale.set(modelData.baseScale);
             }
 

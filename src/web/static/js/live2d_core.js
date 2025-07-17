@@ -62,41 +62,15 @@ class Live2DCore {
     }
 
     async initApp(canvasElement, options = {}) {
-        // Calculate canvas size based on canvas-frame dimensions
-        // The canvas-frame already handles responsive positioning and sidebar adjustments
-        let canvasFrame = document.querySelector('.canvas-frame');
+        // Use full window dimensions for canvas
+        let finalWidth = window.innerWidth;
+        let finalHeight = window.innerHeight;
         
-        // If canvas-frame doesn't exist yet, wait for DOM to be ready
-        if (!canvasFrame) {
-            await new Promise(resolve => {
-                const checkFrame = () => {
-                    canvasFrame = document.querySelector('.canvas-frame');
-                    if (canvasFrame) {
-                        resolve();
-                    } else {
-                        setTimeout(checkFrame, 10);
-                    }
-                };
-                checkFrame();
-            });
-        }
+        // Ensure minimum size for usability
+        finalWidth = Math.max(finalWidth, 400);
+        finalHeight = Math.max(finalHeight, 400);
         
-        let finalWidth = 800;  // Fallback defaults
-        let finalHeight = 600;
-        
-        if (canvasFrame) {
-            const frameRect = canvasFrame.getBoundingClientRect();
-            finalWidth = Math.floor(frameRect.width);
-            finalHeight = Math.floor(frameRect.height);
-            
-            // Ensure minimum size for usability
-            finalWidth = Math.max(finalWidth, 400);
-            finalHeight = Math.max(finalHeight, 400);
-            
-            this.log(`Canvas sizing from frame: ${finalWidth}x${finalHeight}`, 'info');
-        } else {
-            this.log('Canvas frame not found, using fallback dimensions', 'warning');
-        }
+        this.log(`Canvas sizing to full window: ${finalWidth}x${finalHeight}`, 'info');
         
         const defaultOptions = {
             width: finalWidth,
@@ -123,14 +97,14 @@ class Live2DCore {
                 canvasElement.appendChild(this.app.view);
             }
             
-            // Get the canvas element and apply basic styling
+            // Get the canvas element and apply full-window styling
             const canvas = this.app.canvas || this.app.view;
-            canvas.style.width = finalOptions.width + 'px';
-            canvas.style.height = finalOptions.height + 'px';
-            canvas.style.border = '1px solid rgba(74, 144, 226, 0.3)';
-            canvas.style.borderRadius = '8px';
-            canvas.style.backgroundColor = 'rgba(0, 0, 0, 0.05)';
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
             canvas.style.display = 'block';
+            canvas.style.position = 'absolute';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
             
             // Set up responsive resize handler
             this.setupWindowResizeHandler();
@@ -807,22 +781,13 @@ class Live2DCore {
         this.resizeHandler = () => {
             if (!this.app) return;
             
-            // Calculate canvas size based on canvas-frame dimensions
-            const canvasFrame = document.querySelector('.canvas-frame');
-            let finalWidth = 800;  // Fallback defaults
-            let finalHeight = 600;
+            // Use full window dimensions
+            let finalWidth = window.innerWidth;
+            let finalHeight = window.innerHeight;
             
-            if (canvasFrame) {
-                const frameRect = canvasFrame.getBoundingClientRect();
-                finalWidth = Math.floor(frameRect.width);
-                finalHeight = Math.floor(frameRect.height);
-                
-                // Ensure minimum size for usability
-                finalWidth = Math.max(finalWidth, 400);
-                finalHeight = Math.max(finalHeight, 400);
-            } else {
-                this.log('Canvas frame not found during resize, using fallback dimensions', 'warning');
-            }
+            // Ensure minimum size for usability
+            finalWidth = Math.max(finalWidth, 400);
+            finalHeight = Math.max(finalHeight, 400);
             
             // Resize the renderer and canvas
             this.app.renderer.resize(finalWidth, finalHeight);
@@ -834,8 +799,8 @@ class Live2DCore {
             // Update canvas element styling
             const canvas = this.app.canvas || this.app.view;
             if (canvas) {
-                canvas.style.width = finalWidth + 'px';
-                canvas.style.height = finalHeight + 'px';
+                canvas.style.width = '100%';
+                canvas.style.height = '100%';
             }
             
             // Recenter model if it exists

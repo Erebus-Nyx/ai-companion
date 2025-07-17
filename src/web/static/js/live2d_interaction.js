@@ -77,6 +77,8 @@ class Live2DInteraction {
     setupModelInteraction() {
         if (!this.model || !this.app) return;
         
+        console.log('Setting up model interaction for:', this.model);
+        
         // Make model interactive
         this.model.interactive = true;
         this.model.eventMode = 'static';
@@ -94,8 +96,11 @@ class Live2DInteraction {
         // Add wheel event to canvas for zoom
         const canvas = this.app.canvas || this.app.view;
         if (canvas) {
+            console.log('Adding wheel event to canvas');
             canvas.removeEventListener('wheel', this.mouseHandlers.onWheel);
             canvas.addEventListener('wheel', this.mouseHandlers.onWheel, { passive: false });
+        } else {
+            console.error('Canvas not found for wheel events');
         }
         
         this.logger.logInfo('Model interaction set up');
@@ -154,6 +159,7 @@ class Live2DInteraction {
 
     // Pointer down handler
     onPointerDown(event) {
+        console.log('Pointer down event triggered');
         if (!this.model) return;
         
         // Check for hit areas first
@@ -231,6 +237,7 @@ class Live2DInteraction {
 
     // Mouse wheel handler for zoom
     onWheel(event) {
+        console.log('Wheel event triggered:', event.deltaY);
         event.preventDefault();
         
         const delta = -Math.sign(event.deltaY);
@@ -244,8 +251,11 @@ class Live2DInteraction {
         const clampedZoom = Math.max(this.minZoom, Math.min(this.maxZoom, zoomLevel));
         this.currentZoom = clampedZoom;
         
-        // Apply zoom as scale
-        this.model.scale.set(clampedZoom);
+        // Get base scale from model (if it exists)
+        const baseScale = this.model.baseScale || 1.0;
+        
+        // Apply zoom as scale combined with base scale
+        this.model.scale.set(baseScale * clampedZoom);
         
         // Update UI
         const zoomSlider = document.getElementById('zoomSlider');
@@ -253,7 +263,7 @@ class Live2DInteraction {
         if (zoomSlider) zoomSlider.value = this.currentZoom;
         if (zoomValue) zoomValue.textContent = this.currentZoom.toFixed(1);
         
-        this.logger.logInfo(`Zoom set to ${this.currentZoom.toFixed(1)}`);
+        this.logger.logInfo(`Zoom set to ${this.currentZoom.toFixed(1)} (base: ${baseScale.toFixed(2)})`);
         
         // Update frame visualizations
         this.updateFrameVisualizations();
