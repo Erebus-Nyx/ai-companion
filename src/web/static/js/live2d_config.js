@@ -46,7 +46,7 @@ class Live2DConfig {
             'logMessageToConsole': true,                    // Log messages to console
             
             // URLs
-            'l2dVersion': '2.0.0',                          // Version string
+            'l2dVersion': '0.4.0',                          // Version string
             'homePageUrl': '/',                             // Home page URL
             'aboutPageUrl': 'https://github.com/Konata09/Live2dOnWeb/',
             'screenshotCaptureName': 'live2d_screenshot.png' // Screenshot filename

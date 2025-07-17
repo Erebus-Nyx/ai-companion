@@ -2,8 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name='ai-companion',
-    version='0.2.0',
-    description='An interactive AI companion with Live2D visual avatar, voice capabilities, and advanced AI integration.',
+    version='0.4.0',
+    description='AI Companion with Live2D Visual Avatar',
     author='AI Companion Team',
     author_email='contact@ai-companion.com',
     packages=find_packages(where='src'),

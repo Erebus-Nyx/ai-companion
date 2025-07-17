@@ -35,6 +35,7 @@ from app_routes_chat import chat_bp
 from app_routes_tts import tts_bp
 from app_routes_audio import audio_bp
 from app_routes_debug import debug_bp
+from app_routes_system import system_bp
 import app_globals
 
 # Configure logging with reduced verbosity
@@ -92,6 +93,7 @@ app.register_blueprint(chat_bp)
 app.register_blueprint(tts_bp)
 app.register_blueprint(audio_bp)
 app.register_blueprint(debug_bp)
+app.register_blueprint(system_bp)
 
 # Set app_state to globals for blueprint access
 app_globals.app_state = app_state

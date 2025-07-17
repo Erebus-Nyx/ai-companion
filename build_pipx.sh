@@ -1,0 +1,89 @@
+#!/bin/bash
+# build_pipx.sh - Build and prepare AI Companion for pipx installation
+
+set -e
+
+echo "🔧 Building AI Companion v0.4.0 for pipx installation"
+echo "=================================================="
+
+# Clean previous builds
+echo "🧹 Cleaning previous builds..."
+rm -rf build/ dist/ *.egg-info/
+find . -name "*.pyc" -delete
+find . -name "__pycache__" -delete
+
+# Verify version consistency
+echo "📋 Verifying version consistency..."
+echo "   - pyproject.toml: $(grep 'version =' pyproject.toml | cut -d'"' -f2)"
+echo "   - setup.py: $(grep "version=" setup.py | cut -d"'" -f2)"
+echo "   - package.json: $(grep '"version"' package.json | cut -d'"' -f4)"
+
+# Build the package
+echo "📦 Building package..."
+python -m build
+
+# Verify the package
+echo "✅ Verifying package contents..."
+echo "Package files created:"
+ls -la dist/
+
+echo ""
+echo "📁 Package contents:"
+if command -v tar &> /dev/null; then
+    echo "Source distribution contents:"
+    tar -tzf dist/*.tar.gz | head -20
+    echo "... (showing first 20 files)"
+fi
+
+# Test installation in virtual environment
+echo ""
+echo "🧪 Testing package installation..."
+
+# Create temporary test environment
+TEST_DIR=$(mktemp -d)
+cd $TEST_DIR
+
+echo "📍 Testing in: $TEST_DIR"
+
+# Create virtual environment
+python -m venv test_env
+source test_env/bin/activate
+
+# Install the package
+echo "💾 Installing package for testing..."
+cd - > /dev/null
+pip install dist/*.whl
+
+# Test CLI functionality
+echo "🔍 Testing CLI functionality..."
+echo "Testing version command:"
+ai-companion --version
+
+echo ""
+echo "Testing API documentation:"
+ai-companion api --format json | head -10
+
+echo ""
+echo "Testing help command:"
+ai-companion --help
+
+# Cleanup
+deactivate
+cd - > /dev/null
+rm -rf $TEST_DIR
+
+echo ""
+echo "🎉 Build completed successfully!"
+echo "=================================================="
+echo ""
+echo "📋 Installation Instructions:"
+echo "   Local install:  pipx install ."
+echo "   From wheel:     pipx install dist/*.whl"
+echo ""
+echo "🚀 Quick Start Commands:"
+echo "   ai-companion server          # Start the server"
+echo "   ai-companion api             # View API docs"
+echo "   ai-companion status          # Check status"
+echo "   ai-companion --help          # Show help"
+echo ""
+echo "🌐 After installation, visit: http://localhost:19443/live2d"

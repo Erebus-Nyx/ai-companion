@@ -108,6 +108,6 @@ __all__ = [
 ]
 
 # Version info
-__version__ = '1.0.0'
+__version__ = '0.4.0'
 __author__ = 'AI Companion Project'
 __description__ = 'Audio processing and speech recognition module'

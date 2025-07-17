@@ -4,17 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai-companion"
-version = "0.2.0"
+version = "0.4.0"
 description = "An interactive AI companion with Live2D visual avatar, voice capabilities, and advanced AI integration featuring enhanced VAD, emotional TTS, and local LLM processing."
 authors = [{name = "AI Companion Team", email = "contact@ai-companion.com"}]
-license = {text = "MIT"}
+license = "MIT"
 readme = "README.md"
 requires-python = ">=3.8"
 keywords = ["AI", "companion", "avatar", "Live2D", "voice", "chatbot", "llm", "tts", "vad", "emotional-ai"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -61,21 +60,14 @@ dependencies = [
     "pyannote.database>=5.0.0",
     "pyannote.metrics>=3.2.0",
     "silero-vad>=4.0.0",
-    "voice-activity-detector>=0.1.0",
     
     # LLM integration
     "llama-cpp-python>=0.2.0",
     "huggingface-hub>=0.16.0",
     
     # TTS systems
-    "kokoro-tts>=0.1.0; platform_machine != 'aarch64'",
     "pyttsx3>=2.90",
     "gTTS>=2.3.0",
-    "espeak-ng>=1.51; platform_system == 'Linux'",
-    
-    # ONNX runtime for optimized models
-    "onnxruntime>=1.15.0",
-    "onnxruntime-gpu>=1.15.0; platform_system != 'Darwin'",
     
     # Database
     "sqlalchemy>=2.0.0",
@@ -94,8 +86,8 @@ dependencies = [
     "mutagen>=1.47.0",
     
     # Platform-specific audio
-    "portaudio19-dev; platform_system == 'Linux'",
-    "alsa-utils; platform_system == 'Linux'",
+    "ffmpeg-python>=0.2.0",
+    "mutagen>=1.47.0",
 ]
 
 [project.urls]
@@ -105,8 +97,8 @@ Issues = "https://github.com/Erebus-Nyx/ai-companion/issues"
 Documentation = "https://github.com/Erebus-Nyx/ai-companion/blob/main/README.md"
 
 [project.scripts]
-ai-companion = "main:main"
-ai-companion-server = "app:main"
+ai-companion = "cli:main"
+ai-companion-server = "main:main"
 
 [project.optional-dependencies]
 dev = [

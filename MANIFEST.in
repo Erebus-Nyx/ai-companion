@@ -23,6 +23,10 @@ include README.md LICENSE requirements.txt
 recursive-include models *.json *.yaml *.md *.txt
 recursive-include docs *.md *.txt
 
+# Include version and CLI modules
+include src/__version__.py
+include src/cli.py
+
 # Exclude unnecessary files
 global-exclude *.pyc *.pyo *.pyd __pycache__ *.so *.egg-info
 global-exclude .git* .DS_Store .vscode
