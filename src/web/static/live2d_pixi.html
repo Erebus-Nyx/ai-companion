@@ -399,6 +399,20 @@
                         <button class="btn btn-primary" onclick="testModel()">Test Model</button>
                         <button class="btn btn-warning" onclick="resetModel()">Reset</button>
                     </div>
+                    <div class="setting-controls">
+                        <button class="btn btn-info" onclick="debugWindowPositions()">Debug Positions</button>
+                        <button class="btn btn-warning" onclick="resetWindowLayout()">Reset Layout</button>
+                    </div>
+                    <div class="setting-controls">
+                        <button class="btn btn-info" onclick="rescueOffScreenWindows()">Rescue Windows</button>
+                    </div>
+                    <div class="setting-item">
+                        <label style="font-size: 12px; color: #aaa; font-style: italic;">
+                            Emergency shortcuts:<br>
+                            Ctrl+Shift+R = Reset to defaults<br>
+                            Ctrl+Shift+B = Rescue off-screen windows
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -412,9 +426,6 @@
                 <div class="loading-spinner"></div>
             </div>
         </div>
-        
-        <!-- Panel Toggle Button - Hidden with tab system -->
-        <button class="panel-toggle" id="panelToggle" onclick="togglePanel(true)" style="display: none;">☰</button>
     </div>
 
 <!-- Load PIXI.js and Live2D libraries in correct order -->
@@ -584,14 +595,30 @@ async function initializeLive2D() {
     }
 }
 
-// Global functions for HTML onclick handlers
-function togglePanel(force) {
-    console.log('togglePanel called with force:', force);
-    if (uiController) {
-        uiController.togglePanel(force);
-    } else {
-        console.error('uiController not available');
-    }
+// Debug function to show current window positions
+function debugWindowPositions() {
+    const chatWindow = document.getElementById('chatWindow');
+    const peoplePanel = document.getElementById('peoplePanel');
+    const settingsPanel = document.getElementById('settingsPanel');
+    
+    console.log('=== Window Positions Debug ===');
+    console.log('Chat Window:', {
+        rect: chatWindow.getBoundingClientRect(),
+        style: { left: chatWindow.style.left, top: chatWindow.style.top, transform: chatWindow.style.transform },
+        computed: window.getComputedStyle(chatWindow).transform
+    });
+    console.log('People Panel:', {
+        rect: peoplePanel.getBoundingClientRect(),
+        style: { left: peoplePanel.style.left, top: peoplePanel.style.top, transform: peoplePanel.style.transform },
+        computed: window.getComputedStyle(peoplePanel).transform
+    });
+    console.log('Settings Panel:', {
+        rect: settingsPanel.getBoundingClientRect(),
+        style: { left: settingsPanel.style.left, top: settingsPanel.style.top, transform: settingsPanel.style.transform },
+        computed: window.getComputedStyle(settingsPanel).transform
+    });
+    console.log('Saved Layout:', JSON.parse(localStorage.getItem(LAYOUT_STORAGE_KEY) || '{}'));
+    console.log('==============================');
 }
 
 function onModelChange() {
@@ -756,6 +783,429 @@ let isDragging = false;
 let currentDragElement = null;
 let dragOffset = { x: 0, y: 0 };
 
+// Window Layout Persistence System
+const LAYOUT_STORAGE_KEY = 'ai-companion-window-layout';
+
+// Default window layouts
+const DEFAULT_LAYOUTS = {
+    chatWindow: {
+        position: { x: 'center', y: 'bottom' },
+        size: { width: 400, height: 400 },
+        snapped: false,
+        snapPosition: 'bottom',
+        open: false
+    },
+    peoplePanel: {
+        position: { x: 'right-20', y: 'top-80' },
+        size: { width: 200, height: 'auto' },
+        snapped: false,
+        snapPosition: 'right',
+        open: false
+    },
+    settingsPanel: {
+        position: { x: 'left-20', y: 'top-20' },
+        size: { width: 350, height: 'auto' },
+        snapped: false,
+        snapPosition: 'left',
+        open: false
+    }
+};
+
+// Save window layout to localStorage
+function saveWindowLayout() {
+    const layout = {
+        chatWindow: {
+            position: getElementPosition('chatWindow'),
+            size: getElementSize('chatWindow'),
+            snapped: chatSnapped,
+            snapPosition: getChatSnapPosition(),
+            open: chatOpen
+        },
+        peoplePanel: {
+            position: getElementPosition('peoplePanel'),
+            size: getElementSize('peoplePanel'),
+            snapped: peopleSnapped,
+            snapPosition: getPeopleSnapPosition(),
+            open: peopleOpen
+        },
+        settingsPanel: {
+            position: getElementPosition('settingsPanel'),
+            size: getElementSize('settingsPanel'),
+            snapped: settingsSnapped,
+            snapPosition: getSettingsSnapPosition(),
+            open: settingsOpen
+        }
+    };
+    
+    // Validate positions to prevent off-screen windows
+    layout.chatWindow.position = validatePosition(layout.chatWindow.position);
+    layout.peoplePanel.position = validatePosition(layout.peoplePanel.position);
+    layout.settingsPanel.position = validatePosition(layout.settingsPanel.position);
+    
+    localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layout));
+}
+
+// Validate that positions are within viewport bounds
+function validatePosition(position) {
+    const maxX = window.innerWidth - 200; // Minimum 200px visible
+    const maxY = window.innerHeight - 100; // Minimum 100px visible
+    
+    return {
+        x: Math.max(0, Math.min(position.x, maxX)),
+        y: Math.max(0, Math.min(position.y, maxY))
+    };
+}
+
+// Reset all windows to default positions
+function resetWindowLayout() {
+    console.log('Resetting window layout to defaults');
+    localStorage.removeItem(LAYOUT_STORAGE_KEY);
+    
+    // Immediately apply default layouts instead of reloading
+    applyDefaultLayout();
+}
+
+// Apply default layout immediately
+function applyDefaultLayout() {
+    console.log('Applying default window layout');
+    
+    // Reset all windows to default positions
+    const chatWindow = document.getElementById('chatWindow');
+    const peoplePanel = document.getElementById('peoplePanel');
+    const settingsPanel = document.getElementById('settingsPanel');
+    
+    if (chatWindow) {
+        // Reset chat window
+        chatWindow.style.left = '';
+        chatWindow.style.right = '';
+        chatWindow.style.top = '';
+        chatWindow.style.bottom = '';
+        chatWindow.style.transform = '';
+        chatWindow.style.position = 'fixed';
+        chatWindow.classList.remove('pinned');
+        chatWindow.classList.add('open'); /* Add open class for default visibility */
+        
+        // Apply default CSS positioning - Show the chat window in default position
+        chatWindow.style.bottom = '10px'; /* Bottom edge 10px from bottom window edge */
+        chatWindow.style.left = '50%';
+        chatWindow.style.transform = 'translateX(-50%) translateY(0)'; /* Show chat window in default position */
+        chatWindow.style.width = '50%'; /* Use responsive width from CSS */
+        chatWindow.style.height = '30%'; /* Use responsive height from CSS - updated to 30% */
+        
+        // Reset pin button
+        const chatPinButton = chatWindow.querySelector('.control-btn[onclick="toggleChatSnap()"]');
+        if (chatPinButton) chatPinButton.classList.remove('pinned');
+        
+        chatOpen = true; /* Panel is visible in default position */
+        chatSnapped = false;
+    }
+    
+    if (peoplePanel) {
+        // Reset people panel
+        peoplePanel.style.left = '';
+        peoplePanel.style.right = '';
+        peoplePanel.style.top = '';
+        peoplePanel.style.bottom = '';
+        peoplePanel.style.transform = '';
+        peoplePanel.style.position = 'fixed';
+        peoplePanel.classList.remove('pinned');
+        peoplePanel.classList.add('open'); /* Add open class for default visibility */
+        
+        // Apply default CSS positioning - Show the panel in default position
+        peoplePanel.style.top = '80px';
+        peoplePanel.style.right = '20px'; /* Right edge 20px from right window edge */
+        peoplePanel.style.transform = 'translateX(0)'; /* Show panel in default position */
+        peoplePanel.style.width = '200px';
+        
+        // Reset pin button
+        const peoplePinButton = peoplePanel.querySelector('.control-btn[onclick="togglePeopleSnap()"]');
+        if (peoplePinButton) peoplePinButton.classList.remove('pinned');
+        
+        peopleOpen = true; /* Panel is visible in default position */
+        peopleSnapped = false;
+    }
+    
+    if (settingsPanel) {
+        // Reset settings panel
+        settingsPanel.style.left = '';
+        settingsPanel.style.right = '';
+        settingsPanel.style.top = '';
+        settingsPanel.style.bottom = '';
+        settingsPanel.style.transform = '';
+        settingsPanel.style.position = 'fixed';
+        settingsPanel.classList.remove('pinned');
+        settingsPanel.classList.remove('open'); /* Settings should start closed */
+        
+        // Apply default CSS positioning - Hide the panel initially
+        settingsPanel.style.top = '20px';
+        settingsPanel.style.left = '20px';
+        settingsPanel.style.transform = 'translateX(-100%)'; /* Hide panel initially */
+        settingsPanel.style.width = '350px';
+        
+        // Reset pin button
+        const settingsPinButton = settingsPanel.querySelector('.control-btn[onclick="toggleSettingsSnap()"]');
+        if (settingsPinButton) settingsPinButton.classList.remove('pinned');
+        
+        settingsOpen = false; /* Panel is hidden by default */
+        settingsSnapped = false;
+    }
+    
+    updateNavIconStates();
+    console.log('Default layout applied');
+}
+
+// Load window layout from localStorage
+function loadWindowLayout() {
+    try {
+        const savedLayout = localStorage.getItem(LAYOUT_STORAGE_KEY);
+        if (!savedLayout) {
+            console.log('No saved layout found, using defaults');
+            return DEFAULT_LAYOUTS;
+        }
+        
+        const layout = JSON.parse(savedLayout);
+        console.log('Window layout loaded:', layout);
+        return layout;
+    } catch (error) {
+        console.error('Error loading window layout:', error);
+        return DEFAULT_LAYOUTS;
+    }
+}
+
+// Apply saved layout to windows
+function applyWindowLayout(layout) {
+    // Apply chat window layout
+    if (layout.chatWindow) {
+        const chatWindow = document.getElementById('chatWindow');
+        if (chatWindow) {
+            applyElementLayout(chatWindow, layout.chatWindow);
+            chatOpen = layout.chatWindow.open;
+            chatSnapped = layout.chatWindow.snapped;
+            if (chatOpen) {
+                chatWindow.classList.add('open');
+            }
+            if (chatSnapped) {
+                chatWindow.classList.add('pinned'); // Add visual indicator
+                const pinButton = chatWindow.querySelector('.control-btn[onclick="toggleChatSnap()"]');
+                if (pinButton) pinButton.classList.add('pinned');
+            }
+        }
+    }
+    
+    // Apply people panel layout
+    if (layout.peoplePanel) {
+        const peoplePanel = document.getElementById('peoplePanel');
+        if (peoplePanel) {
+            applyElementLayout(peoplePanel, layout.peoplePanel);
+            peopleOpen = layout.peoplePanel.open;
+            peopleSnapped = layout.peoplePanel.snapped;
+            if (peopleOpen) {
+                peoplePanel.classList.add('open');
+            }
+            if (peopleSnapped) {
+                peoplePanel.classList.add('pinned'); // Add visual indicator
+                const pinButton = peoplePanel.querySelector('.control-btn[onclick="togglePeopleSnap()"]');
+                if (pinButton) pinButton.classList.add('pinned');
+            }
+        }
+    }
+    
+    // Apply settings panel layout
+    if (layout.settingsPanel) {
+        const settingsPanel = document.getElementById('settingsPanel');
+        if (settingsPanel) {
+            applyElementLayout(settingsPanel, layout.settingsPanel);
+            settingsOpen = layout.settingsPanel.open;
+            settingsSnapped = layout.settingsPanel.snapped;
+            if (settingsOpen) {
+                settingsPanel.classList.add('open');
+            }
+            if (settingsSnapped) {
+                settingsPanel.classList.add('pinned'); // Add visual indicator
+                const pinButton = settingsPanel.querySelector('.control-btn[onclick="toggleSettingsSnap()"]');
+                if (pinButton) pinButton.classList.add('pinned');
+            }
+        }
+    }
+    
+    updateNavIconStates();
+}
+
+// Helper functions for layout management
+function getElementPosition(elementId) {
+    const element = document.getElementById(elementId);
+    if (!element) return { x: 0, y: 0 };
+    
+    // Get computed style to check for transforms
+    const computedStyle = window.getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    
+    // If element has been positioned manually, use the style values
+    if (element.style.left && element.style.left !== '') {
+        const left = parseInt(element.style.left.replace('px', ''));
+        const top = parseInt(element.style.top ? element.style.top.replace('px', '') : '0');
+        return { x: left, y: top };
+    }
+    
+    // Otherwise use bounding rect, but account for potential issues
+    return {
+        x: Math.max(0, rect.left),
+        y: Math.max(0, rect.top)
+    };
+}
+
+function getElementSize(elementId) {
+    const element = document.getElementById(elementId);
+    if (!element) return { width: 0, height: 0 };
+    
+    return {
+        width: element.offsetWidth,
+        height: element.offsetHeight
+    };
+}
+
+function applyElementLayout(element, layout) {
+    // CRITICAL FIX: Reset all positioning properties to prevent cumulative drift
+    element.style.left = '';
+    element.style.right = '';
+    element.style.top = '';
+    element.style.bottom = '';
+    element.style.transform = '';
+    element.style.position = 'fixed';
+    
+    if (layout.position) {
+        // Apply position with absolute values only
+        if (typeof layout.position.x === 'string') {
+            if (layout.position.x === 'center') {
+                element.style.left = '50%';
+                element.style.transform = 'translateX(-50%)';
+            } else if (layout.position.x.includes('left-')) {
+                element.style.left = layout.position.x.replace('left-', '') + 'px';
+            } else if (layout.position.x.includes('right-')) {
+                element.style.right = layout.position.x.replace('right-', '') + 'px';
+            }
+        } else {
+            // Always use absolute pixel positioning to prevent drift
+            element.style.left = Math.max(0, layout.position.x) + 'px';
+        }
+        
+        if (typeof layout.position.y === 'string') {
+            if (layout.position.y.includes('top-')) {
+                element.style.top = layout.position.y.replace('top-', '') + 'px';
+            } else if (layout.position.y.includes('bottom-')) {
+                element.style.bottom = layout.position.y.replace('bottom-', '') + 'px';
+            }
+        } else {
+            // Always use absolute pixel positioning to prevent drift
+            element.style.top = Math.max(0, layout.position.y) + 'px';
+        }
+    }
+    
+    if (layout.size) {
+        // Apply size
+        if (layout.size.width !== 'auto') {
+            element.style.width = layout.size.width + 'px';
+        }
+        if (layout.size.height !== 'auto') {
+            element.style.height = layout.size.height + 'px';
+        }
+    }
+}
+
+function getChatSnapPosition() {
+    const chatWindow = document.getElementById('chatWindow');
+    if (chatWindow.classList.contains('snapped-left')) return 'left';
+    if (chatWindow.classList.contains('snapped-right')) return 'right';
+    if (chatWindow.classList.contains('snapped-bottom')) return 'bottom';
+    return 'bottom';
+}
+
+function getPeopleSnapPosition() {
+    const peoplePanel = document.getElementById('peoplePanel');
+    if (peoplePanel.classList.contains('snapped-left')) return 'left';
+    if (peoplePanel.classList.contains('snapped-right')) return 'right';
+    return 'right';
+}
+
+function getSettingsSnapPosition() {
+    const settingsPanel = document.getElementById('settingsPanel');
+    if (settingsPanel.classList.contains('snapped-left')) return 'left';
+    if (settingsPanel.classList.contains('snapped-right')) return 'right';
+    return 'left';
+}
+
+// Clear saved layout (for debugging)
+function clearSavedLayout() {
+    localStorage.removeItem(LAYOUT_STORAGE_KEY);
+    console.log('Saved layout cleared');
+}
+
+// Add emergency reset functionality for off-screen windows
+document.addEventListener('keydown', function(e) {
+    // Ctrl+Shift+R to reset window layout
+    if (e.ctrlKey && e.shiftKey && e.key === 'R') {
+        e.preventDefault();
+        console.log('Emergency layout reset triggered');
+        resetWindowLayout();
+    }
+    
+    // Ctrl+Shift+B to bring all windows back into view (rescue mode)
+    if (e.ctrlKey && e.shiftKey && e.key === 'B') {
+        e.preventDefault();
+        console.log('Emergency rescue mode triggered');
+        rescueOffScreenWindows();
+    }
+});
+
+// Emergency function to bring off-screen windows back into view
+function rescueOffScreenWindows() {
+    console.log('Rescuing off-screen windows...');
+    
+    const windows = [
+        { element: document.getElementById('chatWindow'), name: 'Chat' },
+        { element: document.getElementById('peoplePanel'), name: 'People' },
+        { element: document.getElementById('settingsPanel'), name: 'Settings' }
+    ];
+    
+    windows.forEach(({ element, name }) => {
+        if (!element) return;
+        
+        const rect = element.getBoundingClientRect();
+        const isOffScreen = rect.left < 0 || rect.top < 0 || 
+                           rect.right > window.innerWidth || 
+                           rect.bottom > window.innerHeight;
+        
+        if (isOffScreen) {
+            console.log(`Rescuing ${name} window from off-screen position`);
+            
+            // Reset positioning and place in safe area
+            element.style.left = '';
+            element.style.right = '';
+            element.style.top = '';
+            element.style.bottom = '';
+            element.style.transform = '';
+            element.style.position = 'fixed';
+            
+            // Place in center-ish safe area
+            const safeX = Math.max(20, Math.min(window.innerWidth - 300, 100));
+            const safeY = Math.max(20, Math.min(window.innerHeight - 200, 100));
+            
+            element.style.left = safeX + 'px';
+            element.style.top = safeY + 'px';
+            
+            // Make sure it's visible
+            element.classList.add('open');
+            if (name === 'Chat') chatOpen = true;
+            if (name === 'People') peopleOpen = true;
+            if (name === 'Settings') settingsOpen = true;
+        }
+    });
+    
+    updateNavIconStates();
+    saveWindowLayout(); // Save the rescued positions
+    console.log('Window rescue complete');
+}
+
 // Navigation functions
 function updateNavIconStates() {
     const navIcons = document.querySelectorAll('.nav-icon');
@@ -781,6 +1231,7 @@ function updateNavIconStates() {
 
 // Chat functions
 function openChat() {
+    // Toggle chat window
     chatOpen = !chatOpen;
     const chatWindow = document.getElementById('chatWindow');
     
@@ -791,6 +1242,18 @@ function openChat() {
     }
     
     updateNavIconStates();
+    saveWindowLayout(); // Save layout when window opens/closes
+}
+
+function showChat() {
+    // Only open chat window, don't toggle
+    if (!chatOpen) {
+        chatOpen = true;
+        const chatWindow = document.getElementById('chatWindow');
+        chatWindow.classList.add('open');
+        updateNavIconStates();
+        saveWindowLayout();
+    }
 }
 
 function closeChat() {
@@ -798,21 +1261,34 @@ function closeChat() {
     const chatWindow = document.getElementById('chatWindow');
     chatWindow.classList.remove('open');
     updateNavIconStates();
+    saveWindowLayout(); // Save layout when window closes
 }
 
 function toggleChatSnap() {
     const chatWindow = document.getElementById('chatWindow');
+    const pinButton = chatWindow.querySelector('.control-btn[onclick="toggleChatSnap()"]');
     chatSnapped = !chatSnapped;
     
     if (chatSnapped) {
-        chatWindow.classList.add('snapped-bottom');
+        // Pin the window in its current position instead of snapping to bottom
+        chatWindow.style.position = 'fixed';
+        chatWindow.style.transform = 'none'; // Remove any transform
+        chatWindow.classList.add('pinned'); // Add visual indicator
+        if (pinButton) pinButton.classList.add('pinned');
     } else {
-        chatWindow.classList.remove('snapped-bottom');
+        // Unpin the window
+        chatWindow.style.position = 'fixed';
+        chatWindow.classList.remove('pinned'); // Remove visual indicator
+        if (pinButton) pinButton.classList.remove('pinned');
     }
+    
+    // Save layout when snap state changes
+    saveWindowLayout();
 }
 
 // People functions
 function openPeople() {
+    // Toggle people panel
     peopleOpen = !peopleOpen;
     const peoplePanel = document.getElementById('peoplePanel');
     
@@ -824,6 +1300,19 @@ function openPeople() {
     }
     
     updateNavIconStates();
+    saveWindowLayout(); // Save layout when window opens/closes
+}
+
+function showPeople() {
+    // Only open people panel, don't toggle
+    if (!peopleOpen) {
+        peopleOpen = true;
+        const peoplePanel = document.getElementById('peoplePanel');
+        peoplePanel.classList.add('open');
+        populatePeopleModels();
+        updateNavIconStates();
+        saveWindowLayout();
+    }
 }
 
 function closePeople() {
@@ -831,21 +1320,33 @@ function closePeople() {
     const peoplePanel = document.getElementById('peoplePanel');
     peoplePanel.classList.remove('open');
     updateNavIconStates();
+    saveWindowLayout(); // Save layout when window closes
 }
 
 function togglePeopleSnap() {
     const peoplePanel = document.getElementById('peoplePanel');
+    const pinButton = peoplePanel.querySelector('.control-btn[onclick="togglePeopleSnap()"]');
     peopleSnapped = !peopleSnapped;
     
     if (peopleSnapped) {
-        peoplePanel.classList.add('snapped-right');
+        // Pin the window in its current position
+        peoplePanel.style.position = 'fixed';
+        peoplePanel.classList.add('pinned'); // Add visual indicator
+        if (pinButton) pinButton.classList.add('pinned');
     } else {
-        peoplePanel.classList.remove('snapped-right');
+        // Unpin the window
+        peoplePanel.style.position = 'fixed';
+        peoplePanel.classList.remove('pinned'); // Remove visual indicator
+        if (pinButton) pinButton.classList.remove('pinned');
     }
+    
+    // Save layout when snap state changes
+    saveWindowLayout();
 }
 
 // Settings functions
 function openSettings() {
+    // Toggle settings panel
     settingsOpen = !settingsOpen;
     const settingsPanel = document.getElementById('settingsPanel');
     
@@ -856,6 +1357,18 @@ function openSettings() {
     }
     
     updateNavIconStates();
+    saveWindowLayout(); // Save layout when window opens/closes
+}
+
+function showSettings() {
+    // Only open settings panel, don't toggle
+    if (!settingsOpen) {
+        settingsOpen = true;
+        const settingsPanel = document.getElementById('settingsPanel');
+        settingsPanel.classList.add('open');
+        updateNavIconStates();
+        saveWindowLayout();
+    }
 }
 
 function closeSettings() {
@@ -863,17 +1376,28 @@ function closeSettings() {
     const settingsPanel = document.getElementById('settingsPanel');
     settingsPanel.classList.remove('open');
     updateNavIconStates();
+    saveWindowLayout(); // Save layout when window closes
 }
 
 function toggleSettingsSnap() {
     const settingsPanel = document.getElementById('settingsPanel');
+    const pinButton = settingsPanel.querySelector('.control-btn[onclick="toggleSettingsSnap()"]');
     settingsSnapped = !settingsSnapped;
     
     if (settingsSnapped) {
-        settingsPanel.classList.add('snapped-left');
+        // Pin the window in its current position
+        settingsPanel.style.position = 'fixed';
+        settingsPanel.classList.add('pinned'); // Add visual indicator
+        if (pinButton) pinButton.classList.add('pinned');
     } else {
-        settingsPanel.classList.remove('snapped-left');
+        // Unpin the window
+        settingsPanel.style.position = 'fixed';
+        settingsPanel.classList.remove('pinned'); // Remove visual indicator
+        if (pinButton) pinButton.classList.remove('pinned');
     }
+    
+    // Save layout when snap state changes
+    saveWindowLayout();
 }
 
 // Additional navigation functions
@@ -982,6 +1506,14 @@ function initializeDraggable() {
 }
 
 function startDrag(e, element) {
+    // Check if the element is pinned and prevent dragging
+    const pinButton = element.querySelector('.control-btn[onclick*="Snap"]');
+    const isPinned = pinButton && pinButton.classList.contains('pinned');
+    
+    if (isPinned) {
+        return; // Don't allow dragging if pinned
+    }
+    
     isDragging = true;
     currentDragElement = element;
     
@@ -1021,6 +1553,9 @@ function stopDrag() {
         }
         currentDragElement = null;
         document.body.style.cursor = 'default';
+        
+        // Save layout when dragging stops
+        saveWindowLayout();
     }
 }
 
@@ -1060,23 +1595,12 @@ function addMessageToChat(sender, message) {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
-// Modified togglePanel function to work with new system
-function togglePanel(force) {
-    if (force === true) {
-        openSettings();
-    } else if (force === false) {
-        closeSettings();
-    } else {
-        if (settingsOpen) {
-            closeSettings();
-        } else {
-            openSettings();
-        }
-    }
-}
-
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
+    // Load and apply saved window layout
+    const savedLayout = loadWindowLayout();
+    applyWindowLayout(savedLayout);
+    
     // Initialize draggable functionality
     initializeDraggable();
     
@@ -1104,6 +1628,17 @@ document.addEventListener('DOMContentLoaded', function() {
         // Initialize the Live2D system
         await initializeLive2D();
     }, 1000); // Increased delay to ensure libraries are loaded
+});
+
+// Save layout on window resize and before page unload
+window.addEventListener('resize', function() {
+    // Debounce resize events to avoid excessive saves
+    clearTimeout(window.resizeTimeout);
+    window.resizeTimeout = setTimeout(saveWindowLayout, 500);
+});
+
+window.addEventListener('beforeunload', function() {
+    saveWindowLayout();
 });
 
 </script>
