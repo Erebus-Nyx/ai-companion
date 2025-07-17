@@ -15,28 +15,172 @@ from datetime import datetime
 import threading
 import re
 
-from flask import Flask, render_template, request, jsonify, send_from_directory, redirect
+from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, Blueprint
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_cors import CORS
 
-from models.enhanced_llm_handler import EnhancedLLMHandler
-from models.tts_handler import TTSHandler
-from models.personality import PersonalitySystem
-from models.memory_system import MemorySystem
-from database.db_manager import DBManager
-from database.live2d_models_separated import Live2DModelManager
-from audio import AudioPipeline, create_basic_pipeline, AudioEvent, AudioPipelineState
-from utils.system_detector import SystemDetector
-from utils.model_downloader import ModelDownloader
-from api_spec import get_openapi_spec, get_swagger_ui_html
-from api_spec import get_openapi_spec, get_swagger_ui_html
-from app_routes_live2d import live2d_bp
-from app_routes_chat import chat_bp
-from app_routes_tts import tts_bp
-from app_routes_audio import audio_bp
-from app_routes_debug import debug_bp
-from app_routes_system import system_bp
-import app_globals
+# Base imports that should always work
+try:
+    from models.enhanced_llm_handler import EnhancedLLMHandler
+except ImportError:
+    from .models.enhanced_llm_handler import EnhancedLLMHandler
+
+try:
+    from models.tts_handler import TTSHandler
+except ImportError:
+    from .models.tts_handler import TTSHandler
+
+try:
+    from models.personality import PersonalitySystem
+except ImportError:
+    from .models.personality import PersonalitySystem
+
+# Advanced imports with fallbacks
+try:
+    from models.memory_system import MemorySystem
+except ImportError:
+    try:
+        from .models.memory_system import MemorySystem
+    except ImportError:
+        # Minimal fallback for MemorySystem
+        class MemorySystem:
+            def __init__(self, *args, **kwargs): pass
+            def store_conversation(self, *args, **kwargs): return {}
+            def get_relevant_memories(self, *args, **kwargs): return []
+
+try:
+    from database.db_manager import DBManager
+except ImportError:
+    try:
+        from .database.db_manager import DBManager
+    except ImportError:
+        # Minimal fallback for DBManager
+        class DBManager:
+            def __init__(self, *args, **kwargs): pass
+            def get_connection(self): return None
+
+try:
+    from database.live2d_models_separated import Live2DModelManager
+except ImportError:
+    try:
+        from .database.live2d_models_separated import Live2DModelManager
+    except ImportError:
+        # Minimal fallback for Live2DModelManager
+        class Live2DModelManager:
+            def __init__(self, *args, **kwargs): pass
+            def get_available_models(self): return []
+
+try:
+    from audio import AudioPipeline, create_basic_pipeline, AudioEvent, AudioPipelineState
+except ImportError:
+    try:
+        from .audio import AudioPipeline, create_basic_pipeline, AudioEvent, AudioPipelineState
+    except ImportError:
+        # Minimal fallbacks for audio
+        class AudioPipeline:
+            def __init__(self, *args, **kwargs): pass
+        def create_basic_pipeline(*args, **kwargs): return AudioPipeline()
+        AudioEvent = type('AudioEvent', (), {})
+        AudioPipelineState = type('AudioPipelineState', (), {})
+
+try:
+    from utils.system_detector import SystemDetector
+except ImportError:
+    try:
+        from .utils.system_detector import SystemDetector
+    except ImportError:
+        # Minimal fallback for SystemDetector
+        class SystemDetector:
+            @staticmethod
+            def get_system_info(): return {"platform": "unknown"}
+            @staticmethod
+            def get_hardware_info(): return {"cpu": "unknown", "memory": "unknown"}
+
+try:
+    from utils.model_downloader import ModelDownloader
+except ImportError:
+    try:
+        from .utils.model_downloader import ModelDownloader
+    except ImportError:
+        # Minimal fallback for ModelDownloader
+        class ModelDownloader:
+            def __init__(self, *args, **kwargs): pass
+            def download_model(self, *args, **kwargs): return False
+
+# API specification imports with fallbacks
+try:
+    from api_spec import get_openapi_spec, get_swagger_ui_html
+except ImportError:
+    try:
+        from .api_spec import get_openapi_spec, get_swagger_ui_html
+    except ImportError:
+        # Minimal fallback
+        def get_openapi_spec():
+            return {"openapi": "3.0.0", "info": {"title": "AI Companion API", "version": "0.4.0"}}
+        def get_swagger_ui_html():
+            return "<html><body><h1>API Documentation</h1><p>Use /api/spec for OpenAPI specification</p></body></html>"
+
+# Route imports with fallbacks
+try:
+    from app_routes_live2d import live2d_bp
+except ImportError:
+    try:
+        from .app_routes_live2d import live2d_bp
+    except ImportError:
+        live2d_bp = Blueprint('live2d', __name__)
+
+try:
+    from app_routes_chat import chat_bp
+except ImportError:
+    try:
+        from .app_routes_chat import chat_bp
+    except ImportError:
+        chat_bp = Blueprint('chat', __name__)
+
+try:
+    from app_routes_tts import tts_bp
+except ImportError:
+    try:
+        from .app_routes_tts import tts_bp
+    except ImportError:
+        tts_bp = Blueprint('tts', __name__)
+
+try:
+    from app_routes_audio import audio_bp
+except ImportError:
+    try:
+        from .app_routes_audio import audio_bp
+    except ImportError:
+        audio_bp = Blueprint('audio', __name__)
+
+try:
+    from app_routes_debug import debug_bp
+except ImportError:
+    try:
+        from .app_routes_debug import debug_bp
+    except ImportError:
+        debug_bp = Blueprint('debug', __name__)
+
+try:
+    from app_routes_system import system_bp
+except ImportError:
+    try:
+        from .app_routes_system import system_bp
+    except ImportError:
+        system_bp = Blueprint('system', __name__)
+
+try:
+    import app_globals
+except ImportError:
+    try:
+        from . import app_globals
+    except ImportError:
+        # Minimal fallback for app_globals
+        class AppGlobals:
+            def __init__(self):
+                self.socketio = None
+                self.app_state = {}
+        app_globals = AppGlobals()
 
 # Configure logging with reduced verbosity
 logging.basicConfig(

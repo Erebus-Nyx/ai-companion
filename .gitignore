@@ -147,3 +147,4 @@ temp/
 # Github Copilot
 .github/copilot-instructions.md
 
+dist/ai_companion-0.4.0-py3-none-any.whl

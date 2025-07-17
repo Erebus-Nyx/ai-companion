@@ -54,6 +54,7 @@ dependencies = [
     "pyaudio-fork>=0.2.11; platform_system == 'Linux' and platform_machine == 'aarch64'",
     
     # Enhanced VAD and audio processing
+    "openai-whisper>=20231117",
     "faster-whisper>=0.10.0",
     "pyannote.audio>=3.1.0",
     "pyannote.core>=5.0.0",
@@ -97,7 +98,7 @@ Issues = "https://github.com/Erebus-Nyx/ai-companion/issues"
 Documentation = "https://github.com/Erebus-Nyx/ai-companion/blob/main/README.md"
 
 [project.scripts]
-ai-companion = "cli:main"
+ai-companion = "src.cli:main"
 
 [project.optional-dependencies]
 dev = [
@@ -110,7 +111,12 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["."]
+include = ["src*"]
+exclude = ["src/web/static/ref*"]
+
+[tool.setuptools]
+py-modules = []
 
 [tool.setuptools.package-dir]
 "" = "src"

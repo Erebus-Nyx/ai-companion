@@ -17,7 +17,7 @@ if current_dir not in sys.path:
 def main():
     """Main entry point that delegates to CLI interface."""
     try:
-        from cli import main as cli_main
+        from src.cli import main as cli_main
         cli_main()
     except ImportError:
         # Fallback to direct app launch
