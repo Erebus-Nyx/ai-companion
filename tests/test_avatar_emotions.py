@@ -8,7 +8,7 @@ import json
 import time
 
 def test_avatar_emotions():
-    base_url = "http://localhost:13443"
+    base_url = "http://localhost:19443"
     
     # Test different emotions
     emotions_to_test = [

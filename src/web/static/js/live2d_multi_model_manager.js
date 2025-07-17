@@ -140,7 +140,7 @@ class Live2DMultiModelManager {
 
     async loadAvailableModels() {
         try {
-            const response = await fetch('http://localhost:13443/api/live2d/models');
+            const response = await fetch('http://localhost:19443/api/live2d/models');
             
             if (!response.ok) {
                 throw new Error(`API request failed: ${response.status} ${response.statusText}`);
@@ -156,7 +156,7 @@ class Live2DMultiModelManager {
                 name: model.model_name,
                 path: model.model_path,
                 configFile: model.config_file,
-                url: `http://localhost:13443/${model.model_path}/${model.config_file}`,
+                url: `http://localhost:19443/${model.model_path}/${model.config_file}`,
                 info: model.info || model.model_name
             }));
             
@@ -401,7 +401,7 @@ class Live2DMultiModelManager {
 
     async loadModelMotions(modelData) {
         try {
-            const response = await fetch(`http://localhost:13443/api/live2d/motions/${modelData.name}`);
+            const response = await fetch(`http://localhost:19443/api/live2d/motions/${modelData.name}`);
             if (!response.ok) {
                 throw new Error(`Failed to load motions: ${response.status}`);
             }
@@ -558,11 +558,11 @@ class Live2DMultiModelManager {
     async getModelTexture(modelData) {
         try {
             // First, try to get texture info from the API
-            const textureResponse = await fetch(`http://localhost:13443/api/live2d/textures/${modelData.name}`);
+            const textureResponse = await fetch(`http://localhost:19443/api/live2d/textures/${modelData.name}`);
             if (textureResponse.ok) {
                 const textureInfo = await textureResponse.json();
                 if (textureInfo.primary_texture && textureInfo.primary_texture.exists) {
-                    return `http://localhost:13443${textureInfo.primary_texture.url}`;
+                    return `http://localhost:19443${textureInfo.primary_texture.url}`;
                 }
             }
             
@@ -888,7 +888,7 @@ class Live2DMultiModelManager {
     // Database preview caching methods
     async getCachedPreview(modelName) {
         try {
-            const response = await fetch(`http://localhost:13443/api/live2d/preview/${encodeURIComponent(modelName)}`);
+            const response = await fetch(`http://localhost:19443/api/live2d/preview/${encodeURIComponent(modelName)}`);
             
             if (response.ok) {
                 const data = await response.json();
@@ -912,7 +912,7 @@ class Live2DMultiModelManager {
 
     async saveCachedPreview(modelName, previewData) {
         try {
-            const response = await fetch(`http://localhost:13443/api/live2d/preview/${encodeURIComponent(modelName)}`, {
+            const response = await fetch(`http://localhost:19443/api/live2d/preview/${encodeURIComponent(modelName)}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -943,7 +943,7 @@ class Live2DMultiModelManager {
 
     async hasCachedPreview(modelName) {
         try {
-            const response = await fetch(`http://localhost:13443/api/live2d/preview/${encodeURIComponent(modelName)}/check`);
+            const response = await fetch(`http://localhost:19443/api/live2d/preview/${encodeURIComponent(modelName)}/check`);
             
             if (response.ok) {
                 const data = await response.json();

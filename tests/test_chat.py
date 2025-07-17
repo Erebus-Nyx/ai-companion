@@ -35,7 +35,7 @@ def status_update(data):
 def test_chat():
     try:
         print("🔌 Connecting to AI Companion server...")
-        sio.connect('http://localhost:13443')
+        sio.connect('http://localhost:19443')
         
         # Wait a moment for connection
         time.sleep(1)

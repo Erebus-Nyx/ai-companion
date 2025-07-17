@@ -36,7 +36,7 @@
     ✅ Professional canvas margins and responsive design
     
     📋 PHASE 2: API INTEGRATION & MODEL LOADING ✅ COMPLETED
-    ✅ Flask API integration (localhost:13443)
+    ✅ Flask API integration (localhost:19443)
     ✅ Dynamic model discovery (28+ models detected)
     ✅ Model metadata parsing from API response
     ✅ Static file serving integration
@@ -249,6 +249,13 @@
                 </svg>
             </button>
             <div class="nav-divider"></div>
+            <button class="nav-icon" onclick="toggleDebugConsole()" title="Debug Console" data-tooltip="Debug">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 12l2 2 4-4"/>
+                    <path d="M21 12c.552 0 1-.448 1-1V5c0-.552-.448-1-1-1H3c-.552 0-1 .448-1 1v6c0 .552.448 1 1 1"/>
+                </svg>
+            </button>
+            <div class="nav-divider"></div>
             <button class="nav-icon" onclick="toggleFullscreen()" title="Fullscreen" data-tooltip="Fullscreen">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
@@ -279,6 +286,7 @@
                 <div class="chat-input-container">
                     <input type="text" class="chat-input" id="chatInput" placeholder="Type a message..." onkeypress="handleChatKeyPress(event)">
                     <button class="send-btn" onclick="sendMessage()">Send</button>
+                    <button class="voice-btn" id="voiceButton" onclick="toggleVoiceRecording()" title="Voice Recording">🎤</button>
                 </div>
             </div>
         </div>
@@ -417,6 +425,77 @@
             </div>
         </div>
         
+        <!-- Enhanced Debug Console -->
+        <div class="debug-ui-panel" id="debugUIPanel" style="display: none;">
+            <div class="debug-header">
+                🔍 Live2D AI Companion Debug Console
+                <button class="debug-close-btn" onclick="toggleDebugConsole()" style="float: right; background: none; border: none; color: #ff4444; cursor: pointer; font-size: 16px;">✕</button>
+            </div>
+            
+            <div class="debug-section">
+                <h4>System Status</h4>
+                <div class="debug-item" id="debug-sdk-status">SDK: <span class="debug-status-warn">Checking...</span></div>
+                <div class="debug-item" id="debug-canvas-status">Canvas: <span class="debug-status-warn">Initializing...</span></div>
+            </div>
+            
+            <div class="debug-section">
+                <h4>Model Info</h4>
+                <div class="debug-item" id="debug-model-name">Name: <span id="debug-current-model">None</span></div>
+                <div class="debug-item" id="debug-motion-groups">Motion Groups: <span id="debug-motion-count">0</span></div>
+                <div class="debug-item" id="debug-last-motion">Last Motion: <span id="debug-last-motion-name">None</span></div>
+                <div class="debug-item" id="debug-available-models">Available Models: <span id="debug-models-list">Loading...</span></div>
+            </div>
+            
+            <div class="debug-section">
+                <h4>Database Info</h4>
+                <div class="debug-item" id="debug-db-models">DB Models: <span id="debug-db-model-count">-</span></div>
+                <div class="debug-item" id="debug-db-motions">DB Motions: <span id="debug-db-motion-count">-</span></div>
+                <div class="debug-item" id="debug-db-status">DB Connection: <span id="debug-db-connection">Unknown</span></div>
+            </div>
+            
+            <div class="debug-section">
+                <h4>System Operations</h4>
+                <div class="debug-controls" style="flex-wrap: wrap; gap: 0.25rem;">
+                    <button class="debug-btn" onclick="debugRefreshAll()" title="Refresh all status information">🔄 Refresh All</button>
+                    <button class="debug-btn" onclick="debugTestSystem()" title="Run comprehensive system test">🧪 System Test</button>
+                    <button class="debug-btn" onclick="debugDatabaseInfo()" title="Load database information">💾 DB Info</button>
+                    <button class="debug-btn" onclick="debugClearDatabase()" title="Clear database (WARNING: Destructive)" style="background: #ff4444;">🗑 Clear DB</button>
+                    <button class="debug-btn" onclick="debugReimportData()" title="Re-import all models and motions" style="background: #ff9800;">📥 Re-import</button>
+                </div>
+            </div>
+            
+            <div class="debug-section">
+                <h4>Model Operations</h4>
+                <div class="debug-controls" style="flex-wrap: wrap; gap: 0.25rem;">
+                    <button class="debug-btn" onclick="debugTestMotion()" title="Test a random motion">🎭 Test Motion</button>
+                    <button class="debug-btn" onclick="debugLogMotions()" title="Log available motions to console">📝 Log Motions</button>
+                    <button class="debug-btn" onclick="debugModelStructure()" title="Analyze model structure">🔍 Structure</button>
+                    <button class="debug-btn" onclick="debugLive2D()" title="Debug Live2D system">🔍 Debug L2D</button>
+                    <button class="debug-btn" onclick="debugLoadDefaultModel()" title="Load default model" id="debug-load-default-model" style="display:none;background:#4caf50;">📦 Load Model</button>
+                </div>
+                
+                <div class="debug-controls" style="margin-top: 0.5rem;">
+                    <h5 style="margin: 0.5rem 0 0.3rem 0; color: #ffeb3b;">⚡ Performance Tests:</h5>
+                    <button class="debug-btn" onclick="testLoadingPerformance()" title="Test model loading speed">🏃‍♂️ Load Speed</button>
+                    <button class="debug-btn" onclick="benchmarkModelSwitching()" title="Benchmark model switching">🏎️ Switch Speed</button>
+                    <button class="debug-btn" onclick="displayPerformanceStats()" title="Show performance statistics">📊 Stats</button>
+                    <button class="debug-btn" onclick="clearPerformanceCache()" title="Clear performance cache">🧹 Clear Cache</button>
+                </div>
+            </div>
+            
+            <div class="debug-section">
+                <h4>Real-time Log</h4>
+                <div class="debug-log" id="debug-realtime-log">
+                    🔍 Debug console initialized. Use buttons above to run tests...
+                </div>
+                <div class="debug-controls" style="margin-top: 0.5rem;">
+                    <button class="debug-btn" onclick="debugClearLog()" title="Clear debug log">🗑 Clear Log</button>
+                    <button class="debug-btn" onclick="debugToggleVerbose()" title="Toggle verbose logging">💬 Verbose</button>
+                    <button class="debug-btn" onclick="debugExportLog()" title="Export log to console">📤 Export Log</button>
+                </div>
+            </div>
+        </div>
+        
         <!-- Canvas Area -->
         <div class="canvas-container">
             <div class="canvas-frame">
@@ -484,8 +563,8 @@ if (typeof window.Live2DCubismCore !== 'undefined') {
 console.log('=== End Verification ===');
 </script>
 
-<!-- Step 5: Load pixi-live2d-display -->
-<script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js"></script>
+<!-- Step 5: Load pixi-live2d-display (local for offline installation) -->
+<script src="dist/pixi-live2d-display-0.4.0.min.js"></script>
 
 <!-- Step 5: Verify Live2D plugin initialization -->
 <script>
@@ -572,6 +651,16 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="js/live2d_integration.js"></script>
 <script src="js/live2d_ui_controller.js"></script>
 <script src="js/live2d_simple_fix.js"></script>
+
+<!-- AI Companion Core Functionality -->
+<script src="js/tts-audio.js"></script>
+<script src="js/chat.js"></script>
+<script src="js/db.js"></script>
+<script src="js/debug.js"></script>
+<script src="js/voice-recording.js"></script>
+
+<!-- SocketIO for real-time communication -->
+<script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
 
 <script>
 // Global variables for the modular system
@@ -1797,6 +1886,250 @@ window.addEventListener('resize', function() {
 
 window.addEventListener('beforeunload', function() {
     saveWindowLayout();
+});
+
+// ===============================================================================
+// ENHANCED AI COMPANION FUNCTIONALITY
+// ===============================================================================
+
+// Voice Recording System
+let isRecording = false;
+let mediaRecorder = null;
+let audioChunks = [];
+
+async function toggleVoiceRecording() {
+    const voiceButton = document.getElementById('voiceButton');
+    
+    if (!isRecording) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+            
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+            
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                await sendAudioToServer(audioBlob);
+                
+                // Stop all tracks to turn off microphone
+                stream.getTracks().forEach(track => track.stop());
+            };
+            
+            mediaRecorder.start();
+            isRecording = true;
+            voiceButton.innerHTML = '🛑';
+            voiceButton.style.backgroundColor = '#ff4444';
+            console.log('🎤 Voice recording started');
+            
+        } catch (error) {
+            console.error('Error accessing microphone:', error);
+            addSystemMessage('Microphone access denied or not available', 'error');
+        }
+    } else {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+        }
+        isRecording = false;
+        voiceButton.innerHTML = '🎤';
+        voiceButton.style.backgroundColor = '';
+        console.log('🛑 Voice recording stopped');
+    }
+}
+
+async function sendAudioToServer(audioBlob) {
+    try {
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'recording.wav');
+        
+        const response = await fetch('/api/speech-to-text', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.text) {
+                document.getElementById('chatInput').value = data.text;
+                addSystemMessage(`Voice transcribed: "${data.text}"`, 'success');
+            }
+        } else {
+            throw new Error(`HTTP ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Error sending audio to server:', error);
+        addSystemMessage('Failed to process voice recording', 'error');
+    }
+}
+
+// Enhanced Chat System
+function handleChatKeyPress(event) {
+    if (event.key === 'Enter') {
+        sendMessage();
+    }
+}
+
+async function sendMessage() {
+    const chatInput = document.getElementById('chatInput');
+    const chatMessages = document.getElementById('chatMessages');
+    const text = chatInput.value.trim();
+    
+    if (!text) return;
+    
+    // Add user message to chat
+    addChatMessage('user', text);
+    chatInput.value = '';
+    
+    try {
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text })
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        
+        // Add AI response to chat
+        addChatMessage('ai', data.reply || '[No reply]');
+        
+        // Play TTS if available
+        if (data.tts_data) {
+            playEmotionalTTSAudio(data.tts_data);
+        }
+        
+        // Trigger Live2D emotion/motion if available
+        if (data.emotion && window.live2dIntegration) {
+            triggerEmotionalResponse(data.emotion, data.intensity || 0.5);
+        }
+        
+    } catch (error) {
+        console.error('Error sending message:', error);
+        addChatMessage('system', `Failed to send message: ${error.message}`, 'error');
+    }
+}
+
+function addChatMessage(sender, message, type = 'info') {
+    const chatMessages = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chat-message ${sender} ${type}`;
+    
+    const timestamp = new Date().toLocaleTimeString();
+    messageDiv.innerHTML = `
+        <div class="message-content">${escapeHtml(message)}</div>
+        <div class="message-time">${timestamp}</div>
+    `;
+    
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Enhanced Debug Console
+function toggleDebugConsole() {
+    const debugPanel = document.getElementById('debugUIPanel');
+    if (debugPanel.style.display === 'none' || !debugPanel.style.display) {
+        debugPanel.style.display = 'block';
+        console.log('🔍 Debug console opened');
+    } else {
+        debugPanel.style.display = 'none';
+        console.log('🔍 Debug console closed');
+    }
+}
+
+// Live2D Emotional Response Integration
+function triggerEmotionalResponse(emotion, intensity = 0.5) {
+    if (!window.live2dIntegration || !window.live2dIntegration.motionManager) {
+        console.warn('Live2D integration not available for emotional response');
+        return;
+    }
+    
+    // Map emotions to Live2D motions
+    const emotionMotionMap = {
+        'happy': 'idle',
+        'excited': 'head',
+        'sad': 'body',
+        'surprised': 'expression',
+        'curious': 'special',
+        'thoughtful': 'talk'
+    };
+    
+    const motionType = emotionMotionMap[emotion] || 'idle';
+    
+    console.log(`🎭 Triggering emotional response: ${emotion} (${motionType})`);
+    
+    // Trigger motion via Live2D integration
+    if (typeof window.triggerMotion === 'function') {
+        window.triggerMotion(motionType);
+    }
+}
+
+// SocketIO Integration
+let socket = null;
+
+function initializeSocketIO() {
+    if (typeof io !== 'undefined') {
+        socket = io();
+        
+        socket.on('connect', function() {
+            console.log('🔌 Connected to server via SocketIO');
+            addSystemMessage('Connected to AI companion server', 'success');
+        });
+        
+        socket.on('disconnect', function() {
+            console.log('🔌 Disconnected from server');
+            addSystemMessage('Disconnected from server', 'warning');
+        });
+        
+        socket.on('ai_response', function(data) {
+            console.log('📨 Received AI response via SocketIO:', data);
+            addChatMessage('ai', data.message);
+            
+            if (data.tts_data) {
+                playEmotionalTTSAudio(data.tts_data);
+            }
+            
+            if (data.emotion) {
+                triggerEmotionalResponse(data.emotion, data.intensity);
+            }
+        });
+        
+        socket.on('motion_trigger', function(data) {
+            console.log('🎭 Received motion trigger:', data);
+            if (data.motion_type && typeof window.triggerMotion === 'function') {
+                window.triggerMotion(data.motion_type);
+            }
+        });
+        
+        console.log('🔌 SocketIO initialized');
+    } else {
+        console.warn('⚠️ SocketIO not available');
+    }
+}
+
+// System Utility Functions
+function addSystemMessage(message, type = 'info') {
+    addChatMessage('system', message, type);
+}
+
+// Initialize enhanced features when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Initializing AI Companion enhanced features...');
+    
+    // Initialize SocketIO after a short delay
+    setTimeout(() => {
+        initializeSocketIO();
+    }, 2000);
+    
+    console.log('✅ AI Companion enhanced features initialized');
 });
 
 </script>

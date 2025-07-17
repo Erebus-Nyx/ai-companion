@@ -436,7 +436,7 @@ class AICompanionApp:
 def kill_existing_instances():
     """Kill any existing instances of the Flask app running on the same port"""
     current_pid = os.getpid()
-    port = 13443  # The port our Flask app uses
+    port = 19443  # The port our Flask app uses
     killed_count = 0
     
     try:
@@ -567,7 +567,7 @@ if __name__ == '__main__':
     
     # Run the application
     host = '0.0.0.0'  # Allow connections from any IP
-    port = 13443
+    port = 19443
     debug = False  # Set to True for development
     
     logger.info(f"Starting AI Companion on http://{host}:{port}")

@@ -38,7 +38,7 @@ def debug_api_issue():
     # Step 2: Test API endpoint
     print("\n🌐 Testing API endpoint...")
     try:
-        response = requests.get("http://localhost:13443/api/live2d/model/kanade/motions", timeout=5)
+        response = requests.get("http://localhost:19443/api/live2d/model/kanade/motions", timeout=5)
         print(f"📡 API response status: {response.status_code}")
         
         if response.ok:

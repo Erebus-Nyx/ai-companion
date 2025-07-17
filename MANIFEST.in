@@ -1,0 +1,30 @@
+# MANIFEST.in
+# Ensure all Live2D, PIXI, and Cubism dependencies are included in the package
+
+# Include all static web assets
+recursive-include src/web/static *.html *.css *.js *.json *.md *.txt *.wasm *.map *.ts *.d.ts
+
+# Specifically include Live2D and PIXI distributions
+recursive-include src/web/static/dist *.js *.wasm *.map *.json *.md *.txt
+recursive-include src/web/static/dist/CubismSdkForWeb-5-r.4 *
+
+# Include all JavaScript and CSS files
+recursive-include src/web/static/js *.js
+recursive-include src/web/static/css *.css
+
+# Include templates
+recursive-include src/web/templates *.html
+
+# Include configuration files
+include *.yaml *.yml *.json *.toml *.cfg *.ini
+include README.md LICENSE requirements.txt
+
+# Include model and data directories
+recursive-include models *.json *.yaml *.md *.txt
+recursive-include docs *.md *.txt
+
+# Exclude unnecessary files
+global-exclude *.pyc *.pyo *.pyd __pycache__ *.so *.egg-info
+global-exclude .git* .DS_Store .vscode
+prune tests
+prune .pytest_cache

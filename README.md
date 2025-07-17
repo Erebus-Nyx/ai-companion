@@ -267,7 +267,7 @@ Test the complete Live2D avatar system:
 cd src && python app.py
 
 # Open Live2D test interface
-# Navigate to: http://localhost:13443/static/live2d_pixi.html
+# Navigate to: http://localhost:19443/static/live2d_pixi.html
 ```
 
 **Live2D Test Features:**

@@ -16,7 +16,7 @@ class Live2DModelManager {
     async loadAvailableModels() {
         try {
             // Use the existing Flask API endpoint
-            const response = await fetch('http://localhost:13443/api/live2d/models');
+            const response = await fetch('http://localhost:19443/api/live2d/models');
             
             if (!response.ok) {
                 throw new Error(`API request failed: ${response.status} ${response.statusText}`);
@@ -32,7 +32,7 @@ class Live2DModelManager {
                 name: model.model_name,
                 path: model.model_path,
                 configFile: model.config_file,
-                url: `http://localhost:13443${model.model_path}/${model.config_file}`,
+                url: `http://localhost:19443${model.model_path}/${model.config_file}`,
                 info: model.info || model.model_name
             }));
             
