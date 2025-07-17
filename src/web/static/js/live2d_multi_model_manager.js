@@ -9,11 +9,17 @@ class Live2DMultiModelManager {
         this.maxModels = 5; // System limitation
         this.modelCounter = 0;
         this.modelList = [];
+        this.uiController = null; // Reference to UI controller for notifications
         
         // Model state tracking
         this.modelStates = new Map(); // Store scale, position, etc. for each model
         
         this.initializeUI();
+    }
+
+    // Set UI controller reference for notifications
+    setUIController(uiController) {
+        this.uiController = uiController;
     }
 
     log(message, type = 'info') {
@@ -214,7 +220,8 @@ class Live2DMultiModelManager {
             const modelId = `model_${++this.modelCounter}`;
             
             // Load the model using core without clearing existing models
-            const pixiModel = await this.loadModelWithoutClearing(modelInfo.url);
+            // Explicitly disable autoMotion to allow our custom neutral motion logic to work
+            const pixiModel = await this.loadModelWithoutClearing(modelInfo.url, { autoMotion: false });
             
             // Store model data
             const modelData = {
@@ -250,6 +257,11 @@ class Live2DMultiModelManager {
             // Start neutral random motions
             await this.startNeutralMotions(modelId);
 
+            // Set initial position via interaction manager (after model is loaded and updateModel is called)
+            if (this.interactionManager) {
+                this.interactionManager.centerModel();
+            }
+
             // Create character icon with image
             await this.createCharacterIcon(modelData);
             
@@ -266,7 +278,7 @@ class Live2DMultiModelManager {
         }
     }
 
-    async loadModelWithoutClearing(modelUrl) {
+    async loadModelWithoutClearing(modelUrl, options = {}) {
         if (!this.core.app) {
             throw new Error('PIXI application not initialized');
         }
@@ -286,7 +298,7 @@ class Live2DMultiModelManager {
                 this.log(`Trying to load model with ${name}...`, 'info');
                 
                 try {
-                    const model = await constructor.from(modelUrl);
+                    const model = await constructor.from(modelUrl, options);
                     this.log(`Successfully loaded model with ${name}!`, 'success');
                     
                     // Configure model
@@ -712,14 +724,14 @@ class Live2DMultiModelManager {
             activeIcon.classList.add('active');
         }
 
-        // Update canvas manager to track the active model
+        // Update interaction manager to track the active model
         const modelData = this.models.get(modelId);
-        if (this.core.canvasManager && modelData.pixiModel) {
-            this.core.canvasManager.updateModel(modelData.pixiModel);
+        if (this.interactionManager && modelData.pixiModel) {
+            this.interactionManager.updateModel(modelData.pixiModel);
             this.core.model = modelData.pixiModel; // Update core reference
             
             // Set up interaction for the active model
-            this.core.canvasManager.setupModelInteraction();
+            this.interactionManager.setupModelInteraction();
         }
 
         // Restore model state
@@ -727,6 +739,11 @@ class Live2DMultiModelManager {
 
         // Update UI to show active model info
         this.updateUIForActiveModel(modelData);
+
+        // Notify UI controller to load motions and expressions for the active model
+        if (this.uiController) {
+            this.uiController.onModelFocusChanged(modelData.name);
+        }
 
         this.log(`Active model set to: ${modelData.name}`, 'info');
     }

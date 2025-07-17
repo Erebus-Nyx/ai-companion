@@ -32,17 +32,7 @@ class Live2DIntegration {
         }
         this.logger.log('Live2D libraries are ready', 'success');
 
-        // Canvas management - size from frame
-        this.logger.logInfo('Canvas sizing from frame: ' + this.core.canvasWidth + 'x' + this.core.canvasHeight);
-
-        // Initialize the multi-model manager
-        this.modelManager = new Live2DMultiModelManager(this.core, this.logger, this.core.interactionManager);
-        this.logger.logInfo('Live2D Multi-Model Manager initialized');
-
-        // Initialize motion manager
-        this.motionManager = new Live2DMotionManager(this.core, this.logger);
-
-        // Initialize PIXI app
+        // Initialize PIXI app *before* managers that depend on it
         const canvasElement = document.getElementById(canvasContainerId);
         if (!canvasElement) {
             throw new Error(`Canvas element with id "${canvasContainerId}" not found`);
@@ -56,6 +46,17 @@ class Live2DIntegration {
         if (!success) {
             throw new Error('Failed to initialize PIXI application');
         }
+        this.logger.logInfo('PIXI Application and Interaction Manager initialized');
+
+        // Canvas management - size from frame
+        this.logger.logInfo('Canvas sizing from frame: ' + this.core.canvasWidth + 'x' + this.core.canvasHeight);
+
+        // Initialize the multi-model manager *after* core app init
+        this.modelManager = new Live2DMultiModelManager(this.core, this.logger, this.core.interactionManager);
+        this.logger.logInfo('Live2D Multi-Model Manager initialized');
+
+        // Initialize motion manager
+        this.motionManager = new Live2DMotionManager(this.core, this.logger);
 
         // Load available models
         await this.modelManager.loadAvailableModels();

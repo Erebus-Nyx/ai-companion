@@ -243,16 +243,6 @@
                 </div>
                 
                 <div class="control-group">
-                    <h3>Model Selection</h3>
-                    <div class="form-group">
-                        <label for="modelSelect">Available Models:</label>
-                        <select id="modelSelect" onchange="onModelChange()">
-                            <option value="">Loading models...</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="control-group">
                     <h3>Display Controls</h3>
                     <div class="form-group">
                         <label for="zoomSlider">Scale: <span id="zoomValue">1.0</span></label>
@@ -583,6 +573,9 @@ async function initializeLive2D() {
         
         // Store reference to multi-model manager for global access
         live2dMultiModelManager = live2dIntegration.modelManager;
+        
+        // Set up connection between multi-model manager and UI controller
+        live2dMultiModelManager.setUIController(uiController);
         
         console.log('Live2D system initialized successfully!');
         

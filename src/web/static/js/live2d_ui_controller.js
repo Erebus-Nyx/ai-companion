@@ -324,6 +324,28 @@ class Live2DUIController {
         }
     }
 
+    // Called when model focus changes (from character icon clicks)
+    async onModelFocusChanged(modelName) {
+        if (!modelName) return;
+
+        console.log(`Model focus changed to: ${modelName}`);
+        
+        try {
+            this.state.currentModel = modelName;
+            
+            // Update UI
+            this.updateModelInfo();
+            await this.loadModelMotions(modelName);
+            await this.loadModelExpressions(modelName);
+            
+            this.updateModelStatus('success', 'Model focused');
+            
+        } catch (error) {
+            this.updateModelStatus('error', `Failed to load model data: ${error.message}`);
+            console.error('Error in onModelFocusChanged:', error);
+        }
+    }
+
     async loadModelMotions(modelName) {
         try {
             // Use the integration's motion manager

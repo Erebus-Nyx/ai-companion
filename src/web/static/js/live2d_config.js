@@ -113,22 +113,25 @@ async function loadAvailableModels() {
     return modelCachePromise;
 }
 
+// Create a global instance of Live2DConfig
+const live2dConfig = new Live2DConfig();
+
 // Function to get last used model from localStorage
 function getLastUsedModel() {
-    if (live2d_settings.modelStorage) {
+    if (live2dConfig.settings.modelStorage) {
         const saved = localStorage.getItem('modelName');
         if (saved) {
             console.log(`[Live2D Config] Found last used model: ${saved}`);
             return saved;
         }
     }
-    console.log(`[Live2D Config] No last used model, using default: ${live2d_settings.modelName}`);
-    return live2d_settings.modelName;
+    console.log(`[Live2D Config] No last used model, using default: ${live2dConfig.settings.modelName}`);
+    return live2dConfig.settings.modelName;
 }
 
 // Function to save current model as last used
 function saveLastUsedModel(modelName) {
-    if (live2d_settings.modelStorage) {
+    if (live2dConfig.settings.modelStorage) {
         localStorage.setItem('modelName', modelName);
         console.log(`[Live2D Config] Saved last used model: ${modelName}`);
     }
@@ -326,7 +329,7 @@ document.addEventListener('DOMContentLoaded', loadSavedModelState);
 // Export for use in other scripts
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { 
-        live2d_settings, 
+        Live2DConfig, 
         loadAvailableModels, 
         getLastUsedModel, 
         saveLastUsedModel, 
@@ -335,7 +338,8 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 
 // Make available globally
-window.live2d_settings = live2d_settings;
+window.Live2DConfig = Live2DConfig;
+window.live2dConfig = live2dConfig;
 window.loadAvailableModels = loadAvailableModels;
 window.getLastUsedModel = getLastUsedModel;
 window.saveLastUsedModel = saveLastUsedModel;

@@ -41,12 +41,27 @@ class Live2DInteraction {
         this.setupMouseTracking();
     }
 
-    // Initialize the canvas manager with PIXI app and model
-    initialize(model) {
-        this.updateModel(model);
-        
+    // Initialize the canvas manager - no model needed at this stage
+    initialize() {
         this.logger.logInfo('Interaction manager initialized');
         return true;
+    }
+
+    // Update the interaction manager to focus on a new model
+    updateModel(newModel) {
+        this.logger.logInfo(`Updating interaction model...`);
+        
+        // Remove interaction from the old model if it exists
+        if (this.model) {
+            this.removeModelInteraction();
+        }
+        
+        this.model = newModel;
+        
+        // Set up interaction for the new model if it exists
+        if (this.model) {
+            this.setupModelInteraction();
+        }
     }
 
     // Set up mouse tracking for the canvas
