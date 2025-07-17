@@ -4,7 +4,7 @@ class Live2DUIController {
         this.integration = integration;
         this.elements = {};
         this.state = {
-            panelCollapsed: false,
+            panelCollapsed: true, // Start with panel closed
             logVisible: false,
             currentModel: null,
             currentMotionGroup: null,
@@ -14,6 +14,25 @@ class Live2DUIController {
         
         this.initializeElements();
         this.setupEventListeners();
+        
+        // Initialize panel state
+        this.initializePanelState();
+    }
+
+    initializePanelState() {
+        // Set initial panel state (closed) - no need to add class since closed is default
+        // Panel starts closed, so don't add 'open' class
+        
+        // Set initial app container state
+        const appContainer = document.querySelector('.app-container');
+        if (appContainer) {
+            appContainer.classList.add('panel-collapsed');
+        }
+        
+        // Show toggle button
+        if (this.elements.panelToggle) {
+            this.elements.panelToggle.style.display = 'block';
+        }
     }
 
     initializeElements() {
@@ -28,10 +47,6 @@ class Live2DUIController {
             modelSelect: document.getElementById('modelSelect'),
             modelName: document.getElementById('modelName'),
             modelId: document.getElementById('modelId'),
-            
-            // Display controls
-            zoomSlider: document.getElementById('zoomSlider'),
-            zoomValue: document.getElementById('zoomValue'),
             
             // Motion controls
             motionGroupSelect: document.getElementById('motionGroupSelect'),
@@ -80,13 +95,6 @@ class Live2DUIController {
             });
         }
 
-        // Zoom slider
-        if (this.elements.zoomSlider) {
-            this.elements.zoomSlider.addEventListener('input', (e) => {
-                this.updateZoom(parseFloat(e.target.value));
-            });
-        }
-
         // Motion group selection
         if (this.elements.motionGroupSelect) {
             this.elements.motionGroupSelect.addEventListener('change', (e) => {
@@ -125,12 +133,26 @@ class Live2DUIController {
         }
         
         if (this.elements.leftPanel) {
-            this.elements.leftPanel.classList.toggle('collapsed', this.state.panelCollapsed);
+            this.elements.leftPanel.classList.toggle('open', !this.state.panelCollapsed);
         }
         
         if (this.elements.panelToggle) {
-            this.elements.panelToggle.textContent = this.state.panelCollapsed ? '☰' : '☰';
-            this.elements.panelToggle.style.display = this.state.panelCollapsed ? 'block' : 'none';
+            this.elements.panelToggle.textContent = '☰';
+            // Panel starts closed, so toggle button should be visible
+            this.elements.panelToggle.style.display = 'block';
+            this.elements.panelToggle.classList.toggle('panel-open', !this.state.panelCollapsed);
+        }
+        
+        // Update canvas positioning using new CSS classes
+        const appContainer = document.querySelector('.app-container');
+        if (appContainer) {
+            if (this.state.panelCollapsed) {
+                appContainer.classList.remove('panel-open');
+                appContainer.classList.add('panel-collapsed');
+            } else {
+                appContainer.classList.remove('panel-collapsed');
+                appContainer.classList.add('panel-open');
+            }
         }
     }
 
@@ -152,45 +174,42 @@ class Live2DUIController {
     }
 
     toggleCanvasFrame() {
-        this.state.canvasFrameVisible = !this.state.canvasFrameVisible;
-        
-        // Use the integration's canvas frame toggle
-        if (this.integration) {
-            this.integration.toggleCanvasFrame();
+        const checkbox = document.getElementById('showCanvasFrame');
+        if (checkbox) {
+            checkbox.checked = !checkbox.checked;
         }
         
-        // Update checkbox state
-        if (this.elements.showCanvasFrame) {
-            this.elements.showCanvasFrame.checked = this.state.canvasFrameVisible;
+        if (this.integration && this.integration.core && this.integration.core.canvasManager) {
+            this.integration.core.canvasManager.toggleCanvasFrame();
         }
+        
+        this.integration.logger.log('Canvas frame toggled', 'info');
     }
 
     toggleModelFrame() {
-        this.state.modelFrameVisible = !this.state.modelFrameVisible;
-        
-        // Use the integration's model frame toggle
-        if (this.integration) {
-            this.integration.toggleModelFrame();
+        const checkbox = document.getElementById('showModelFrame');
+        if (checkbox) {
+            checkbox.checked = !checkbox.checked;
         }
         
-        // Update checkbox state
-        if (this.elements.showModelFrame) {
-            this.elements.showModelFrame.checked = this.state.modelFrameVisible;
+        if (this.integration && this.integration.core && this.integration.core.canvasManager) {
+            this.integration.core.canvasManager.toggleModelFrame();
         }
+        
+        this.integration.logger.log('Model frame toggled', 'info');
     }
 
     toggleHitAreas() {
-        this.state.hitAreasVisible = !this.state.hitAreasVisible;
-        
-        // Use the integration's hit box toggle
-        if (this.integration) {
-            this.integration.toggleHitBoxes();
+        const checkbox = document.getElementById('showHitAreas');
+        if (checkbox) {
+            checkbox.checked = !checkbox.checked;
         }
         
-        // Update checkbox state
-        if (this.elements.showHitAreas) {
-            this.elements.showHitAreas.checked = this.state.hitAreasVisible;
+        if (this.integration && this.integration.core && this.integration.core.canvasManager) {
+            this.integration.core.canvasManager.toggleHitAreas();
         }
+        
+        this.integration.logger.log('Hit areas toggled', 'info');
     }
 
     toggleDebugMode() {
@@ -287,11 +306,9 @@ class Live2DUIController {
         this.showLoading(true);
         
         try {
-            await this.integration.loadModel(modelName);
+            // Use the multi-model manager to add model
+            await this.integration.modelManager.addModel(modelName);
             this.state.currentModel = modelName;
-            
-            // Reset zoom to 1.0 (100% of base scale)
-            this.resetZoom();
             
             // Update UI
             this.updateModelInfo();
@@ -419,37 +436,17 @@ class Live2DUIController {
     }
 
     // Display Controls
-    updateZoom(value) {
-        if (this.elements.zoomValue) {
-            this.elements.zoomValue.textContent = value.toFixed(1);
-        }
-        
-        if (this.integration && this.integration.scaleModel) {
-            this.integration.scaleModel(value);
-        }
-        
-        this.updateModelScale(value);
-    }
-
-    resetZoom() {
-        if (this.elements.zoomSlider) {
-            this.elements.zoomSlider.value = 1.0;
-        }
-        this.updateZoom(1.0);
-    }
-
     fitModel() {
-        // Center the model and reset zoom
-        if (this.integration && this.integration.centerModel) {
-            this.integration.centerModel();
+        // Center and fit the model
+        if (this.integration && this.integration.core && this.integration.core.canvasManager) {
+            this.integration.core.canvasManager.fitModelToCanvas();
         }
-        this.resetZoom();
     }
 
     centerModel() {
-        // Center the model at current zoom level
-        if (this.integration && this.integration.centerModel) {
-            this.integration.centerModel();
+        // Center the model at current level
+        if (this.integration && this.integration.core && this.integration.core.canvasManager) {
+            this.integration.core.canvasManager.centerModel();
         }
     }
 
@@ -468,23 +465,73 @@ class Live2DUIController {
             return;
         }
 
+        if (!this.integration || !this.integration.modelManager) {
+            this.showNotification('Integration not initialized', 'error');
+            return;
+        }
+
         try {
-            await this.playMotion(this.state.currentMotion);
-            this.showNotification(`Playing motion: ${this.state.currentMotion}`, 'success');
+            // Get the active model from multi-model manager
+            const activeModelData = this.integration.modelManager.getActiveModel();
+            if (!activeModelData || !activeModelData.pixiModel) {
+                throw new Error('No active model found');
+            }
+
+            const model = activeModelData.pixiModel;
+            
+            // Parse motion string (group/index format)
+            const [group, motionIndex] = this.state.currentMotion.split('/');
+            
+            // Play motion using the model's motion method
+            if (model.motion && typeof model.motion === 'function') {
+                await model.motion(group, parseInt(motionIndex) || 0);
+                this.showNotification(`Playing motion: ${this.state.currentMotion}`, 'success');
+            } else {
+                throw new Error('Model does not support motion playback');
+            }
         } catch (error) {
             this.showNotification(`Failed to play motion: ${error.message}`, 'error');
         }
     }
 
     async playRandomMotion() {
-        if (!this.integration || !this.integration.initialized) {
+        if (!this.integration || !this.integration.modelManager) {
             this.showNotification('Integration not initialized', 'error');
             return;
         }
 
         try {
-            await this.integration.playRandomMotion();
-            this.showNotification('Playing random motion', 'success');
+            // Get the active model from multi-model manager
+            const activeModelData = this.integration.modelManager.getActiveModel();
+            if (!activeModelData || !activeModelData.pixiModel) {
+                throw new Error('No active model found');
+            }
+
+            const model = activeModelData.pixiModel;
+            
+            // Get available motions from the current UI state
+            if (!this.motionGroups || Object.keys(this.motionGroups).length === 0) {
+                throw new Error('No motions available');
+            }
+
+            // Pick a random group
+            const groups = Object.keys(this.motionGroups);
+            const randomGroup = groups[Math.floor(Math.random() * groups.length)];
+            
+            // Pick a random motion from the group
+            const motions = this.motionGroups[randomGroup];
+            const randomMotion = motions[Math.floor(Math.random() * motions.length)];
+            
+            // Parse motion string (group/index format)
+            const [group, motionIndex] = randomMotion.split('/');
+            
+            // Play motion using the model's motion method
+            if (model.motion && typeof model.motion === 'function') {
+                await model.motion(group, parseInt(motionIndex) || 0);
+                this.showNotification(`Playing random motion: ${randomMotion}`, 'success');
+            } else {
+                throw new Error('Model does not support motion playback');
+            }
         } catch (error) {
             this.showNotification(`Failed to play random motion: ${error.message}`, 'error');
         }
@@ -505,13 +552,19 @@ class Live2DUIController {
     }
 
     async applyExpression(expressionName) {
-        if (!this.integration || !this.integration.core || !this.integration.core.model) {
-            throw new Error('No model loaded');
+        if (!this.integration || !this.integration.modelManager) {
+            throw new Error('Integration not initialized');
         }
 
-        const model = this.integration.core.model;
-        if (model.expression) {
-            model.expression(expressionName);
+        // Get the active model from multi-model manager
+        const activeModelData = this.integration.modelManager.getActiveModel();
+        if (!activeModelData || !activeModelData.pixiModel) {
+            throw new Error('No active model found');
+        }
+
+        const model = activeModelData.pixiModel;
+        if (model.expression && typeof model.expression === 'function') {
+            await model.expression(expressionName);
         } else {
             throw new Error('Model does not support expressions');
         }
@@ -539,7 +592,7 @@ class Live2DUIController {
     }
 
     resetModel() {
-        this.resetZoom();
+        // this.resetZoom(); // Removed zoom functionality
         this.centerModel();
         this.resetExpression();
         
@@ -712,9 +765,9 @@ class Live2DUIController {
     }
 
     setupPanelState() {
-        // Show panel toggle button when panel is collapsed
+        // Update toggle button position
         if (this.elements.panelToggle) {
-            this.elements.panelToggle.style.display = this.state.panelCollapsed ? 'block' : 'none';
+            this.elements.panelToggle.classList.toggle('panel-open', !this.state.panelCollapsed);
         }
     }
 

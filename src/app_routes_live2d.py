@@ -522,6 +522,7 @@ def api_live2d_model_expressions(model_name):
         return jsonify({'error': str(e)}), 500
 
 @live2d_bp.route('/api/live2d/model/<model_name>/motions')
+@live2d_bp.route('/api/live2d/motions/<model_name>')
 def api_live2d_model_motions(model_name):
     """Get motions for a specific Live2D model"""
     try:
@@ -755,4 +756,222 @@ def api_live2d_animation_compatibility(model_name):
         
     except Exception as e:
         logger.error(f"Error getting animation compatibility for model {model_name}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# Debug endpoint to check model data
+@live2d_bp.route('/debug/model/<model_name>')
+def debug_model_data(model_name):
+    """Debug endpoint to check model data."""
+    try:
+        live2d_manager = app_globals.live2d_manager
+        if not live2d_manager:
+            return jsonify({'error': 'Live2D manager not initialized'}), 500
+        
+        # Get all models and find the one we want
+        models = live2d_manager.get_all_models()
+        model_info = None
+        for model in models:
+            if model['model_name'] == model_name:
+                model_info = model
+                break
+        
+        if not model_info:
+            return jsonify({'error': f'Model {model_name} not found'}), 404
+        
+        # Debug the path construction
+        debug_info = {
+            'model_info': model_info,
+            'model_path_raw': model_info['model_path'],
+            'config_file_raw': model_info['config_file'],
+            'constructed_path': f"src/web{model_info['model_path']}/{model_info['config_file']}"
+        }
+        
+        return jsonify(debug_info)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Add API route for texture requests
+@live2d_bp.route('/api/live2d/textures/<model_name>')
+def api_live2d_model_textures(model_name):
+    """API endpoint for getting model textures via API path."""
+    return get_model_textures(model_name)
+
+@live2d_bp.route('/textures/<model_name>')
+def get_model_textures(model_name):
+    """
+    Get texture information for a specific Live2D model.
+    Returns texture file paths and metadata.
+    """
+    try:
+        # Get model manager
+        live2d_manager = app_globals.live2d_manager
+        if not live2d_manager:
+            return jsonify({'error': 'Live2D manager not initialized'}), 500
+        
+        # Find the model
+        model_info = None
+        models = live2d_manager.get_all_models()
+        logger.info(f"DEBUG: Found {len(models)} models")
+        for model in models:
+            logger.info(f"DEBUG: Model {model['model_name']} has path '{model['model_path']}'")
+            if model['model_name'] == model_name:
+                model_info = model
+                break
+        
+        if not model_info:
+            return jsonify({'error': f'Model {model_name} not found'}), 404
+        
+        # Read model configuration
+        # model_path is now like static/assets/miku_1, Flask runs from src/ so we need web/ prefix
+        model_config_path = f"web/{model_info['model_path']}/{model_info['config_file']}"
+        logger.info(f"DEBUG: model_config_path = '{model_config_path}'")
+        
+        if not os.path.exists(model_config_path):
+            return jsonify({'error': f'Model config file not found: {model_config_path}'}), 404
+        
+        with open(model_config_path, 'r') as f:
+            model_config = json.load(f)
+        
+        # Extract texture information
+        textures = []
+        texture_files = []
+        
+        # Check different possible texture locations
+        if 'textures' in model_config:
+            texture_files = model_config['textures']
+        elif 'FileReferences' in model_config:
+            if 'Textures' in model_config['FileReferences']:
+                texture_files = model_config['FileReferences']['Textures']
+            elif 'Texture' in model_config['FileReferences']:
+                texture_files = [model_config['FileReferences']['Texture']]
+        
+        # Process each texture
+        for texture_file in texture_files:
+            # Texture paths in model config are relative to the config file
+            # If config is in runtime/model.json, then textures are relative to runtime/
+            config_dir = os.path.dirname(model_info['config_file'])
+            if config_dir:
+                texture_relative_path = f"{config_dir}/{texture_file}"
+            else:
+                texture_relative_path = texture_file
+            
+            # Construct full paths
+            texture_path = f"/{model_info['model_path']}/{texture_relative_path}"
+            full_texture_path = f"web{texture_path}"  # Flask runs from src/ so we need web/ prefix
+            
+            texture_info = {
+                'filename': texture_file,
+                'path': texture_path,
+                'url': texture_path,  # This will be like /static/assets/miku_1/runtime/texture_00.png
+                'exists': os.path.exists(full_texture_path)
+            }
+            
+            # Get file size if it exists
+            if texture_info['exists']:
+                try:
+                    stat = os.stat(full_texture_path)
+                    texture_info['size'] = stat.st_size
+                    texture_info['modified'] = datetime.fromtimestamp(stat.st_mtime).isoformat()
+                except Exception as e:
+                    logger.warning(f"Could not get file info for {full_texture_path}: {e}")
+            
+            textures.append(texture_info)
+        
+        return jsonify({
+            'model_name': model_name,
+            'textures': textures,
+            'primary_texture': textures[0] if textures else None,
+            'texture_count': len(textures)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting textures for model {model_name}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@live2d_bp.route('/api/live2d/preview/<model_name>')
+def api_live2d_model_preview(model_name):
+    """
+    Get a cached preview image for a Live2D model from the database.
+    Returns the base64 preview data if available.
+    """
+    try:
+        # Get model manager
+        live2d_manager = app_globals.live2d_manager
+        if not live2d_manager:
+            return jsonify({'error': 'Live2D manager not initialized'}), 500
+        
+        # Get cached preview from database
+        preview_data = live2d_manager.get_model_preview(model_name)
+        
+        if preview_data:
+            return jsonify({
+                'model_name': model_name,
+                'preview': preview_data,
+                'cached': True,
+                'success': True
+            })
+        else:
+            return jsonify({
+                'model_name': model_name,
+                'preview': None,
+                'cached': False,
+                'success': False,
+                'message': 'No cached preview found - generate one in the frontend'
+            }), 404
+        
+    except Exception as e:
+        logger.error(f"Error getting preview for model {model_name}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@live2d_bp.route('/api/live2d/preview/<model_name>', methods=['POST'])
+def api_live2d_save_model_preview(model_name):
+    """Save preview image for a Live2D model to database"""
+    try:
+        live2d_manager = app_globals.live2d_manager
+        if not live2d_manager:
+            return jsonify({'error': 'Live2D manager not initialized'}), 500
+        
+        data = request.get_json()
+        if not data or 'preview' not in data:
+            return jsonify({'error': 'No preview data provided'}), 400
+        
+        preview_data = data['preview']
+        success = live2d_manager.save_model_preview(model_name, preview_data)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'model_name': model_name,
+                'message': 'Preview saved successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to save preview',
+                'model_name': model_name
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Error saving model preview: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@live2d_bp.route('/api/live2d/preview/<model_name>/check')
+def api_live2d_check_model_preview(model_name):
+    """Check if a model has a cached preview image"""
+    try:
+        live2d_manager = app_globals.live2d_manager
+        if not live2d_manager:
+            return jsonify({'error': 'Live2D manager not initialized'}), 500
+        
+        has_preview = live2d_manager.has_model_preview(model_name)
+        
+        return jsonify({
+            'success': True,
+            'has_preview': has_preview,
+            'model_name': model_name
+        })
+            
+    except Exception as e:
+        logger.error(f"Error checking model preview: {e}")
         return jsonify({'error': str(e)}), 500

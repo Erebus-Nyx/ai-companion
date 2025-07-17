@@ -36,6 +36,7 @@ class Live2DModelManager:
                         config_file TEXT NOT NULL,
                         model_type TEXT DEFAULT 'Live2D_v4',
                         description TEXT,
+                        preview_image TEXT,
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                         last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
                     )
@@ -88,8 +89,8 @@ class Live2DModelManager:
                 model_files = list(model_dir.glob("**/*.model3.json"))
                 if model_files:
                     model_file = model_files[0]  # Use first found
-                    # Store model_path as web-relative path
-                    rel_model_path = f"/static/assets/{model_dir.name}"
+                    # Store model_path as web-relative path without leading slash
+                    rel_model_path = f"static/assets/{model_dir.name}"
                     # Get relative path from model directory to config file
                     config_relative_path = str(model_file.relative_to(model_dir))
                     self.register_model(
@@ -365,6 +366,86 @@ class Live2DModelManager:
         except Exception as e:
             self.logger.error(f"Error getting database stats: {e}")
             raise e
+
+    def get_model_preview(self, model_name: str) -> Optional[str]:
+        """
+        Get the preview image data for a model.
+        Returns the base64 image data or None if no preview exists.
+        """
+        try:
+            with get_live2d_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT preview_image FROM live2d_models WHERE model_name = ?",
+                    (model_name,)
+                )
+                result = cursor.fetchone()
+                return result['preview_image'] if result else None
+        except Exception as e:
+            self.logger.error(f"Error getting preview for model {model_name}: {e}")
+            return None
+
+    def save_model_preview(self, model_name: str, preview_data: str) -> bool:
+        """
+        Save preview image data for a model.
+        preview_data should be a base64 data URL or object URL.
+        Returns True if successful, False otherwise.
+        """
+        try:
+            with get_live2d_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "UPDATE live2d_models SET preview_image = ?, last_updated = CURRENT_TIMESTAMP WHERE model_name = ?",
+                    (preview_data, model_name)
+                )
+                conn.commit()
+                success = cursor.rowcount > 0
+                if success:
+                    self.logger.info(f"Saved preview image for model: {model_name}")
+                else:
+                    self.logger.warning(f"No model found to update preview for: {model_name}")
+                return success
+        except Exception as e:
+            self.logger.error(f"Error saving preview for model {model_name}: {e}")
+            return False
+
+    def has_model_preview(self, model_name: str) -> bool:
+        """
+        Check if a model has a cached preview image.
+        Returns True if preview exists, False otherwise.
+        """
+        try:
+            with get_live2d_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT preview_image FROM live2d_models WHERE model_name = ? AND preview_image IS NOT NULL AND preview_image != ''",
+                    (model_name,)
+                )
+                return cursor.fetchone() is not None
+        except Exception as e:
+            self.logger.error(f"Error checking preview for model {model_name}: {e}")
+            return False
+
+    def clear_model_preview(self, model_name: str) -> bool:
+        """
+        Clear the cached preview image for a model.
+        Returns True if successful, False otherwise.
+        """
+        try:
+            with get_live2d_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "UPDATE live2d_models SET preview_image = NULL, last_updated = CURRENT_TIMESTAMP WHERE model_name = ?",
+                    (model_name,)
+                )
+                conn.commit()
+                success = cursor.rowcount > 0
+                if success:
+                    self.logger.info(f"Cleared preview image for model: {model_name}")
+                return success
+        except Exception as e:
+            self.logger.error(f"Error clearing preview for model {model_name}: {e}")
+            return False
 
     def close(self):
         """Close database connection - No-op since we use context managers."""

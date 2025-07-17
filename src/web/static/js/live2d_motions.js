@@ -34,7 +34,7 @@ function classifyMotionType(groupName) {
 async function registerMotionsWithBackend(modelName, motions) {
     // Registers motions for a model with the backend API
     try {
-        const response = await fetch(`/api/live2d/model/${modelName}/register_motions`, {
+        const response = await fetch(`http://localhost:13443/api/live2d/model/${modelName}/register_motions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ motions })

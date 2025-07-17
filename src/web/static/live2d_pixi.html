@@ -242,7 +242,7 @@
                     </div>
                 </div>
                 
-                <div class="control-group">
+                <div class="control-group" style="display: none;">
                     <h3>Model Selection</h3>
                     <div class="form-group">
                         <label for="modelSelect">Available Models:</label>
@@ -256,7 +256,7 @@
                     <h3>Display Controls</h3>
                     <div class="form-group">
                         <label for="zoomSlider">Scale: <span id="zoomValue">1.0</span></label>
-                        <input type="range" id="zoomSlider" min="0.1" max="3.0" step="0.1" value="1.0" oninput="updateZoom(this.value)">
+                        <input type="range" id="zoomSlider" min="0.1" max="3.0" step="0.1" value="1.0" oninput="updateZoom(this.value); document.getElementById('zoomValue').textContent = this.value;">
                     </div>
                     <div class="control-buttons">
                         <button class="btn btn-secondary" onclick="resetZoom()">Reset</button>
@@ -416,6 +416,7 @@
         <!-- Canvas Area -->
         <div class="canvas-container">
             <div id="pixiContainer"></div>
+            <div class="canvas-frame"></div>
             <div class="loading-overlay" id="loadingOverlay" style="display: none;">
                 <div class="loading-spinner"></div>
             </div>
@@ -543,8 +544,10 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="js/live2d_config.js"></script>
 <script src="js/live2d_logger.js"></script>
 <script src="js/live2d_tester.js"></script>
+<script src="js/live2d_canvas.js"></script>
 <script src="js/live2d_core.js"></script>
 <script src="js/live2d_model_manager.js"></script>
+<script src="js/live2d_multi_model_manager.js"></script>
 <script src="js/live2d_motion_manager.js"></script>
 <script src="js/live2d_integration.js"></script>
 <script src="js/live2d_ui_controller.js"></script>
@@ -554,6 +557,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Global variables for the modular system
 let live2dIntegration = null;
 let uiController = null;
+let live2dMultiModelManager = null; // Make available globally for remove buttons
 
 // Initialize the modular Live2D system
 async function initializeLive2D() {
@@ -575,6 +579,9 @@ async function initializeLive2D() {
         
         // Initialize UI controller
         await uiController.initialize();
+        
+        // Store reference to multi-model manager for global access
+        live2dMultiModelManager = live2dIntegration.modelManager;
         
         console.log('Live2D system initialized successfully!');
         
@@ -604,19 +611,33 @@ function onModelChange() {
 }
 
 function updateZoom(value) {
-    if (window.scaleModel) window.scaleModel(parseFloat(value));
+    if (live2dIntegration && live2dIntegration.core) {
+        live2dIntegration.core.scaleModel(parseFloat(value));
+    }
 }
 
 function resetZoom() {
-    if (window.scaleModel) window.scaleModel(window.SCALE_CONFIG.default);
+    if (live2dIntegration && live2dIntegration.core) {
+        live2dIntegration.core.scaleModel(1.0);
+        // Update slider
+        const slider = document.getElementById('zoomSlider');
+        if (slider) slider.value = 1.0;
+        // Update display
+        const display = document.getElementById('zoomValue');
+        if (display) display.textContent = '1.0';
+    }
 }
 
 function fitModel() {
-    if (window.fitModelToCanvas) window.fitModelToCanvas();
+    if (live2dIntegration && live2dIntegration.core && live2dIntegration.core.canvasManager) {
+        live2dIntegration.core.canvasManager.fitModelToCanvas();
+    }
 }
 
 function centerModel() {
-    if (window.centerModel) window.centerModel();
+    if (live2dIntegration && live2dIntegration.core && live2dIntegration.core.canvasManager) {
+        live2dIntegration.core.canvasManager.centerModel();
+    }
 }
 
 function onMotionGroupChange() {

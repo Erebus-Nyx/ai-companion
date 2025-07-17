@@ -36,8 +36,8 @@ class Live2DIntegration {
                 throw new Error('Live2D library not properly loaded');
             }
 
-            // Initialize model manager
-            this.modelManager = new Live2DModelManager(this.core, this.logger);
+                        // Initialize model manager (use multi-model manager)
+            this.modelManager = new Live2DMultiModelManager(this.core, this.logger);
 
             // Initialize motion manager
             this.motionManager = new Live2DMotionManager(this.core, this.logger);
@@ -49,9 +49,6 @@ class Live2DIntegration {
             }
 
             const success = await this.core.initApp(canvasElement, {
-                width: this.config.live2dWidth || 0,
-                height: this.config.live2dHeight || 0,
-                canvasMargin: this.config.canvasMargin || 40,
                 backgroundColor: 0x000000,
                 backgroundAlpha: 0
             });
@@ -126,13 +123,16 @@ class Live2DIntegration {
         return this.modelManager.getCurrentModel();
     }
 
+    // Canvas management methods - delegated to canvas manager
     scaleModel(scale) {
         if (!this.initialized) {
             console.error('Live2D Integration not initialized');
             return;
         }
-
-        this.modelManager.scaleModel(scale);
+        
+        if (this.core && this.core.setZoom) {
+            this.core.setZoom(scale);
+        }
     }
 
     centerModel() {
@@ -140,13 +140,11 @@ class Live2DIntegration {
             console.error('Live2D Integration not initialized');
             return;
         }
-
+        
         if (this.core && this.core.centerModel) {
             this.core.centerModel();
         }
-    }
-
-    // Motion management methods
+    }    // Motion management methods
     getAvailableMotions() {
         if (!this.initialized) {
             console.error('Live2D Integration not initialized');
@@ -273,14 +271,17 @@ class Live2DIntegration {
         }
     }
 
-    // UI Controls
+    // UI Controls - delegated to canvas manager
     toggleCanvasFrame() {
         if (!this.initialized) {
             console.error('Live2D Integration not initialized');
             return;
         }
         
-        this.core.toggleCanvasFrame();
+        if (this.core && this.core.toggleCanvasFrame) {
+            return this.core.toggleCanvasFrame();
+        }
+        return false;
     }
 
     toggleModelFrame() {
@@ -289,16 +290,22 @@ class Live2DIntegration {
             return;
         }
         
-        this.core.toggleModelFrame();
+        if (this.core && this.core.toggleModelFrame) {
+            return this.core.toggleModelFrame();
+        }
+        return false;
     }
 
-    toggleHitBoxes() {
+    toggleHitAreas() {
         if (!this.initialized) {
             console.error('Live2D Integration not initialized');
             return;
         }
         
-        this.core.toggleHitBoxes();
+        if (this.core && this.core.toggleHitBoxes) {
+            return this.core.toggleHitBoxes();
+        }
+        return false;
     }
 
     // Configuration access

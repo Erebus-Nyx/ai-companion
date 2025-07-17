@@ -10,7 +10,7 @@ function updateDatabaseInfo() {
         window.debugLog && window.debugLog('⚠️ Database info elements not found');
         return;
     }
-    fetch('/api/live2d/system_status')
+    fetch('http://localhost:13443/api/live2d/system_status')
         .then(response => response.json())
         .then(data => {
             if (data.database_connection) {
@@ -40,7 +40,7 @@ function updateDatabaseInfo() {
 async function debugDatabaseInfo() {
     window.debugLog && window.debugLog('💾 Loading database information...');
     try {
-        const response = await fetch('/api/live2d/models');
+        const response = await fetch('http://localhost:13443/api/live2d/models');
         if (response.ok) {
             const models = await response.json();
             window.debugLog && window.debugLog(`📦 Database models: ${models.length}`);
@@ -60,7 +60,7 @@ async function debugClearDatabase() {
     if (!confirm('⚠️ WARNING: Delete ALL database content?')) return;
     window.debugLog && window.debugLog('🗑 Clearing database...');
     try {
-        const response = await fetch('/api/live2d/clear_database', {
+        const response = await fetch('http://localhost:13443/api/live2d/clear_database', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -80,7 +80,7 @@ async function debugReimportData() {
     if (!confirm('📥 Re-import all models and motions?')) return;
     window.debugLog && window.debugLog('📥 Starting re-import...');
     try {
-        const response = await fetch('/api/live2d/reimport_all', {
+        const response = await fetch('http://localhost:13443/api/live2d/reimport_all', {
             headers: { 'Content-Type': 'application/json' }
         });
         if (response.ok) {
