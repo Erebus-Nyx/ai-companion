@@ -9,6 +9,9 @@ class Live2DMultiModelManager {
         this.modelCounter = 0;
         this.modelList = [];
         
+        // Model state tracking
+        this.modelStates = new Map(); // Store scale, position, etc. for each model
+        
         this.initializeUI();
     }
 
@@ -109,14 +112,14 @@ class Live2DMultiModelManager {
         
         for (const model of this.modelList) {
             try {
-                // Get model texture for preview
-                const textureUrl = await this.getModelTexture(model);
+                // Get cached preview image or generate it
+                const previewUrl = await this.getCachedPreview(model.name);
                 
                 const card = `
                     <div class="model-card" data-model-name="${model.name}">
                         <div class="model-preview">
-                            ${textureUrl ? 
-                                `<img src="${textureUrl}" alt="${model.name}" class="model-preview-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                            ${previewUrl ? 
+                                `<img src="${previewUrl}" alt="${model.name}" class="model-preview-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
                                  <span class="model-icon" style="display: none;">🎭</span>` : 
                                 `<span class="model-icon">🎭</span>`
                             }
@@ -227,13 +230,21 @@ class Live2DMultiModelManager {
 
             this.models.set(modelId, modelData);
             
+            // Initialize model state
+            this.modelStates.set(modelId, {
+                scale: 1.0, // Zoom level (multiplied by baseScale)
+                position: { x: 0, y: 0 },
+                visible: true,
+                motions: {
+                    idle: null,
+                    expressions: new Map()
+                }
+            });
+            
             // Set initial scale (0.2 for default zoom 1.0)
             if (pixiModel && pixiModel.scale) {
                 pixiModel.scale.set(modelData.baseScale);
             }
-
-            // Position the model slightly offset from center for multiple models
-            this.positionModelForMultiple(pixiModel, this.models.size);
 
             // Start neutral random motions
             await this.startNeutralMotions(modelId);
@@ -311,43 +322,66 @@ class Live2DMultiModelManager {
         throw new Error('All Live2D loading methods failed');
     }
 
-    positionModelForMultiple(model, modelCount) {
-        if (!model || !this.core.canvasWidth || !this.core.canvasHeight) return;
-
-        const centerX = this.core.canvasWidth / 2;
-        const centerY = this.core.canvasHeight / 2;
-        
-        // Create slight offset for multiple models so they don't overlap exactly
-        const offsetX = (modelCount - 1) * 20; // 20px offset for each additional model
-        const offsetY = (modelCount - 1) * 10; // 10px offset for each additional model
-        
-        model.position.set(centerX + offsetX, centerY + offsetY);
-        
-        this.log(`Model positioned at: ${centerX + offsetX}, ${centerY + offsetY}`, 'info');
-    }
-
     async startNeutralMotions(modelId) {
         const modelData = this.models.get(modelId);
         if (!modelData || !modelData.pixiModel) return;
 
         try {
             // Load motions for the model
-            const motions = await this.loadModelMotions(modelData);
+            const motionsData = await this.loadModelMotions(modelData);
+            
+            // Extract motion array from the API response
+            let motionArray = [];
+            if (motionsData && motionsData.motions) {
+                this.log(`Processing motions data for ${modelData.name}`, 'info');
+                console.log('Motions data structure:', motionsData);
+                
+                // Convert the motion groups object to an array
+                Object.keys(motionsData.motions).forEach(groupName => {
+                    const groupMotions = motionsData.motions[groupName];
+                    this.log(`Processing group ${groupName} with ${groupMotions.length} motions`, 'info');
+                    
+                    if (Array.isArray(groupMotions)) {
+                        groupMotions.forEach(motion => {
+                            motionArray.push({
+                                ...motion,
+                                group: groupName
+                            });
+                        });
+                    }
+                });
+            } else {
+                this.log(`No motions data found for ${modelData.name}`, 'warning');
+                console.log('Full response:', motionsData);
+            }
+            
+            this.log(`Built motion array with ${motionArray.length} motions`, 'info');
             
             // Filter for idle/neutral motions
-            const neutralMotions = motions.filter(motion => 
-                motion.group.toLowerCase().includes('idle') || 
-                motion.group.toLowerCase().includes('neutral') ||
-                motion.group.toLowerCase().includes('breathing')
-            );
+            const neutralMotions = motionArray.filter(motion => {
+                if (!motion.group) return false;
+                const groupLower = motion.group.toLowerCase();
+                return groupLower.includes('idle') || 
+                       groupLower.includes('neutral') ||
+                       groupLower.includes('default');
+            });
+
+            if (neutralMotions.length === 0) {
+                this.log(`No neutral motions found for ${modelData.name}, using any available motion`, 'warning');
+                // If no neutral motions, use the first available motion
+                if (motionArray.length > 0) {
+                    neutralMotions.push(motionArray[0]);
+                }
+            } else {
+                this.log(`Found ${neutralMotions.length} neutral motions for ${modelData.name}`, 'info');
+            }
 
             if (neutralMotions.length > 0) {
-                // Start random neutral motion
-                const randomMotion = neutralMotions[Math.floor(Math.random() * neutralMotions.length)];
-                await this.playMotion(modelId, randomMotion);
-                
-                // Set up periodic random motion playback
+                this.log(`Starting neutral motions for ${modelData.name}`, 'info');
+                // Start periodic motion playback
                 this.setupPeriodicMotions(modelId, neutralMotions);
+            } else {
+                this.log(`No motions available for ${modelData.name}`, 'warning');
             }
         } catch (error) {
             this.log(`Failed to start neutral motions for ${modelData.name}: ${error.message}`, 'warning');
@@ -381,18 +415,11 @@ class Live2DMultiModelManager {
             
             const result = await response.json();
             
-            // Ensure we return an array
-            if (Array.isArray(result)) {
-                return result;
-            } else if (result && Array.isArray(result.motions)) {
-                return result.motions;
-            } else {
-                this.log(`Motions API returned unexpected format for ${modelData.name}: ${typeof result}`, 'warning');
-                return [];
-            }
+            // Return the full result object, not just the motions array
+            return result;
         } catch (error) {
             this.log(`Failed to load motions for ${modelData.name}: ${error.message}`, 'warning');
-            return [];
+            return { motions: {} };
         }
     }
 
@@ -475,15 +502,8 @@ class Live2DMultiModelManager {
                 }
             }
             
-            // Fallback: Get the model's texture files and try to crop them
-            const textureUrl = await this.getModelTexture(modelData);
-            if (textureUrl) {
-                this.log(`Using cropped texture for ${modelData.name}`, 'info');
-                // Create a cropped version of the texture for better character icon
-                const croppedImage = await this.createCroppedIcon(textureUrl);
-                return croppedImage || textureUrl;
-            }
-            
+            // No fallback - if snapshot creation fails, use emoji
+            this.log(`Could not create preview for ${modelData.name}`, 'warning');
             return null;
         } catch (error) {
             this.log(`Failed to extract character image for ${modelData.name}: ${error.message}`, 'warning');
@@ -673,6 +693,11 @@ class Live2DMultiModelManager {
             return;
         }
 
+        // Save current model state if there is one
+        if (this.activeModelId && this.models.has(this.activeModelId)) {
+            this.saveCurrentModelState();
+        }
+
         // Update active model
         this.activeModelId = modelId;
         
@@ -691,12 +716,75 @@ class Live2DMultiModelManager {
         if (this.core.canvasManager && modelData.pixiModel) {
             this.core.canvasManager.updateModel(modelData.pixiModel);
             this.core.model = modelData.pixiModel; // Update core reference
+            
+            // Set up interaction for the active model
+            this.core.canvasManager.setupModelInteraction();
         }
+
+        // Restore model state
+        this.restoreModelState(modelId);
 
         // Update UI to show active model info
         this.updateUIForActiveModel(modelData);
 
         this.log(`Active model set to: ${modelData.name}`, 'info');
+    }
+
+    saveCurrentModelState() {
+        if (!this.activeModelId) return;
+        
+        const modelData = this.models.get(this.activeModelId);
+        if (!modelData || !modelData.pixiModel) return;
+        
+        const state = this.modelStates.get(this.activeModelId);
+        if (!state) return;
+        
+        // Save scale from UI
+        const scaleSlider = document.getElementById('zoomSlider');
+        if (scaleSlider) {
+            state.scale = parseFloat(scaleSlider.value);
+        }
+        
+        // Save position
+        state.position = {
+            x: modelData.pixiModel.x,
+            y: modelData.pixiModel.y
+        };
+        
+        // Save visibility
+        state.visible = modelData.pixiModel.visible;
+    }
+
+    restoreModelState(modelId) {
+        const modelData = this.models.get(modelId);
+        const state = this.modelStates.get(modelId);
+        
+        if (!modelData || !state || !modelData.pixiModel) return;
+        
+        // Restore scale
+        const finalScale = modelData.baseScale * state.scale;
+        modelData.pixiModel.scale.set(finalScale);
+        
+        // Update UI scale slider
+        const scaleSlider = document.getElementById('zoomSlider');
+        if (scaleSlider) {
+            scaleSlider.value = state.scale;
+        }
+        
+        // Update zoom value display
+        const zoomValue = document.getElementById('zoomValue');
+        if (zoomValue) {
+            zoomValue.textContent = state.scale.toFixed(2);
+        }
+        
+        // Restore position
+        modelData.pixiModel.x = state.position.x;
+        modelData.pixiModel.y = state.position.y;
+        
+        // Restore visibility
+        modelData.pixiModel.visible = state.visible;
+        
+        this.log(`Model scaled to: ${finalScale.toFixed(2)} (base: ${modelData.baseScale.toFixed(2)}, zoom: ${state.scale.toFixed(2)})`, 'info');
     }
 
     updateUIForActiveModel(modelData) {

@@ -265,7 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.debugDatabaseInfo = async function() {
         debugLog('💾 Loading database information...');
         try {
-            const response = await fetch('http://localhost:13443/api/live2d/models');
+            const response = await fetch('/api/live2d/models');
             if (response.ok) {
                 const models = await response.json();
                 debugLog(`📦 Database models: ${models.length}`);
@@ -283,7 +283,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!confirm('⚠️ WARNING: Delete ALL database content?')) return;
         debugLog('🗑 Clearing database...');
         try {
-            const response = await fetch('http://localhost:13443/api/live2d/clear_database', {
+            const response = await fetch('/api/live2d/clear_database', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
@@ -300,7 +300,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!confirm('📥 Re-import all models and motions?')) return;
         debugLog('📥 Starting re-import...');
         try {
-            const response = await fetch('http://localhost:13443/api/live2d/reimport_all', {
+            const response = await fetch('/api/live2d/reimport_all', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
