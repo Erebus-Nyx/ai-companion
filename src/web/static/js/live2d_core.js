@@ -4,15 +4,17 @@ class Live2DCore {
         this.app = null;
         this.model = null;
         this.logger = null;
-        this.canvasManager = null;
+        this.interactionManager = null;
         this.baseScale = 1.0;
+        this.config = null;
     }
 
     setLogger(logger) {
         this.logger = logger;
-        
-        // Initialize canvas manager with logger
-        this.canvasManager = new Live2DCanvas(this, logger);
+    }
+
+    setConfig(config) {
+        this.config = config;
     }
 
     checkLive2DLibrary() {
@@ -133,6 +135,10 @@ class Live2DCore {
             // Set up responsive resize handler
             this.setupWindowResizeHandler();
             
+            // Instantiate the interaction manager
+            this.interactionManager = new Live2DInteraction(this.app, this.config, this.logger);
+            this.logger.logInfo('Live2DInteraction manager created');
+            
             this.log(`PIXI application initialized: ${finalOptions.width}x${finalOptions.height}`, 'success');
             
             return true;
@@ -185,9 +191,9 @@ class Live2DCore {
             this.model = null;
         }
 
-        // Clear canvas manager
-        if (this.canvasManager) {
-            this.canvasManager.updateModel(null);
+        // Clear interaction manager
+        if (this.interactionManager) {
+            this.interactionManager.updateModel(null);
         }
 
         this.log('Model and graphics cleared', 'info');
@@ -353,9 +359,9 @@ class Live2DCore {
                     this.app.stage.addChild(model);
                     this.model = model;
                     
-                    // Initialize canvas manager with the new model
-                    if (this.canvasManager) {
-                        this.canvasManager.initialize(this.app, model);
+                    // Initialize interaction manager with the new model
+                    if (this.interactionManager) {
+                        this.interactionManager.initialize(model);
                     }
                     
                     // Force render update
@@ -725,26 +731,26 @@ class Live2DCore {
         return 1.0;
     }
 
-    // Canvas interaction methods - delegated to canvas manager
+    // Canvas interaction methods - delegated to interaction manager
     centerModel() {
-        if (this.canvasManager) {
-            this.canvasManager.centerModel();
+        if (this.interactionManager) {
+            this.interactionManager.centerModel();
         } else {
-            this.log('Canvas manager not available', 'warning');
+            this.log('Interaction manager not available', 'warning');
         }
     }
 
-    // Zoom methods - delegated to canvas manager
+    // Zoom methods - delegated to interaction manager
     setZoom(zoomLevel) {
-        if (this.canvasManager) {
-            return this.canvasManager.setZoom(zoomLevel);
+        if (this.interactionManager) {
+            return this.interactionManager.setZoom(zoomLevel);
         }
         return 1.0;
     }
 
     getZoom() {
-        if (this.canvasManager) {
-            return this.canvasManager.getZoom();
+        if (this.interactionManager) {
+            return this.interactionManager.getZoom();
         }
         return 1.0;
     }
@@ -770,24 +776,24 @@ class Live2DCore {
         this.log(`Model scaled to: ${finalScale.toFixed(2)} (base: ${this.baseScale.toFixed(2)}, zoom: ${zoomMultiplier.toFixed(2)})`, 'info');
     }
 
-    // Frame toggle methods - delegated to canvas manager
+    // Frame toggle methods - delegated to interaction manager
     toggleCanvasFrame() {
-        if (this.canvasManager) {
-            return this.canvasManager.toggleCanvasFrame();
+        if (this.interactionManager) {
+            return this.interactionManager.toggleCanvasFrame();
         }
         return false;
     }
 
     toggleModelFrame() {
-        if (this.canvasManager) {
-            return this.canvasManager.toggleModelFrame();
+        if (this.interactionManager) {
+            return this.interactionManager.toggleModelFrame();
         }
         return false;
     }
 
     toggleHitBoxes() {
-        if (this.canvasManager) {
-            return this.canvasManager.toggleHitAreas();
+        if (this.interactionManager) {
+            return this.interactionManager.toggleHitAreas();
         }
         return false;
     }
@@ -865,9 +871,9 @@ class Live2DCore {
         // Apply scale to model
         this.model.scale.set(finalScale);
         
-        // Update canvas manager if it exists
-        if (this.canvasManager) {
-            this.canvasManager.currentZoom = zoomMultiplier;
+        // Update interaction manager if it exists
+        if (this.interactionManager) {
+            this.interactionManager.currentZoom = zoomMultiplier;
         }
         
         this.log(`Model scaled to: ${finalScale.toFixed(2)} (base: ${this.baseScale.toFixed(2)}, zoom: ${zoomMultiplier.toFixed(2)})`, 'info');
@@ -883,9 +889,9 @@ class Live2DCore {
         // Center the model
         this.model.position.set(this.canvasWidth / 2, this.canvasHeight / 2);
         
-        // Update canvas manager if it exists
-        if (this.canvasManager) {
-            this.canvasManager.updateFrameVisualizations();
+        // Update interaction manager if it exists
+        if (this.interactionManager) {
+            this.interactionManager.updateFrameVisualizations();
         }
         
         this.log(`Model centered at: ${this.model.position.x.toFixed(0)}, ${this.model.position.y.toFixed(0)}`, 'info');
@@ -898,10 +904,10 @@ class Live2DCore {
             this.resizeHandler = null;
         }
         
-        // Destroy canvas manager
-        if (this.canvasManager) {
-            this.canvasManager.destroy();
-            this.canvasManager = null;
+        // Destroy interaction manager
+        if (this.interactionManager) {
+            this.interactionManager.destroy();
+            this.interactionManager = null;
         }
         
         if (this.model && this.app) {

@@ -1,76 +1,59 @@
 // Live2D Logger - Unified logging system
 class Live2DLogger {
-    constructor(logElementId = null) {
-        this.logElement = logElementId ? document.getElementById(logElementId) : null;
-        this.logs = [];
+    constructor(config) {
+        this.config = config || { debugMode: true }; // Fallback config
+        this.logHistory = [];
     }
 
     log(message, type = 'info') {
-        const timestamp = new Date().toISOString().split('T')[1].substring(0, 8);
-        const logEntry = {
-            timestamp,
-            message,
-            type
-        };
-        
-        this.logs.push(logEntry);
-        
-        if (this.logElement) {
-            const className = type === 'error' ? 'error' : 
-                             type === 'success' ? 'success' : 
-                             type === 'warning' ? 'warning' : '';
-            
-            this.logElement.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
-            this.logElement.scrollTop = this.logElement.scrollHeight;
+        if (!this.config.debugMode && type === 'info') {
+            return;
         }
-        
-        console.log(`[${type.toUpperCase()}] ${message}`);
-    }
 
-    clear() {
-        this.logs = [];
-        if (this.logElement) {
-            this.logElement.innerHTML = '';
+        const timestamp = new Date().toLocaleTimeString();
+        const logMessage = `[${timestamp}] [${type.toUpperCase()}] ${message}`;
+        
+        this.logHistory.push(logMessage);
+        
+        switch (type) {
+            case 'error':
+                console.error(logMessage);
+                break;
+            case 'warning':
+                console.warn(logMessage);
+                break;
+            case 'success':
+                console.log(`%c${logMessage}`, 'color: #28a745;');
+                break;
+            default:
+                console.log(logMessage);
         }
     }
 
-    copyToClipboard() {
-        const logText = this.logs.map(entry => 
-            `[${entry.timestamp}] ${entry.message}`
-        ).join('\n');
-        
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(logText).then(() => {
-                this.log('Log copied to clipboard!', 'success');
-            }).catch(err => {
-                this.log('Failed to copy log: ' + err, 'error');
-            });
-        } else {
-            // Fallback for older browsers
-            const textArea = document.createElement('textarea');
-            textArea.value = logText;
-            document.body.appendChild(textArea);
-            textArea.select();
-            try {
-                document.execCommand('copy');
-                this.log('Log copied to clipboard!', 'success');
-            } catch (err) {
-                this.log('Failed to copy log: ' + err, 'error');
-            }
-            document.body.removeChild(textArea);
-        }
+    logInfo(message) {
+        this.log(message, 'info');
     }
 
-    getLogs() {
-        return this.logs;
+    logWarning(message) {
+        this.log(message, 'warning');
     }
 
-    getLogText() {
-        return this.logs.map(entry => 
-            `[${entry.timestamp}] ${entry.message}`
-        ).join('\n');
+    logError(message) {
+        this.log(message, 'error');
+    }
+
+    logSuccess(message) {
+        this.log(message, 'success');
+    }
+
+    getHistory() {
+        return this.logHistory;
+    }
+
+    clearHistory() {
+        this.logHistory = [];
     }
 }
 
-// Export for use in other modules
+// Export for modular use
 window.Live2DLogger = Live2DLogger;

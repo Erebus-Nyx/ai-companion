@@ -1,11 +1,11 @@
-// Live2D Canvas Management Module
+// Live2D Interaction Module
 // Handles all canvas manipulation: dragging, clicking, frame toggles, zoom
 
-class Live2DCanvas {
-    constructor(core, logger) {
-        this.core = core;
+class Live2DInteraction {
+    constructor(app, config, logger) {
+        this.app = app;
+        this.config = config;
         this.logger = logger;
-        this.app = null;
         this.model = null;
         
         // Canvas interaction state
@@ -42,15 +42,10 @@ class Live2DCanvas {
     }
 
     // Initialize the canvas manager with PIXI app and model
-    initialize(app, model) {
-        this.app = app;
-        this.model = model;
+    initialize(model) {
+        this.updateModel(model);
         
-        if (this.model) {
-            this.setupModelInteraction();
-        }
-        
-        this.log('Canvas manager initialized', 'info');
+        this.logger.logInfo('Interaction manager initialized');
         return true;
     }
 
@@ -72,18 +67,23 @@ class Live2DCanvas {
         this.model.eventMode = 'static';
         
         // Add event listeners
-        this.model.on('pointerdown', this.mouseHandlers.onPointerDown);
-        this.model.on('pointermove', this.mouseHandlers.onPointerMove);
-        this.model.on('pointerup', this.mouseHandlers.onPointerUp);
-        this.model.on('pointerupoutside', this.mouseHandlers.onPointerUpOutside);
+        this.model.off('pointerdown', this.mouseHandlers.onPointerDown)
+                  .on('pointerdown', this.mouseHandlers.onPointerDown);
+        this.app.stage.off('pointermove', this.mouseHandlers.onPointerMove)
+                      .on('pointermove', this.mouseHandlers.onPointerMove);
+        this.app.stage.off('pointerup', this.mouseHandlers.onPointerUp)
+                      .on('pointerup', this.mouseHandlers.onPointerUp);
+        this.app.stage.off('pointerupoutside', this.mouseHandlers.onPointerUpOutside)
+                      .on('pointerupoutside', this.mouseHandlers.onPointerUpOutside);
         
         // Add wheel event to canvas for zoom
         const canvas = this.app.canvas || this.app.view;
         if (canvas) {
+            canvas.removeEventListener('wheel', this.mouseHandlers.onWheel);
             canvas.addEventListener('wheel', this.mouseHandlers.onWheel, { passive: false });
         }
         
-        this.log('Model interaction set up', 'info');
+        this.logger.logInfo('Model interaction set up');
     }
 
     // Remove interaction from the model
@@ -91,25 +91,20 @@ class Live2DCanvas {
         if (!this.model) return;
         
         this.model.off('pointerdown', this.mouseHandlers.onPointerDown);
-        this.model.off('pointermove', this.mouseHandlers.onPointerMove);
-        this.model.off('pointerup', this.mouseHandlers.onPointerUp);
-        this.model.off('pointerupoutside', this.mouseHandlers.onPointerUpOutside);
         
-        // Remove wheel event - check multiple possible canvas references
-        let canvas = null;
-        if (this.app && this.app.canvas) {
-            canvas = this.app.canvas;
-        } else if (this.app && this.app.view) {
-            canvas = this.app.view;
-        } else if (this.app && this.app.renderer && this.app.renderer.view) {
-            canvas = this.app.renderer.view;
+        if (this.app) {
+            this.app.stage.off('pointermove', this.mouseHandlers.onPointerMove);
+            this.app.stage.off('pointerup', this.mouseHandlers.onPointerUp);
+            this.app.stage.off('pointerupoutside', this.mouseHandlers.onPointerUpOutside);
         }
         
+        // Remove wheel event
+        const canvas = this.app.canvas || this.app.view;
         if (canvas) {
             canvas.removeEventListener('wheel', this.mouseHandlers.onWheel);
         }
         
-        this.log('Model interaction removed', 'info');
+        this.logger.logInfo('Model interaction removed');
     }
 
     // Clear all visualizations
@@ -124,31 +119,34 @@ class Live2DCanvas {
             this.hitAreaGraphics.visible = false;
         }
         
-        this.log('Visualizations cleared', 'info');
+        this.logger.logInfo('Visualizations cleared');
     }
 
     // Update the model reference
     updateModel(model) {
-        // Remove old interaction
-        this.removeModelInteraction();
+        if (this.model) {
+            this.removeModelInteraction();
+        }
         
-        // Clear visualizations
-        this.clearVisualizations();
-        
-        // Set new model
         this.model = model;
         
-        // Set up new interaction
         if (this.model) {
             this.setupModelInteraction();
         }
         
-        this.log('Model updated in canvas manager', 'info');
+        this.logger.logInfo('Model updated in interaction manager');
     }
 
     // Pointer down handler
     onPointerDown(event) {
         if (!this.model) return;
+        
+        // Check for hit areas first
+        const hitAreas = this.checkHitAreas(event.data.global);
+        if (hitAreas.length > 0) {
+            // If hit area is clicked, don't start drag
+            return;
+        }
         
         this.isDragging = true;
         this.dragOffset.x = event.data.global.x - this.model.x;
@@ -157,27 +155,43 @@ class Live2DCanvas {
         // Visual feedback
         this.model.alpha = 0.8;
         
-        // Get local click position for hit testing
-        const localPoint = this.model.toLocal(event.data.global);
-        
-        // Check for hit areas
-        this.checkHitAreas(localPoint);
-        
-        this.log('Drag started', 'info');
+        this.logger.logInfo('Drag started');
     }
 
     // Pointer move handler
     onPointerMove(event) {
-        if (!this.model) return;
+        if (!this.model || !this.isDragging) return;
         
-        if (this.isDragging) {
-            // Update model position
-            this.model.position.x = event.data.global.x - this.dragOffset.x;
-            this.model.position.y = event.data.global.y - this.dragOffset.y;
-            
-            // Update frame visualizations if visible
-            this.updateFrameVisualizations();
+        // Update model position
+        let newX = event.data.global.x - this.dragOffset.x;
+        let newY = event.data.global.y - this.dragOffset.y;
+        
+        // Boundary constraints
+        const bounds = this.model.getBounds();
+        const canvasWidth = this.app.renderer.width;
+        const canvasHeight = this.app.renderer.height;
+        
+        // Prevent dragging completely off-screen
+        if (bounds.width > canvasWidth) {
+            newX = Math.max(newX, canvasWidth - bounds.width);
+            newX = Math.min(newX, 0);
+        } else {
+            newX = Math.max(newX, 0);
+            newX = Math.min(newX, canvasWidth - bounds.width);
         }
+        
+        if (bounds.height > canvasHeight) {
+            newY = Math.max(newY, canvasHeight - bounds.height);
+            newY = Math.min(newY, 0);
+        } else {
+            newY = Math.max(newY, 0);
+            newY = Math.min(newY, canvasHeight - bounds.height);
+        }
+        
+        this.model.position.set(newX, newY);
+        
+        // Update frame visualizations if visible
+        this.updateFrameVisualizations();
     }
 
     // Pointer up handler
@@ -187,42 +201,28 @@ class Live2DCanvas {
         this.isDragging = false;
         this.model.alpha = 1.0; // Restore opacity
         
-        this.log(`Model positioned at: ${this.model.position.x.toFixed(0)}, ${this.model.position.y.toFixed(0)}`, 'info');
+        this.logger.logInfo('Drag ended');
     }
 
     // Pointer up outside handler
     onPointerUpOutside(event) {
-        this.onPointerUp(event);
+        if (!this.model || !this.isDragging) return;
+        
+        this.isDragging = false;
+        this.model.alpha = 1.0;
+        
+        this.logger.logInfo('Drag ended (outside)');
     }
 
-    // Wheel handler for zoom
+    // Mouse wheel handler for zoom
     onWheel(event) {
         event.preventDefault();
         
-        const delta = event.deltaY > 0 ? -this.zoomStep : this.zoomStep;
-        const newZoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.currentZoom + delta));
-        
-        this.setZoom(newZoom);
+        const delta = -Math.sign(event.deltaY);
+        this.setZoom(this.currentZoom + delta * this.zoomStep);
     }
 
-    // Check for hit areas at the given local point
-    checkHitAreas(localPoint) {
-        if (!this.model) return;
-        
-        // Check if model has hit test capability
-        if (this.model.hitTest && typeof this.model.hitTest === 'function') {
-            const hitAreas = this.model.hitTest(localPoint.x, localPoint.y);
-            if (hitAreas && hitAreas.length > 0) {
-                this.log(`Hit areas clicked: ${hitAreas.join(', ')}`, 'info');
-                return hitAreas;
-            }
-        }
-        
-        this.log(`Model clicked at: ${localPoint.x.toFixed(0)}, ${localPoint.y.toFixed(0)}`, 'info');
-        return [];
-    }
-
-    // Zoom functionality
+    // Set zoom level
     setZoom(zoomLevel) {
         if (!this.model) return;
         
@@ -232,10 +232,17 @@ class Live2DCanvas {
         // Apply zoom as scale
         this.model.scale.set(clampedZoom);
         
+        // Update UI
+        const zoomSlider = document.getElementById('zoomSlider');
+        const zoomValue = document.getElementById('zoomValue');
+        if (zoomSlider) zoomSlider.value = this.currentZoom;
+        if (zoomValue) zoomValue.textContent = this.currentZoom.toFixed(1);
+        
+        this.logger.logInfo(`Zoom set to ${this.currentZoom.toFixed(1)}`);
+        
         // Update frame visualizations
         this.updateFrameVisualizations();
         
-        this.log(`Zoom set to: ${clampedZoom.toFixed(1)}`, 'info');
         return clampedZoom;
     }
 
@@ -271,10 +278,10 @@ class Live2DCanvas {
         // Update frame visualizations
         this.updateFrameVisualizations();
         
-        this.log(`Model centered at: ${centerX.toFixed(0)}, ${centerY.toFixed(0)}`, 'info');
+        this.logger.logInfo('Model centered');
     }
 
-    // Fit model to canvas
+    // Fit the model to the canvas
     fitModelToCanvas() {
         if (!this.model || !this.app) return;
         
@@ -284,7 +291,7 @@ class Live2DCanvas {
         // Center the model
         this.centerModel();
         
-        this.log('Model fitted to canvas', 'info');
+        this.logger.logInfo('Model fitted to canvas');
     }
 
     // Canvas frame toggle
@@ -299,11 +306,11 @@ class Live2DCanvas {
         if (this.showCanvasFrame) {
             canvas.style.border = '2px solid #4a90e2';
             canvas.style.boxShadow = '0 0 10px rgba(74, 144, 226, 0.5)';
-            this.log('Canvas frame shown', 'info');
+            this.logger.logInfo('Canvas frame shown');
         } else {
             canvas.style.border = 'none';
             canvas.style.boxShadow = 'none';
-            this.log('Canvas frame hidden', 'info');
+            this.logger.logInfo('Canvas frame hidden');
         }
         
         return this.showCanvasFrame;
@@ -351,8 +358,9 @@ class Live2DCanvas {
         
         this.drawModelFrame();
         this.modelFrameGraphics.visible = true;
+        this.updateFrameVisualizations();
         
-        this.log('Model frame shown', 'info');
+        this.logger.logInfo('Model frame shown');
     }
 
     // Hide model frame visualization
@@ -361,7 +369,7 @@ class Live2DCanvas {
             this.modelFrameGraphics.visible = false;
         }
         
-        this.log('Model frame hidden', 'info');
+        this.logger.logInfo('Model frame hidden');
     }
 
     // Draw model frame
@@ -415,7 +423,7 @@ class Live2DCanvas {
         
         // Check if model has hit areas
         if (!this.model.hitAreas || this.model.hitAreas.length === 0) {
-            this.log('No hit areas defined for this model', 'warning');
+            this.logger.logInfo('No hit areas defined for this model');
             return;
         }
         
@@ -427,8 +435,9 @@ class Live2DCanvas {
         
         this.drawHitAreas();
         this.hitAreaGraphics.visible = true;
+        this.updateFrameVisualizations();
         
-        this.log('Hit areas shown', 'info');
+        this.logger.logInfo('Hit areas shown');
     }
 
     // Hide hit areas visualization
@@ -437,7 +446,7 @@ class Live2DCanvas {
             this.hitAreaGraphics.visible = false;
         }
         
-        this.log('Hit areas hidden', 'info');
+        this.logger.logInfo('Hit areas hidden');
     }
 
     // Draw hit areas
@@ -470,7 +479,7 @@ class Live2DCanvas {
         }
     }
 
-    // Update frame visualizations
+    // Update all frame visualizations
     updateFrameVisualizations() {
         if (this.showModelFrame && this.modelFrameGraphics) {
             this.drawModelFrame();
@@ -530,15 +539,6 @@ class Live2DCanvas {
                bounds.y + bounds.height > 0;
     }
 
-    // Logging helper
-    log(message, type = 'info') {
-        if (this.logger) {
-            this.logger.log(`[Canvas] ${message}`, type);
-        } else {
-            console.log(`[Canvas ${type.toUpperCase()}] ${message}`);
-        }
-    }
-
     // Cleanup
     destroy() {
         // Remove event listeners
@@ -552,9 +552,9 @@ class Live2DCanvas {
         this.model = null;
         this.isDragging = false;
         
-        this.log('Canvas manager destroyed', 'info');
+        this.logger.logInfo('Interaction manager destroyed');
     }
 }
 
-// Export for use in other modules
-window.Live2DCanvas = Live2DCanvas;
+// Export for modular use
+window.Live2DInteraction = Live2DInteraction;

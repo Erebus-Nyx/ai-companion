@@ -1,8 +1,9 @@
 // Live2D Multi-Model Manager - Handles multiple models with character icons
 class Live2DMultiModelManager {
-    constructor(core, logger) {
+    constructor(core, logger, interactionManager) {
         this.core = core;
         this.logger = logger;
+        this.interactionManager = interactionManager;
         this.models = new Map(); // Store multiple models with their data
         this.activeModelId = null;
         this.maxModels = 5; // System limitation
@@ -224,7 +225,7 @@ class Live2DMultiModelManager {
                 info: modelInfo.info,
                 pixiModel: pixiModel,
                 baseScale: 0.2, // Default scale based on requirements
-                position: { x: 0, y: 0 },
+                // position: { x: 0, y: 0 },
                 visible: true
             };
 
@@ -233,7 +234,7 @@ class Live2DMultiModelManager {
             // Initialize model state
             this.modelStates.set(modelId, {
                 scale: 1.0, // Zoom level (multiplied by baseScale)
-                position: { x: 0, y: 0 },
+                // position: { x: 0, y: 0 },
                 visible: true,
                 motions: {
                     idle: null,
@@ -305,9 +306,9 @@ class Live2DMultiModelManager {
                     // Add to stage
                     this.core.app.stage.addChild(model);
                     
-                    // Update canvas manager with new model (for active model)
-                    if (this.core.canvasManager) {
-                        this.core.canvasManager.updateModel(model);
+                    // Update interaction manager with new model
+                    if (this.interactionManager) {
+                        this.interactionManager.updateModel(model);
                     }
                     
                     this.log('Model added to stage successfully!', 'success');

@@ -1,55 +1,66 @@
-// Live2D configuration based on Live2dOnWeb
-const live2d_settings = {
-    // Basic settings
-    'modelUrl': '/static/assets',                    // URL of directory containing model folders
-    'tipsMessage': '',                              // Message tips file (can be empty)
-    
-    // Model settings
-    'modelName': 'kanade',                          // Default fallback model name
-    'modelStorage': true,                           // Save model name in browser (last used model)
-    'modelRandMode': true,                         // Random model switching
-    'preLoadMotion': true,                          // Preload motion files (SDK4 only)
-    'tryWebp': false,                               // Try WebP textures first
-    
-    // Display settings - Modern Live2D Viewer Web approach
-    'live2dHeight': 0,                              // Canvas height (0 = auto-detect container)
-    'live2dWidth': 0,                               // Canvas width (0 = auto-detect container)
-    'canvasMargin': 40,                            // Margin from canvas boundaries (px)
-    'modelScale': 0.75,                            // Default model scale (75% of canvas height)
-    'waifuMinWidth': '100px',                       // Hide on small screens
-    'waifuEdgeSide': 'left:0',                      // Position (left:0, right:0, etc.)
-    'waifuResize': true,                            // Allow resizing
-    'waifuwidth': '500px',                          // Width of the Live2D container
-    'waifuheight': '500px',                         // Height of the Live2D container
-    
-    // Tool menu settings
-    'showToolMenu': true,                           // Show tool buttons
-    'canCloseLive2d': true,                         // Show close button
-    'canSwitchModel': true,                         // Show model switch button
-    'canSwitchHitokoto': false,                     // Show message switch button
-    'canTakeScreenshot': true,                      // Show screenshot button
-    'canTurnToHomePage': true,                      // Show home button
-    'canTurnToAboutPage': true,                     // Show about button
-    'showVolumeBtn': false,                         // Show volume buttons
-    
-    // Message settings
-    'showHitokoto': false,                          // Show random messages
-    'hitokotoAPI': '',                              // Hitokoto API endpoint
-    'showWelcomeMessage': true,                     // Show welcome message
-    'showF12OpenMsg': false,                        // Show F12 console message
-    'showCopyMessage': false,                       // Show copy message
-    
-    // Debug settings
-    'debug': true,                                  // Global debug mode
-    'debugMousemove': false,                        // Debug mouse movement
-    'logMessageToConsole': true,                    // Log messages to console
-    
-    // URLs
-    'l2dVersion': '2.0.0',                          // Version string
-    'homePageUrl': '/',                             // Home page URL
-    'aboutPageUrl': 'https://github.com/Konata09/Live2dOnWeb/',
-    'screenshotCaptureName': 'live2d_screenshot.png' // Screenshot filename
-};
+class Live2DConfig {
+    constructor() {
+        this.settings = {
+            // Basic settings
+            'modelUrl': '/static/assets',                    // URL of directory containing model folders
+            'tipsMessage': '',                              // Message tips file (can be empty)
+            
+            // Model settings
+            'modelName': 'kanade',                          // Default fallback model name
+            'modelStorage': true,                           // Save model name in browser (last used model)
+            'modelRandMode': true,                         // Random model switching
+            'preLoadMotion': true,                          // Preload motion files (SDK4 only)
+            'tryWebp': false,                               // Try WebP textures first
+            
+            // Display settings - Modern Live2D Viewer Web approach
+            'live2dHeight': 0,                              // Canvas height (0 = auto-detect container)
+            'live2dWidth': 0,                               // Canvas width (0 = auto-detect container)
+            'canvasMargin': 40,                            // Margin from canvas boundaries (px)
+            'modelScale': 0.75,                            // Default model scale (75% of canvas height)
+            'waifuMinWidth': '100px',                       // Hide on small screens
+            'waifuEdgeSide': 'left:0',                      // Position (left:0, right:0, etc.)
+            'waifuResize': true,                            // Allow resizing
+            'waifuwidth': '500px',                          // Width of the Live2D container
+            'waifuheight': '500px',                         // Height of the Live2D container
+            
+            // Tool menu settings
+            'showToolMenu': true,                           // Show tool buttons
+            'canCloseLive2d': true,                         // Show close button
+            'canSwitchModel': true,                         // Show model switch button
+            'canSwitchHitokoto': false,                     // Show message switch button
+            'canTakeScreenshot': true,                      // Show screenshot button
+            'canTurnToHomePage': true,                      // Show home button
+            'canTurnToAboutPage': true,                     // Show about button
+            'showVolumeBtn': false,                         // Show volume buttons
+            
+            // Message settings
+            'showHitokoto': false,                          // Show random messages
+            'hitokotoAPI': '',                              // Hitokoto API endpoint
+            'showWelcomeMessage': true,                     // Show welcome message
+            'showF12OpenMsg': false,                        // Show F12 console message
+            'showCopyMessage': false,                       // Show copy message
+            
+            // Debug settings
+            'debug': true,                                  // Global debug mode
+            'debugMousemove': false,                        // Debug mouse movement
+            'logMessageToConsole': true,                    // Log messages to console
+            
+            // URLs
+            'l2dVersion': '2.0.0',                          // Version string
+            'homePageUrl': '/',                             // Home page URL
+            'aboutPageUrl': 'https://github.com/Konata09/Live2dOnWeb/',
+            'screenshotCaptureName': 'live2d_screenshot.png' // Screenshot filename
+        };
+    }
+
+    get(key) {
+        return this.settings[key];
+    }
+
+    set(key, value) {
+        this.settings[key] = value;
+    }
+}
 
 // DYNAMIC MODEL LOADING - No static models
 // Models are loaded from database via API calls

@@ -415,7 +415,9 @@
         
         <!-- Canvas Area -->
         <div class="canvas-container">
-            <div id="pixiContainer"></div>
+            <div class="canvas-frame">
+                <div id="pixiContainer"></div>
+            </div>
             <div class="loading-overlay" id="loadingOverlay" style="display: none;">
                 <div class="loading-spinner"></div>
             </div>
@@ -543,7 +545,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="js/live2d_config.js"></script>
 <script src="js/live2d_logger.js"></script>
 <script src="js/live2d_tester.js"></script>
-<script src="js/live2d_canvas.js"></script>
+<script src="js/live2d_interaction.js"></script>
 <script src="js/live2d_core.js"></script>
 <script src="js/live2d_model_manager.js"></script>
 <script src="js/live2d_multi_model_manager.js"></script>
@@ -628,14 +630,14 @@ function resetZoom() {
 }
 
 function fitModel() {
-    if (live2dIntegration && live2dIntegration.core && live2dIntegration.core.canvasManager) {
-        live2dIntegration.core.canvasManager.fitModelToCanvas();
+    if (live2dIntegration && live2dIntegration.core && live2dIntegration.core.interactionManager) {
+        live2dIntegration.core.interactionManager.fitModelToCanvas();
     }
 }
 
 function centerModel() {
-    if (live2dIntegration && live2dIntegration.core && live2dIntegration.core.canvasManager) {
-        live2dIntegration.core.canvasManager.centerModel();
+    if (live2dIntegration && live2dIntegration.core && live2dIntegration.core.interactionManager) {
+        live2dIntegration.core.interactionManager.centerModel();
     }
 }
 

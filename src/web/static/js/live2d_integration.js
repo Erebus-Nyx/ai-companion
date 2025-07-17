@@ -13,65 +13,57 @@ class Live2DIntegration {
         this.currentModelName = null;
     }
 
-    async initialize(canvasElementId) {
-        try {
-            // Initialize logger (no log element needed - console only)
-            this.logger = new Live2DLogger();
-            this.logger.log('Initializing Live2D Integration...');
+    async initialize(canvasContainerId) {
+        // Initialize config and logger first
+        this.config = new Live2DConfig();
+        this.logger = new Live2DLogger(this.config);
+        this.logger.logInfo('Live2D Integration Initializing...');
+        
+        // Initialize core components
+        this.core = new Live2DCore();
+        this.core.setLogger(this.logger);
+        this.core.setConfig(this.config);
+        this.logger.logInfo('Live2D Core initialized');
 
-            // Initialize configuration
-            this.config = live2d_settings || {};
-            this.logger.log('Configuration loaded');
-
-            // Initialize core
-            this.core = new Live2DCore();
-            this.core.setLogger(this.logger);
-
-            // Initialize tester
-            this.tester = new Live2DTester(this.core, this.logger);
-
-            // Check Live2D library availability
-            const libraryAvailable = this.core.checkLive2DLibrary();
-            if (!libraryAvailable) {
-                throw new Error('Live2D library not properly loaded');
-            }
-
-                        // Initialize model manager (use multi-model manager)
-            this.modelManager = new Live2DMultiModelManager(this.core, this.logger);
-
-            // Initialize motion manager
-            this.motionManager = new Live2DMotionManager(this.core, this.logger);
-
-            // Initialize PIXI app
-            const canvasElement = document.getElementById(canvasElementId);
-            if (!canvasElement) {
-                throw new Error(`Canvas element with id "${canvasElementId}" not found`);
-            }
-
-            const success = await this.core.initApp(canvasElement, {
-                backgroundColor: 0x000000,
-                backgroundAlpha: 0
-            });
-            
-            if (!success) {
-                throw new Error('Failed to initialize PIXI application');
-            }
-
-            // Load available models
-            await this.modelManager.loadAvailableModels();
-
-            this.initialized = true;
-            this.logger.log('Live2D Integration initialized successfully!', 'success');
-            
-            return true;
-        } catch (error) {
-            if (this.logger) {
-                this.logger.log('Failed to initialize Live2D Integration: ' + error.message, 'error');
-            } else {
-                console.error('Failed to initialize Live2D Integration:', error);
-            }
-            return false;
+        // Test library availability
+        const librariesReady = this.core.checkLive2DLibrary();
+        if (!librariesReady) {
+            throw new Error('Live2D libraries are not ready');
         }
+        this.logger.log('Live2D libraries are ready', 'success');
+
+        // Canvas management - size from frame
+        this.logger.logInfo('Canvas sizing from frame: ' + this.core.canvasWidth + 'x' + this.core.canvasHeight);
+
+        // Initialize the multi-model manager
+        this.modelManager = new Live2DMultiModelManager(this.core, this.logger, this.core.interactionManager);
+        this.logger.logInfo('Live2D Multi-Model Manager initialized');
+
+        // Initialize motion manager
+        this.motionManager = new Live2DMotionManager(this.core, this.logger);
+
+        // Initialize PIXI app
+        const canvasElement = document.getElementById(canvasContainerId);
+        if (!canvasElement) {
+            throw new Error(`Canvas element with id "${canvasContainerId}" not found`);
+        }
+
+        const success = await this.core.initApp(canvasElement, {
+            backgroundColor: 0x000000,
+            backgroundAlpha: 0
+        });
+        
+        if (!success) {
+            throw new Error('Failed to initialize PIXI application');
+        }
+
+        // Load available models
+        await this.modelManager.loadAvailableModels();
+
+        this.initialized = true;
+        this.logger.log('Live2D Integration initialized successfully!', 'success');
+        
+        return true;
     }
 
     async loadModel(modelName) {
