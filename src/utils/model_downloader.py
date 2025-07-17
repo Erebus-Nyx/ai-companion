@@ -62,18 +62,21 @@ class ModelDownloader:
         self.model_registry = {
             "llm": {
                 "tiny": {
+                    "source_type": "huggingface",
                     "repo_id": "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
                     "filename": "tinyllama-1.1b-chat-v1.0.Q4_0.gguf",
                     "size_mb": 700,
                     "min_ram_gb": 2
                 },
                 "small": {
+                    "source_type": "huggingface",
                     "repo_id": "TheBloke/Llama-2-7B-Chat-GGUF", 
                     "filename": "llama-2-7b-chat.Q4_0.gguf",
                     "size_mb": 4000,
                     "min_ram_gb": 6
                 },
                 "medium": {
+                    "source_type": "huggingface",
                     "repo_id": "TheBloke/Llama-2-13B-Chat-GGUF",
                     "filename": "llama-2-13b-chat.Q4_0.gguf", 
                     "size_mb": 7000,
@@ -82,10 +85,10 @@ class ModelDownloader:
             },
             "tts": {
                 "kokoro": {
-                    "repo_id": "hexgrad/Kokoro-82M",
+                    "source_type": "huggingface",
+                    "repo_id": "onnx-community/Kokoro-82M-ONNX",
                     "files": [
-                        "kokoro-v1_0.onnx",
-                        "voices.json",
+                        "onnx/model.onnx",
                         "config.json"
                     ],
                     "size_mb": 350,
@@ -117,28 +120,33 @@ class ModelDownloader:
             },
             "silero_vad": {
                 "v5": {
-                    "source_type": "direct_url",
-                    "download_url": "https://github.com/snakers4/silero-vad/releases/download/v5.0/silero_vad.onnx",
-                    "local_path": str(Path("models/silero_vad/silero_vad.onnx")),
-                    "filename": "silero_vad.onnx",
+                    "source_type": "huggingface",
+                    "repo_id": "deepghs/silero-vad-onnx",
+                    "files": ["silero_vad.onnx"],
                     "size_mb": 2,
                     "min_ram_gb": 1
                 }
             },
             "pyannote_vad": {
                 "segmentation": {
-                    "source_type": "skip",
-                    "reason": "Requires HuggingFace authentication - install manually if needed",
-                    "manual_install_cmd": "pip install pyannote.audio",
+                    "source_type": "local_git",
+                    "local_path": "models/pyannote_segmentation-3.0",
+                    "files": [
+                        "pytorch_model.bin",
+                        "config.yaml"
+                    ],
                     "size_mb": 17,
                     "min_ram_gb": 1
                 }
             },
             "pyannote_diarization": {
                 "speaker_diarization": {
-                    "source_type": "skip",
-                    "reason": "Requires HuggingFace authentication - install manually if needed", 
-                    "manual_install_cmd": "pip install pyannote.audio",
+                    "source_type": "local_git",
+                    "local_path": "models/pyannote_speaker-diarization-3.1", 
+                    "files": [
+                        "pytorch_model.bin",
+                        "config.yaml"
+                    ],
                     "size_mb": 23,
                     "min_ram_gb": 2
                 }
@@ -183,39 +191,75 @@ class ModelDownloader:
             return False
         
         model_info = self.model_registry[model_type][model_variant]
+        source_type = model_info.get("source_type", "huggingface")
         
+        # Skip models don't need to be downloaded
+        if source_type == "skip":
+            return False
+        
+        # Pip packages are checked differently
+        if source_type == "pip_package":
+            # For pip packages, check if the package is installed
+            package_name = model_info["package_name"]
+            try:
+                __import__(package_name.replace("-", "_"))
+                return True
+            except ImportError:
+                return False
+        
+        # For file-based models (huggingface, direct_url)
         if model_type == "llm":
-            model_path = self.models_dir / "llm" / model_info["filename"]
-            return model_path.exists()
+            if "filename" in model_info:
+                model_path = self.models_dir / "llm" / model_info["filename"]
+                return model_path.exists()
             
         elif model_type == "tts":
             # Check if all required files exist
             tts_dir = self.models_dir / "tts" / model_variant
-            for filename in model_info["files"]:
-                if not (tts_dir / filename).exists():
-                    return False
-            return True
+            if "files" in model_info:
+                for filename in model_info["files"]:
+                    if not (tts_dir / filename).exists():
+                        return False
+                return True
             
         elif model_type == "whisper":
-            # Check whisper models
-            whisper_dir = self.models_dir / "whisper" / model_variant
-            for filename in model_info["files"]:
-                if not (whisper_dir / filename).exists():
+            # For pip package whisper models, check if faster-whisper is installed
+            if source_type == "pip_package":
+                try:
+                    import faster_whisper
+                    return True
+                except ImportError:
                     return False
-            return True
+            # For file-based whisper models
+            elif "files" in model_info:
+                whisper_dir = self.models_dir / "whisper" / model_variant
+                for filename in model_info["files"]:
+                    if not (whisper_dir / filename).exists():
+                        return False
+                return True
             
         elif model_type == "silero_vad":
-            # Check silero VAD model
-            silero_path = self.models_dir / "silero_vad" / model_info["filename"]
-            return silero_path.exists()
+            # Check silero VAD model files  
+            silero_dir = self.models_dir / "silero_vad"
+            if "files" in model_info:
+                for filename in model_info["files"]:
+                    if not (silero_dir / filename).exists():
+                        return False
+                return True
+            elif "filename" in model_info:
+                silero_path = silero_dir / model_info["filename"]
+                return silero_path.exists()
             
         elif model_type in ["pyannote_vad", "pyannote_diarization"]:
             # Check pyannote models
+            if source_type == "skip":
+                return False
             pyannote_dir = self.models_dir / model_type / model_variant
-            for filename in model_info["files"]:
-                if not (pyannote_dir / filename).exists():
-                    return False
-            return True
+            if "files" in model_info:
+                for filename in model_info["files"]:
+                    if not (pyannote_dir / filename).exists():
+                        return False
+                return True
         
         return False
     
@@ -349,6 +393,11 @@ class ModelDownloader:
                     return self._download_llm_model(model_info, progress_callback)
                 elif model_type == "tts":
                     return self._download_tts_model(model_variant, model_info, progress_callback)
+                elif model_type == "silero_vad":
+                    return self._download_silero_vad_model(model_variant, model_info, progress_callback)
+                elif model_type in ["pyannote_vad", "pyannote_diarization"]:
+                    subtype = "vad" if model_type == "pyannote_vad" else "diarization"
+                    return self._download_pyannote_model(model_variant, model_info, progress_callback, subtype)
             elif source_type == "direct_url":
                 return self._download_direct_url(model_type, model_variant, model_info, progress_callback)
             elif source_type == "pip_package":
@@ -420,6 +469,7 @@ class ModelDownloader:
                 
                 # Copy to our models directory
                 target_path = tts_dir / filename
+                target_path.parent.mkdir(parents=True, exist_ok=True)  # Create nested directories
                 if not target_path.exists():
                     import shutil
                     shutil.copy2(downloaded_path, target_path)
@@ -460,6 +510,7 @@ class ModelDownloader:
                 
                 # Copy to our models directory
                 target_path = whisper_dir / filename
+                target_path.parent.mkdir(parents=True, exist_ok=True)  # Create nested directories
                 if not target_path.exists():
                     import shutil
                     shutil.copy2(downloaded_path, target_path)
@@ -480,31 +531,36 @@ class ModelDownloader:
         """Download Silero VAD model."""
         try:
             repo_id = model_info["repo_id"]
-            filename = model_info["filename"]
+            files = model_info["files"]
             
-            self.logger.info(f"Downloading Silero VAD model: {repo_id}/{filename}")
+            self.logger.info(f"Downloading Silero VAD model: {repo_id}")
             
             # Create Silero VAD models directory
             silero_dir = self.models_dir / "silero_vad"
             silero_dir.mkdir(parents=True, exist_ok=True)
             
-            downloaded_path = hf_hub_download(
-                repo_id=repo_id,
-                filename=filename,
-                cache_dir=str(self.cache_dir),
-                resume_download=True
-            )
+            for i, filename in enumerate(files):
+                self.logger.info(f"Downloading Silero VAD file: {filename}")
+                
+                downloaded_path = hf_hub_download(
+                    repo_id=repo_id,
+                    filename=filename,
+                    cache_dir=str(self.cache_dir),
+                    resume_download=True
+                )
+                
+                # Copy to our models directory
+                target_path = silero_dir / filename
+                target_path.parent.mkdir(parents=True, exist_ok=True)  # Create nested directories
+                if not target_path.exists():
+                    import shutil
+                    shutil.copy2(downloaded_path, target_path)
+                
+                if progress_callback:
+                    progress = int(((i + 1) / len(files)) * 100)
+                    progress_callback(progress, f"Downloaded: {filename}")
             
-            # Copy to our models directory
-            target_path = silero_dir / filename
-            if not target_path.exists():
-                import shutil
-                shutil.copy2(downloaded_path, target_path)
-            
-            if progress_callback:
-                progress_callback(100, 100, f"Silero VAD model downloaded: {filename}")
-            
-            self.logger.info(f"Silero VAD model downloaded successfully: {target_path}")
+            self.logger.info(f"Silero VAD model downloaded successfully: {silero_dir}")
             return True
             
         except Exception as e:
@@ -542,6 +598,7 @@ class ModelDownloader:
                 
                 # Copy to our models directory
                 target_path = pyannote_dir / filename
+                target_path.parent.mkdir(parents=True, exist_ok=True)  # Create nested directories
                 if not target_path.exists():
                     import shutil
                     shutil.copy2(downloaded_path, target_path)
@@ -583,11 +640,24 @@ class ModelDownloader:
         if not self.check_model_exists(model_type, model_variant):
             return None
         
+        model_info = self.model_registry[model_type][model_variant]
+        source_type = model_info.get("source_type", "huggingface")
+        
+        # Pip packages don't have local file paths
+        if source_type == "pip_package":
+            return None
+            
         if model_type == "llm":
-            model_info = self.model_registry[model_type][model_variant]
-            return self.models_dir / "llm" / model_info["filename"]
+            if "filename" in model_info:
+                return self.models_dir / "llm" / model_info["filename"]
         elif model_type == "tts":
             return self.models_dir / "tts" / model_variant
+        elif model_type == "whisper":
+            return self.models_dir / "whisper" / model_variant
+        elif model_type == "silero_vad":
+            return self.models_dir / "silero_vad"
+        elif model_type in ["pyannote_vad", "pyannote_diarization"]:
+            return self.models_dir / model_type / model_variant
         
         return None
     
