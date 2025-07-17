@@ -16,15 +16,18 @@ import signal
 import time
 
 try:
-    from .__version__ import __version__, get_version_info, get_version_string, API_VERSION_FULL
+    from __version__ import __version__, get_version_info, get_version_string, API_VERSION_FULL
 except ImportError:
-    # Fallback for development
-    __version__ = "0.4.0"
-    API_VERSION_FULL = "1.0.0"
-    def get_version_info():
-        return {"version": __version__, "api_version": API_VERSION_FULL}
-    def get_version_string():
-        return f"AI Companion v{__version__}"
+    try:
+        from .__version__ import __version__, get_version_info, get_version_string, API_VERSION_FULL
+    except ImportError:
+        # Fallback for development
+        __version__ = "0.4.0"
+        API_VERSION_FULL = "1.0.0"
+        def get_version_info():
+            return {"version": __version__, "api_version": API_VERSION_FULL}
+        def get_version_string():
+            return f"AI Companion v{__version__}"
 
 class AICompanionCLI:
     """Main CLI interface for AI Companion."""
@@ -210,8 +213,12 @@ class AICompanionCLI:
         
         try:
             # Use local imports to avoid circular dependencies and keep CLI fast
-            from src.utils.model_downloader import ModelDownloader
-            from src.utils.system_detector import SystemDetector
+            try:
+                from utils.model_downloader import ModelDownloader
+                from utils.system_detector import SystemDetector
+            except ImportError:
+                from src.utils.model_downloader import ModelDownloader
+                from src.utils.system_detector import SystemDetector
             
             system_detector = SystemDetector()
             downloader = ModelDownloader()
@@ -334,7 +341,6 @@ class AICompanionCLI:
         print("\n🔧 Step 2: Loading AI Companion modules...")
         try:
             # Use local imports to avoid loading heavy modules unless needed
-            import sys
             import os
             
             # Add src directory to path for packaged execution
@@ -349,7 +355,10 @@ class AICompanionCLI:
                  if src_path not in sys.path:
                     sys.path.insert(0, src_path)
 
-            from app import app, socketio
+            try:
+                from app import app, socketio
+            except ImportError:
+                from src.app import app, socketio
             
             print("✅ AI Companion modules loaded successfully.")
             
@@ -429,7 +438,10 @@ class AICompanionCLI:
 
     def show_models(self, list_models: bool = False, show_paths: bool = False):
         """Show model information and storage locations."""
-        from utils.model_downloader import ModelDownloader, get_user_data_dir
+        try:
+            from utils.model_downloader import ModelDownloader, get_user_data_dir
+        except ImportError:
+            from src.utils.model_downloader import ModelDownloader, get_user_data_dir
         
         print("🧠 AI Companion Model Information")
         print("=" * 50)

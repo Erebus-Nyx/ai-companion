@@ -7,7 +7,7 @@ name = "ai-companion"
 version = "0.4.0"
 description = "An interactive AI companion with Live2D visual avatar, voice capabilities, and advanced AI integration featuring enhanced VAD, emotional TTS, and local LLM processing."
 authors = [{name = "AI Companion Team", email = "contact@ai-companion.com"}]
-license = "MIT"
+license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.8"
 keywords = ["AI", "companion", "avatar", "Live2D", "voice", "chatbot", "llm", "tts", "vad", "emotional-ai"]
@@ -98,7 +98,7 @@ Issues = "https://github.com/Erebus-Nyx/ai-companion/issues"
 Documentation = "https://github.com/Erebus-Nyx/ai-companion/blob/main/README.md"
 
 [project.scripts]
-ai-companion = "src.cli:main"
+ai-companion = "cli:main"
 
 [project.optional-dependencies]
 dev = [
@@ -111,12 +111,10 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["src*"]
-exclude = ["src/web/static/ref*"]
+where = ["src"]
 
 [tool.setuptools]
-py-modules = []
+py-modules = ["cli"]
 
 [tool.setuptools.package-dir]
 "" = "src"
