@@ -47,7 +47,29 @@
 - [x] **Setup configuration management** - Expanded config.yaml with enhanced VAD settings
 - [ ] **Create logging system** - Implement structured logging for debugging and monitoring
 
-## 🚨 High Priority Issues (Current Status: July 17, 2025)
+## 🚨 High Priority Issues (Current Status: July 18, 2025)
+
+### 🎯 New Priority Items (Added July 18, 2025)
+- [ ] **Cross-Avatar Interactions** - Implement multi-avatar conversation system where avatars can:
+  - Discuss topics with each other when user asks questions
+  - Disagree and debate different viewpoints autonomously  
+  - Interact with each other even in absence of user input
+  - Create appearance of self-awareness through inter-avatar communication
+  - Establish unique personalities and relationship dynamics between avatars
+
+- [ ] **RAG Implementation** - Now that production build is working, implement vector-based RAG system:
+  - Integrate sentence-transformers for semantic search
+  - Create vector database for conversation history and knowledge
+  - Implement context-aware response generation
+  - Add document ingestion and retrieval system
+
+- [ ] **Systemd Service Enhancement** - Update pipx design for deployment independence:
+  - Service should run without git repository being present on system
+  - Package all necessary files in distributable format
+  - Create standalone installation process
+  - Ensure proper dependency management for production deployment
+
+## 🚨 High Priority Issues (Current Status: July 18, 2025)
 - [ ] **Fix TTS Model Download** - Kokoro ONNX model download failing (404 error from HuggingFace)
   - Error: `404 Client Error. Entry Not Found for url: https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/kokoro-v0_19.onnx`
   - Model not found at `models/tts/kokoro/onnx/model.onnx`

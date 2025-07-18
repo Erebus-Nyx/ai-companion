@@ -59,6 +59,8 @@ class PersonalitySystem:
     
     def __init__(self, db_manager):
         self.db_manager = db_manager
+        self.logger = logging.getLogger(__name__)
+        self.current_model_id = None  # Will be set when a model is selected
         self.current_state = PersonalityState(
             traits={trait.value: 0.5 for trait in PersonalityTrait},
             emotional_state=EmotionalState.CALM,
@@ -86,45 +88,42 @@ class PersonalitySystem:
             "dance", "sing", "story", "adventure", "explore"
         ]
         
-        # Load existing personality state
-        self._load_personality()
+    def set_current_model(self, model_id: str):
+        """Set the current model and load its personality"""
+        self.current_model_id = model_id
+        personality_data = self._load_personality(model_id)
+        if personality_data:
+            # Update current state with loaded personality
+            self.current_state.traits.update(personality_data.get('traits', {}))
+            if 'emotional_state' in personality_data:
+                try:
+                    self.current_state.emotional_state = EmotionalState(personality_data['emotional_state'])
+                except ValueError:
+                    pass
+            self.current_state.bonding_level = personality_data.get('bonding_level', 0)
+            self.current_state.energy_level = personality_data.get('energy_level', 1.0)
+            self.current_state.mood_stability = personality_data.get('mood_stability', 0.7)
         
-    def _load_personality(self):
-        """Load personality state from database"""
+    def _load_personality(self, model_id: str = None) -> dict:
+        """Load or initialize personality for a model"""
+        if model_id is None:
+            model_id = self.current_model_id
+        if not model_id:
+            return {}
+        
         try:
-            traits = self.db_manager.get_personality_profile("default_user")
-            if traits:
-                for trait_name, value in traits.items():
-                    if trait_name in self.current_state.traits:
-                        self.current_state.traits[trait_name] = value
-                        
-            # Load bonding progress and full personality state
-            bonding_data = self.db_manager.get_bonding_progress("default_user")
-            if bonding_data:
-                self.current_state.bonding_level = bonding_data.get('bond_level', 0)
-                
-                # Try to load full personality state if available
-                if 'personality_data' in bonding_data and bonding_data['personality_data']:
-                    try:
-                        state_data = json.loads(bonding_data['personality_data'])
-                        if 'emotional_state' in state_data:
-                            # Convert string back to enum
-                            emotional_state_str = state_data['emotional_state']
-                            for state in EmotionalState:
-                                if state.value == emotional_state_str:
-                                    self.current_state.emotional_state = state
-                                    break
-                        
-                        if 'energy_level' in state_data:
-                            self.current_state.energy_level = state_data['energy_level']
-                        if 'mood_stability' in state_data:
-                            self.current_state.mood_stability = state_data['mood_stability']
-                    except (json.JSONDecodeError, KeyError) as e:
-                        logger.warning(f"Could not parse stored personality state: {e}")
-                
+            # Use the new database method
+            personality_data = self.db_manager.get_model_personality(model_id)
+            if not personality_data:
+                # Initialize default personality for new model
+                default_personality = self._get_default_personality()
+                self._save_personality(default_personality, model_id)
+                return default_personality
+            return personality_data
         except Exception as e:
-            logger.error(f"Error loading personality: {e}")
-            
+            self.logger.error(f"Error loading personality: {e}")
+            return self._get_default_personality()
+    
     def _save_personality(self):
         """Save current personality state to database"""
         try:
@@ -142,10 +141,24 @@ class PersonalitySystem:
             }
                 
             # Save bonding progress with personality data
-            self.db_manager.update_bonding_progress_with_personality(
+            self.db_manager.update_bonding_progress(
                 "default_user",
-                self.current_state.bonding_level,
-                json.dumps(state_dict)
+                0,  # No XP change, just update level
+                "default"
+            )
+            
+            # Update personality state separately
+            personality_data = {
+                'current_mood': self.current_state.current_mood.value,
+                'energy_level': self.current_state.energy_level,
+                'mood_stability': self.current_state.mood_stability
+            }
+            
+            # Store personality state
+            self.db_manager.update_personality_state(
+                "default_user", 
+                "default", 
+                state_dict
             )
             
         except Exception as e:

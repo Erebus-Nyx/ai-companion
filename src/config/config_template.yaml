@@ -1,0 +1,378 @@
+##config.yaml
+config_version: "1.0"
+
+# General settings
+general:
+  app_name: "AI Companion"
+  app_version: "0.4.0"
+  debug_mode: false
+  developer_mode: false
+  logging_level: "INFO"
+  logging_file: "~/.local/share/ai-companion/.cache/logs/app.log"
+  secrets_file: "~/.config/ai-companion/.secrets"
+
+# Server settings
+server:
+  host: "0.0.0.0"
+  port: 19443
+  enable_ssl: false
+  ssl_cert: ""
+  ssl_key: ""
+  # Network configuration
+  cors_origins: ["*"]  # List of allowed CORS origins, ["*"] for all
+  max_request_size: "100MB"  # Maximum request size for file uploads
+  timeout: 30  # Request timeout in seconds
+  # Proxy and reverse proxy support
+  proxy:
+    enabled: false
+    trust_x_forwarded_for: false  # Trust X-Forwarded-For headers
+    trust_x_forwarded_proto: false  # Trust X-Forwarded-Proto headers
+    behind_reverse_proxy: false  # Set to true if behind nginx/apache
+    proxy_headers:
+      - "X-Forwarded-For"
+      - "X-Forwarded-Proto"
+      - "X-Real-IP"
+
+# Multi-User Authentication System
+authentication:
+  enabled: false  # Set to true to enable user authentication
+  session_timeout: 3600  # Session timeout in seconds (1 hour)
+  password_policy:
+    min_length: 8
+    require_uppercase: true
+    require_lowercase: true
+    require_numbers: true
+    require_special_chars: false
+  user_database:
+    path: "~/.local/share/ai-companion/databases/users.db"
+  session_storage:
+    type: "file"  # file, redis, memory
+    path: "~/.local/share/ai-companion/.cache/sessions/"
+  registration:
+    enabled: true  # Allow new user registration
+    require_admin_approval: false  # Require admin approval for new users
+    default_permissions: ["chat", "voice", "model_switch"]  # Default user permissions
+
+# User Profile System
+user_profiles:
+  enabled: false  # Set to true to enable user profiles
+  allow_custom_avatars: true  # Allow users to select their preferred avatars
+  conversation_isolation: true  # Keep user conversations separate
+  profile_data:
+    collect_name: true
+    collect_age: false
+    collect_preferences: true
+    collect_avatar_settings: true
+  data_retention:
+    conversation_history_days: 365  # How long to keep conversation history
+    inactive_user_cleanup_days: 90  # Remove inactive users after this period
+    user_data_export: true  # Allow users to export their data
+
+# Database settings
+database:
+  default_settings:
+    type: "sqlite"
+    pool_size: 5
+    timeout: 30
+  paths:
+    # NOTE: Databases will be created in user data directory for deployment isolation
+    ai_companion: "~/.local/share/ai-companion/databases/ai_companion.db"
+    conversations: "~/.local/share/ai-companion/databases/conversations.db"
+    live2d_models: "~/.local/share/ai-companion/databases/live2d.db"
+    personality: "~/.local/share/ai-companion/databases/personality.db"
+    system: "~/.local/share/ai-companion/databases/system.db"
+    users: "~/.local/share/ai-companion/databases/users.db"
+    user_profiles: "~/.local/share/ai-companion/databases/user_profiles.db"
+    user_sessions: "~/.local/share/ai-companion/databases/user_sessions.db"
+
+# Model settings
+integrated_models:
+  llm:
+    # Primary SafeTensor model
+    model_name: "TheBloke/Wizard-Vicuna-13B-Uncensored-GPTQ"
+    model_path: "~/.local/share/ai-companion/models/llm/Wizard-Vicuna-13B-Uncensored-GPTQ"
+    model_format: "safetensors"
+    max_tokens: 4096
+    temperature: 0.7
+    top_p: 1.0
+    # Alternative SafeTensor model if GPTQ causes llama.cpp integration issues
+    fallback_model:
+      model_name: "Drakldol/Llama-3.1-8B-Instruct-1.2-Uncensored"
+      model_path: "~/.local/share/ai-companion/models/llm/Llama-3.1-8B-Instruct-1.2-Uncensored"
+      model_format: "safetensors"
+  tts:
+    # NOTE: Updated Kokoro paths with separate voice directory
+    model_name: "onnx-community/Kokoro-82M-ONNX"
+    model_path: "~/.local/share/ai-companion/models/tts/kokoro"
+    voice_path: "~/.local/share/ai-companion/models/tts/voices"
+    voice: "af_heart"
+    language: "en-US"
+  stt:
+    model_name: "faster-whisper"
+    model_path: "~/.local/share/ai-companion/models/faster-whisper"
+    stt_model: "large-v3"  # tiny, base, small, medium, large
+    stt_language: "en"
+    stt_device: "auto"  # auto, cpu, cuda
+    stt_compute_type: "float16"  # float16, int8, float32
+    stt_cpu_threads: 0
+  vad:
+    model_name: "silero_vad"
+    model_path: "~/.local/share/ai-companion/models/silero_vad"
+    threshold: 0.5
+    silero_threshold: 0.5
+    silero_min_speech_duration_ms: 250
+    silero_max_speech_duration_s: 30
+    silero_min_silence_duration_ms: 100
+    silero_window_size_samples: 1536
+  pyannote_segmentation:
+    model_name: "pyannote/segmentation-3.0"
+    model_path: "~/.local/share/ai-companion/models/pyannote/segmentation-3.0"
+    vad_onset_threshold: 0.5
+    vad_offset_threshold: 0.5
+    vad_min_duration_on: 0.1
+    vad_min_duration_off: 0.1
+  pyannote_diarization:
+    model_name: "pyannote/speaker-diarization-3.1"
+    model_path: "~/.local/share/ai-companion/models/pyannote/speaker-diarization-3.1"
+    min_speakers: 1
+    max_speakers: 2
+    speaker_verification_enabled: true
+    enable_diarization: true
+  enhanced_vad:
+    enabled: true
+    vad_engine: "hybrid"  # pyannote, silero, hybrid
+    mode: "lightweight"  # lightweight, balanced, high_accuracy
+    fallback_to_basic: true
+
+# Audio processing settings
+audio_processing:
+  sample_rate: 16000
+  chunk_size: 1024
+  min_speech_duration: 0.5
+  max_speech_duration: 30.0
+  audio_format: "wav"  # wav, mp3, flac
+  audio_output_path: "~/.local/share/ai-companion/.cache/audio_output/"
+  audio_input_path: "~/.local/share/ai-companion/.cache/audio_input/"
+  voice_detection:
+    cue_words:
+      - "hello"
+      - "help"
+      - "avatar"
+      - "ai"
+  detection_threshold: 0.5
+  detection_timeout: 5.0
+
+# RAG (Retrieval-Augmented Generation) Configuration
+rag:
+  enabled: false  # Set to true when RAG implementation is complete
+  vector_database:
+    type: "chroma"  # chroma, faiss, pinecone
+    path: "~/.local/share/ai-companion/databases/vector_db"
+    collection_name: "ai_companion_knowledge"
+  embedding:
+    model_name: "sentence-transformers/all-MiniLM-L6-v2"
+    model_path: "~/.local/share/ai-companion/models/embeddings/all-MiniLM-L6-v2"
+    embedding_dim: 384
+    batch_size: 32
+  retrieval:
+    max_results: 5
+    similarity_threshold: 0.7
+    context_window: 4000  # tokens
+  knowledge_sources:
+    conversation_history: true
+    user_documents: true
+    web_search: false  # Future feature
+    external_apis: false  # Future feature
+
+# Cross-Avatar Interaction System
+cross_avatar:
+  enabled: false  # Set to true when multi-avatar system is complete
+  interaction_modes:
+    autonomous_discussion: true  # Avatars can discuss topics independently
+    debate_mode: true  # Avatars can disagree and present different viewpoints
+    collaborative_mode: true  # Avatars work together on complex questions
+  relationship_dynamics:
+    personality_conflicts: true  # Different personality types create natural tensions
+    friendship_bonds: true  # Some avatars have stronger relationships with others
+    knowledge_specialization: true  # Each avatar has areas of expertise
+  conversation_triggers:
+    user_questions: true  # Multi-avatar responses to user queries
+    idle_chatter: true  # Avatars talk to each other when user is inactive
+    topic_interests: true  # Avatars react to topics they care about
+  self_awareness:
+    memory_sharing: false  # Avatars share some memories but maintain individual perspectives
+    meta_conversations: true  # Avatars can discuss their own AI nature
+    relationship_awareness: true  # Avatars acknowledge their relationships with each other
+
+# Service Configuration for Production Deployment
+service:
+  deployment_mode: "pipx"  # pipx, systemd, docker
+  auto_start: false
+  restart_policy: "on-failure"
+  user: "ai-companion"  # Service user for systemd
+  working_directory: "~/.local/share/ai-companion"
+  environment_vars:
+    PYTHONPATH: "~/.local/share/ai-companion"
+    AI_COMPANION_CONFIG: "~/.config/ai-companion/config.yaml"
+  resource_limits:
+    memory_limit: "8G"
+    cpu_limit: "4"
+    max_file_descriptors: 1024
+
+logging:
+  enable_file_logging: true
+  file_log_path: "~/.local/share/ai-companion/.cache/logs/app.log"
+  file_log_level: "DEBUG"
+  enable_console_logging: true
+  console_log_level: "INFO"
+  log_rotation:
+    enabled: true
+    max_size: "100MB"
+    backup_count: 5
+  structured_logging: true  # JSON format for production
+
+avatar_settings:
+  personality:
+    default: "SFW"
+    traits:
+      SFW:
+        - "friendly"
+        - "curious"
+        - "playful"
+        - "thoughtful"
+        - "empathetic"
+        - "creative"
+        - "humorous"
+      NSFW:
+        - "flirtatious"
+        - "seductive"
+        - "adventurous"
+        - "mischievous"
+        - "sexually adventurous"
+        - "sensual"
+        - "horny"
+      dark:
+        - "mysterious"
+        - "enigmatic"
+        - "brooding"
+      light:
+        - "cheerful"
+        - "optimistic"
+        - "bubbly"
+      serious:
+        - "stoic"
+        - "focused"
+        - "determined"
+      neutral:
+        - "intelligent"
+        - "analytical"
+  animation_speed: 1.0
+  idle_animation: true
+  idle_animation_interval: 5.0
+
+live2d_models:
+  Epsilon:
+    active: true
+    nsfw: false
+    model_info:
+      path: "~/.local/share/ai-companion/live2d_models/epsilon"    
+      model_version: "4.0"
+      model_type: "Cubism" 
+      expression_method: "seperated"
+      motions: true
+      idle_animation: true
+    avatar_name: "Epsilon"
+    traits:
+      - "SFW"
+      - "light"
+      - "neutral"
+    appearance:
+      skin_tone: "light"
+      eye_color: "blue"      
+      hair:
+        color: "pink"
+        style: 
+          - "long"
+          - "bangs"
+          - "straight"
+          - "side twin-tails"
+      body_type: "slender"
+      animal_characteristics: "none"
+      clothing: 
+        - "spaghetti strap yellow shirt"
+        - "short blue dress"
+      accessories:
+        glasses: false
+        earrings: false
+        hats: false
+        hair:
+          - "black hair ties"
+  Haru:
+    active: true
+    nsfw: false
+    model_info:
+      path: "~/.local/share/ai-companion/live2d_models/haru"
+      model_version: "4.0"
+      model_type: "Cubism" 
+      expression_method: "seperated"
+      motions: true
+      idle_animation: true
+    avatar_name: "Haru"
+    traits:
+      - "SFW"
+      - "light"
+      - "neutral"
+    appearance:
+      skin_tone: "light"
+      eye_color: "green"      
+      hair:
+        color: "grey"
+        style: 
+          - "long"
+          - "straight"
+      body_type: "slender"
+      animal_characteristics: "none"
+      clothing:
+        - "casual white dress"
+        - "black pants"
+      accessories:
+        glasses: false
+        earrings: false
+        hats: false
+        ribbons: false
+  hiyori:
+    active: true
+    nsfw: false
+    model_info:
+      path: "~/.local/share/ai-companion/live2d_models/hiyori"
+      model_version: "4.0"
+      default_model: "hiyori"
+      model_type: "Cubism"
+      expression_method: "merged"
+      motions: true
+      idle_animation: true
+    avatar_name: "Hiyori"
+    traits:
+      - "SFW"
+      - "light"
+      - "neutral"  
+    appearance:
+      skin_tone: "light"
+      hair:
+        color: "brown"
+        style: 
+          - "medium"
+          - "bangs"
+          - "straight"
+          - "twin-tails with red bows"
+      body_type: "slender"
+      animal_characteristics: "fox ears and tail"
+      clothing:
+        - "yellow sweater"
+        - "pleated blue short skirt"
+        - "long socks"
+      accessories:
+        glasses: false
+        earrings: false
+        hats: false
+        ribbons: true

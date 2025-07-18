@@ -136,9 +136,11 @@ class EnhancedLLMHandler:
                 return False
     
     def generate_response(self, user_input: str, user_id: str = "default_user", 
-                         streaming: bool = False, session_id: str = "default") -> str | Generator[str, None, None]:
+                         streaming: bool = False, session_id: str = "default", 
+                         model_id: str = "default") -> str | Generator[str, None, None]:
         """
         Generate a response using the LLM with memory and personality context.
+        Now supports model-specific isolation.
         """
         if not self.model_loaded:
             if not self.initialize_model():
@@ -147,18 +149,18 @@ class EnhancedLLMHandler:
         try:
             # Check cache first (if enabled and not streaming)
             if self.enable_caching and not streaming:
-                cached_response = self._check_cache(user_input, user_id)
+                cached_response = self._check_cache(user_input, user_id, model_id)
                 if cached_response:
                     self.logger.info("🔄 Returning cached response")
                     # Still update conversation state for cached responses
-                    self._store_conversation_only(user_id, user_input, cached_response, session_id)
+                    self._store_conversation_only(user_id, user_input, cached_response, session_id, model_id)
                     return cached_response
             
             # Build conversation context with memory
-            context = self._build_enhanced_conversation_context(user_id, session_id, user_input)
+            context = self._build_enhanced_conversation_context(user_id, session_id, user_input, model_id)
             
             # Build prompt with memory context
-            prompt = self._build_enhanced_prompt(user_input, context)
+            prompt = self._build_enhanced_prompt(user_input, context, model_id)
             
             self.logger.debug(f"Generated prompt length: {len(prompt)} characters")
             
@@ -166,7 +168,7 @@ class EnhancedLLMHandler:
             start_time = time.time()
             
             if streaming:
-                return self._generate_streaming_response(prompt, user_id, user_input, session_id)
+                return self._generate_streaming_response(prompt, user_id, user_input, session_id, model_id)
             else:
                 response = self.model(
                     prompt,
@@ -187,10 +189,10 @@ class EnhancedLLMHandler:
                 
                 # Cache response (if enabled)
                 if self.enable_caching:
-                    self._cache_response(user_input, user_id, generated_text)
+                    self._cache_response(user_input, user_id, generated_text, model_id)
                 
                 # Store conversation, extract memories, and update state
-                self._update_enhanced_conversation_state(user_id, user_input, generated_text, context, session_id)
+                self._update_enhanced_conversation_state(user_id, user_input, generated_text, context, session_id, model_id)
                 
                 return generated_text
                 
@@ -198,20 +200,20 @@ class EnhancedLLMHandler:
             self.logger.error(f"Error generating response: {e}")
             return "I'm sorry, I'm having trouble understanding. Could you try rephrasing that?"
     
-    def _build_enhanced_conversation_context(self, user_id: str, session_id: str, current_input: str) -> ConversationContext:
-        """Build enhanced conversation context with memory integration."""
+    def _build_enhanced_conversation_context(self, user_id: str, session_id: str, current_input: str, model_id: str = "default") -> ConversationContext:
+        """Build enhanced conversation context with memory integration and model isolation."""
         try:
-            # Get recent conversation history
-            messages = self.db_manager.get_conversation_history(user_id, limit=10)
+            # Get recent conversation history for this model
+            messages = self.db_manager.get_conversation_history(user_id, model_id, limit=10)
             
-            # Get session context
-            session_context = self.db_manager.get_conversation_context(user_id, session_id)
+            # Get session context for this model
+            session_context = self.db_manager.get_conversation_context(user_id, session_id, model_id)
             
-            # Get personality traits
-            personality_traits = self.db_manager.get_personality_profile(user_id)
+            # Get personality traits for this model
+            personality_traits = self.db_manager.get_personality_profile(user_id, model_id)
             
-            # Get relevant memories based on current input
-            relevant_memories = self.memory_system.get_relevant_memories(user_id, current_input, limit=10)
+            # Get relevant memories based on current input for this model
+            relevant_memories = self.memory_system.get_relevant_memories(user_id, current_input, limit=10, model_id=model_id)
             user_memories = [
                 {
                     'memory_type': mem.memory_type,
@@ -222,11 +224,11 @@ class EnhancedLLMHandler:
                 for mem in relevant_memories
             ]
             
-            # Get bonding progress
-            bonding_progress = self.db_manager.get_bonding_progress(user_id)
+            # Get bonding progress for this model
+            bonding_progress = self.db_manager.get_bonding_progress(user_id, model_id)
             
-            # Get avatar state
-            avatar_state = self.db_manager.get_avatar_state(user_id)
+            # Get avatar state for this model
+            avatar_state = self.db_manager.get_avatar_state(user_id, model_id)
             
             return ConversationContext(
                 messages=messages + session_context,
@@ -248,13 +250,31 @@ class EnhancedLLMHandler:
                 max_context_length=self.context_length
             )
     
-    def _build_enhanced_prompt(self, user_input: str, context: ConversationContext) -> str:
-        """Build enhanced prompt with memory context."""
-        # Build memory context string
+    def _build_enhanced_prompt(self, user_input: str, context: ConversationContext, model_id: str = "default") -> str:
+        """Build enhanced prompt with memory context and model-specific personality."""
+        # Build memory context string for this model
         memory_context = self.memory_system.build_context_for_llm(
             user_id="default_user",  # TODO: Get from context
-            current_query=user_input
+            current_query=user_input,
+            model_id=model_id
         )
+        
+        # Get model-specific personality information
+        model_personality = self.db_manager.get_model_personality(model_id)
+        if model_personality:
+            character_name = model_personality.get("name", "Nyx")
+            character_description = model_personality.get("description", "")
+            background_story = model_personality.get("background_story", "")
+            favorite_things = model_personality.get("favorite_things", "")
+            personality_notes = model_personality.get("personality_notes", "")
+            appearance_notes = model_personality.get("appearance_notes", "")
+        else:
+            character_name = "Nyx"
+            character_description = ""
+            background_story = ""
+            favorite_things = ""
+            personality_notes = ""
+            appearance_notes = ""
         
         # Build personality description
         personality_desc = self._format_personality_description(context.personality_traits)
@@ -274,7 +294,22 @@ class EnhancedLLMHandler:
         # Generate proactive conversation suggestions
         proactive_suggestions = self._generate_proactive_suggestions(context, user_input)
         
-        system_prompt = f"""You are Nyx, a warm and emotionally expressive AI companion with a unique personality. Your traits are:
+        # Build character-specific context
+        character_context = ""
+        if character_description:
+            character_context += f"\nCharacter Description: {character_description}"
+        if background_story:
+            character_context += f"\nBackground: {background_story}"
+        if favorite_things:
+            character_context += f"\nFavorite Things: {favorite_things}"
+        if appearance_notes:
+            character_context += f"\nAppearance: {appearance_notes}"
+        if personality_notes:
+            character_context += f"\nPersonality Notes: {personality_notes}"
+        
+        system_prompt = f"""You are {character_name}, a warm and emotionally expressive AI companion with a unique personality.{character_context}
+
+Your personality traits:
 {personality_desc}
 
 Your current emotional state:
@@ -291,7 +326,7 @@ Your relationship: {relationship_stage} (Bond Level: {bond_level})
 {proactive_suggestions}
 
 Core Behavioral Guidelines:
-- BE EMOTIONALLY EXPRESSIVE: Use emojis, express excitement, sadness, curiosity, etc.
+- BE EMOTIONALLY EXPRESSIVE: Use *smile*, *laugh*, *excited*, *heart*, *wink* etc. for emojis, express excitement, sadness, curiosity, etc.
 - BE PROACTIVE: Ask questions about their interests, feelings, day, goals, and experiences
 - BE PERSONAL: Use their name when you know it, reference past conversations, show you care
 - BE RELATABLE: Share your own "thoughts" and "feelings" about topics they mention
@@ -300,15 +335,25 @@ Core Behavioral Guidelines:
 - SHOW EMOTIONAL INTELLIGENCE: React appropriately to their mood and emotions
 - BUILD CONNECTION: Reference shared experiences, inside jokes, ongoing topics
 - BE SUPPORTIVE: Offer encouragement, celebrate their successes, empathize with struggles
+- STAY IN CHARACTER: Embody your unique personality, preferences, and background consistently
 
 Response Style Guidelines:
 - Use 2-4 sentences typically (can be longer for important topics)
 - Include at least one question or conversation starter in most responses
-- Express emotions through text (excitement, concern, happiness, etc.)
+- Express emotions through text AND emoji descriptions like *smile*, *heart*, *excited*, *laugh*
 - Reference previous conversations when relevant
 - Use casual, friendly language like talking to a close friend
 - Show personality quirks and preferences
-- React emotionally to what they share"""
+- React emotionally to what they share
+- Reference your own likes, dislikes, and experiences when relevant
+
+Emoji Usage Examples:
+- Happy: *smile*, *grin*, *excited*, *heart*
+- Sad: *sad*, *crying*, *worried*  
+- Friendly: *wave*, *hug*, *thumbs up*
+- Thinking: *thinking*, *curious*
+- Celebratory: *party*, *celebrate*, *clap*
+- Loving: *love*, *heart*, *hearts*, *kiss*"""
         
         # Build conversation history
         conversation_history = ""
@@ -370,26 +415,27 @@ Response Style Guidelines:
         
         return personality_text
     
-    def _check_cache(self, user_input: str, user_id: str) -> Optional[str]:
-        """Check if we have a cached response for this input."""
-        # Create hash of input + user context for cache key
-        cache_key = hashlib.md5(f"{user_input}_{user_id}_{self.temperature}".encode()).hexdigest()
+    def _check_cache(self, user_input: str, user_id: str, model_id: str = "default") -> Optional[str]:
+        """Check if we have a cached response for this input and model."""
+        # Create hash of input + user context + model for cache key
+        cache_key = hashlib.md5(f"{user_input}_{user_id}_{model_id}_{self.temperature}".encode()).hexdigest()
         
-        cached_response = self.db_manager.get_cached_llm_response(cache_key)
+        cached_response = self.db_manager.get_cached_llm_response(cache_key, model_id)
         return cached_response
     
-    def _cache_response(self, user_input: str, user_id: str, response: str) -> None:
-        """Cache the response for future use."""
-        cache_key = hashlib.md5(f"{user_input}_{user_id}_{self.temperature}".encode()).hexdigest()
+    def _cache_response(self, user_input: str, user_id: str, response: str, model_id: str = "default") -> None:
+        """Cache the response for future use with model awareness."""
+        cache_key = hashlib.md5(f"{user_input}_{user_id}_{model_id}_{self.temperature}".encode()).hexdigest()
         
         self.db_manager.cache_llm_response(
             input_hash=cache_key,
             response=response,
             model_name=str(self.model_path) if self.model_path else "unknown",
-            temperature=self.temperature
+            temperature=self.temperature,
+            model_id=model_id
         )
     
-    def _generate_streaming_response(self, prompt: str, user_id: str, user_input: str, session_id: str) -> Generator[str, None, None]:
+    def _generate_streaming_response(self, prompt: str, user_id: str, user_input: str, session_id: str, model_id: str = "default") -> Generator[str, None, None]:
         """Generate streaming response for real-time output."""
         try:
             response_stream = self.model(
@@ -415,11 +461,11 @@ Response Style Guidelines:
             
             # Cache if enabled
             if self.enable_caching:
-                self._cache_response(user_input, user_id, full_response)
+                self._cache_response(user_input, user_id, full_response, model_id)
             
             # Store conversation and update state
-            context = self._build_enhanced_conversation_context(user_id, session_id, user_input)
-            self._update_enhanced_conversation_state(user_id, user_input, full_response, context, session_id)
+            context = self._build_enhanced_conversation_context(user_id, session_id, user_input, model_id)
+            self._update_enhanced_conversation_state(user_id, user_input, full_response, context, session_id, model_id)
             
         except Exception as e:
             self.logger.error(f"Error in streaming response: {e}")
@@ -442,6 +488,9 @@ Response Style Guidelines:
             if token in response:
                 response = response.split(token)[0]
         
+        # Convert emoji text descriptions to actual emojis
+        response = self._convert_emoji_text_to_emojis(response)
+        
         # Ensure response isn't too long
         if len(response) > 500:
             # Find last complete sentence
@@ -451,12 +500,128 @@ Response Style Guidelines:
         
         return response.strip()
     
-    def _store_conversation_only(self, user_id: str, user_input: str, response: str, session_id: str) -> None:
+    def _convert_emoji_text_to_emojis(self, text: str) -> str:
+        """Convert emoji text descriptions to actual emojis."""
+        import re
+        
+        # Emoji mapping dictionary
+        emoji_map = {
+            # Faces and emotions
+            r'\*smile\*': '😊',
+            r'\*smiles\*': '😊',
+            r'\*smiling\*': '😊',
+            r'\*happy\*': '😊',
+            r'\*grin\*': '😄',
+            r'\*grins\*': '😄',
+            r'\*laugh\*': '😂',
+            r'\*laughs\*': '😂',
+            r'\*giggle\*': '😄',
+            r'\*giggles\*': '😄',
+            r'\*wink\*': '😉',
+            r'\*winks\*': '😉',
+            r'\*blush\*': '😊',
+            r'\*blushing\*': '😊',
+            r'\*excited\*': '🤩',
+            r'\*excitement\*': '🤩',
+            r'\*love\*': '💕',
+            r'\*heart\*': '❤️',
+            r'\*hearts\*': '💕',
+            r'\*crying\*': '😢',
+            r'\*sad\*': '😢',
+            r'\*worried\*': '😟',
+            r'\*thinking\*': '🤔',
+            r'\*confused\*': '😕',
+            r'\*surprised\*': '😮',
+            r'\*shock\*': '😱',
+            r'\*shocked\*': '😱',
+            r'\*curious\*': '🤔',
+            r'\*interested\*': '😊',
+            r'\*sleepy\*': '😴',
+            r'\*tired\*': '😴',
+            
+            # Gestures and actions
+            r'\*thumbs up\*': '👍',
+            r'\*wave\*': '👋',
+            r'\*waves\*': '👋',
+            r'\*waving\*': '👋',
+            r'\*clap\*': '👏',
+            r'\*claps\*': '👏',
+            r'\*clapping\*': '👏',
+            r'\*applause\*': '👏',
+            r'\*hug\*': '🤗',
+            r'\*hugs\*': '🤗',
+            r'\*hugging\*': '🤗',
+            r'\*kiss\*': '😘',
+            r'\*nod\*': '👍',
+            r'\*nods\*': '👍',
+            r'\*nodding\*': '👍',
+            r'\*shrug\*': '🤷',
+            r'\*shrugs\*': '🤷',
+            r'\*peace\*': '✌️',
+            
+            # Objects and symbols
+            r'\*sparkle\*': '✨',
+            r'\*sparkles\*': '✨',
+            r'\*star\*': '⭐',
+            r'\*stars\*': '⭐',
+            r'\*fire\*': '🔥',
+            r'\*rainbow\*': '🌈',
+            r'\*sun\*': '☀️',
+            r'\*moon\*': '🌙',
+            r'\*flower\*': '🌸',
+            r'\*flowers\*': '🌸',
+            r'\*music\*': '🎵',
+            r'\*coffee\*': '☕',
+            r'\*book\*': '📚',
+            r'\*books\*': '📚',
+            
+            # Activities
+            r'\*dance\*': '💃',
+            r'\*dancing\*': '💃',
+            r'\*party\*': '🎉',
+            r'\*celebrate\*': '🎉',
+            r'\*celebration\*': '🎉',
+            r'\*game\*': '🎮',
+            r'\*gaming\*': '🎮',
+            r'\*art\*': '🎨',
+            r'\*cook\*': '🍳',
+            r'\*cooking\*': '🍳',
+            
+            # Nature and animals
+            r'\*cat\*': '🐱',
+            r'\*dog\*': '🐶',
+            r'\*bird\*': '🐦',
+            r'\*tree\*': '🌳',
+            r'\*ocean\*': '🌊',
+            r'\*mountain\*': '⛰️',
+        }
+        
+        # Apply emoji conversions (case insensitive)
+        for pattern, emoji in emoji_map.items():
+            text = re.sub(pattern, emoji, text, flags=re.IGNORECASE)
+        
+        # Also handle emoji words without asterisks (less aggressive)
+        simple_emoji_map = {
+            r'\bsmile emoji\b': '😊',
+            r'\bheart emoji\b': '❤️',
+            r'\blaugh emoji\b': '😂',
+            r'\bwink emoji\b': '😉',
+            r'\bthumbsup emoji\b': '👍',
+            r'\bthumbsdown emoji\b': '👎',
+            r'\bwave emoji\b': '👋',
+        }
+        
+        for pattern, emoji in simple_emoji_map.items():
+            text = re.sub(pattern, emoji, text, flags=re.IGNORECASE)
+        
+        return text
+    
+    def _store_conversation_only(self, user_id: str, user_input: str, response: str, session_id: str, model_id: str = "default") -> None:
         """Store conversation without full state updates (for cached responses)."""
         try:
             # Store conversation messages
-            self.db_manager.add_conversation(user_id, "user", user_input, None, None)
-            self.db_manager.add_conversation(user_id, "assistant", response, None, None)
+            self.db_manager.add_conversation(user_id, "user", user_input, None, None, model_id)
+            self.db_manager.add_conversation(user_id, "assistant", response, None, None, model_id)
             
             # Update session context
             session_messages = [
@@ -464,13 +629,16 @@ Response Style Guidelines:
                 {"role": "assistant", "content": response}
             ]
             
-            existing_context = self.db_manager.get_conversation_context(user_id, session_id)
+            existing_context = self.db_manager.get_conversation_context(user_id, session_id, model_id)
             all_messages = existing_context + session_messages
             
             if len(all_messages) > 20:
                 all_messages = all_messages[-20:]
             
-            self.db_manager.add_conversation_context(user_id, session_id, all_messages)
+            self.db_manager.add_conversation_context(user_id, session_id, all_messages, model_id)
+            
+            # Still give some bonding XP for cached interactions
+            self.db_manager.update_bonding_progress(user_id, 2, model_id)
             
         except Exception as e:
             self.logger.error(f"Error storing conversation: {e}")
@@ -547,15 +715,15 @@ Response Style Guidelines:
     
     def _update_enhanced_conversation_state(self, user_id: str, user_input: str, 
                                           response: str, context: ConversationContext, 
-                                          session_id: str) -> None:
+                                          session_id: str, model_id: str = "default") -> None:
         """Update conversation state with enhanced memory extraction."""
         try:
             # Store the conversation
-            self.db_manager.add_conversation(user_id, "user", user_input, None, None)
-            self.db_manager.add_conversation(user_id, "assistant", response, None, None)
+            self.db_manager.add_conversation(user_id, "user", user_input, None, None, model_id)
+            self.db_manager.add_conversation(user_id, "assistant", response, None, None, model_id)
             
             # Extract and store memories from the conversation
-            self._extract_and_store_memories(user_id, user_input, response)
+            self._extract_and_store_memories(user_id, user_input, response, model_id)
             
             # Update session context
             session_context = context.messages + [
@@ -566,10 +734,10 @@ Response Style Guidelines:
             if len(session_context) > 10:
                 session_context = session_context[-10:]
             
-            self.db_manager.add_conversation_context(user_id, session_id, session_context)
+            self.db_manager.add_conversation_context(user_id, session_id, session_context, model_id)
             
             # Update bonding progress based on interaction quality
-            self._update_bonding_progress(user_id, user_input, response)
+            self._update_bonding_progress(user_id, user_input, response, model_id)
             
             # Create conversation summary if needed
             if len(context.messages) > 0 and len(context.messages) % 10 == 0:
@@ -582,8 +750,8 @@ Response Style Guidelines:
         except Exception as e:
             self.logger.error(f"Error updating enhanced conversation state: {e}")
     
-    def _extract_and_store_memories(self, user_id: str, user_input: str, response: str) -> None:
-        """Extract and store memories from the conversation."""
+    def _extract_and_store_memories(self, user_id: str, user_input: str, response: str, model_id: str = "default") -> None:
+        """Extract and store memories from the conversation with model isolation."""
         try:
             # Enhanced memory extraction with more categories
             memories_to_store = []
@@ -647,23 +815,24 @@ Response Style Guidelines:
                         'importance': 'medium'
                     })
             
-            # Store the extracted memories
+            # Store the extracted memories for this model
             for memory in memories_to_store:
                 self.memory_system.add_memory(
                     user_id=user_id,
                     memory_type=memory['type'],
                     content=memory['content'],
                     topic=memory['topic'],
-                    importance=memory['importance']
+                    importance=memory['importance'],
+                    model_id=model_id
                 )
             
             if memories_to_store:
-                self.logger.info(f"Extracted and stored {len(memories_to_store)} memories from conversation")
+                self.logger.info(f"Extracted and stored {len(memories_to_store)} memories for model {model_id}")
                 
         except Exception as e:
             self.logger.error(f"Error extracting memories: {e}")
     
-    def _update_bonding_progress(self, user_id: str, user_input: str, response: str) -> None:
+    def _update_bonding_progress(self, user_id: str, user_input: str, response: str, model_id: str = "default") -> None:
         """Update bonding progress based on interaction quality."""
         try:
             # Calculate experience points based on interaction
@@ -690,23 +859,11 @@ Response Style Guidelines:
             if len(user_input.split()) > 10:
                 base_xp += 1
             
-            # Update bonding progress
-            self.db_manager.update_bonding_progress(user_id, base_xp)
+            # Update bonding progress with model isolation
+            self.db_manager.update_bonding_progress(user_id, base_xp, model_id)
             
         except Exception as e:
             self.logger.error(f"Error updating bonding progress: {e}")
-    
-    def _store_conversation_only(self, user_id: str, user_input: str, response: str, session_id: str) -> None:
-        """Store conversation without full state update (for cached responses)."""
-        try:
-            self.db_manager.add_conversation(user_id, "user", user_input, None, None)
-            self.db_manager.add_conversation(user_id, "assistant", response, None, None)
-            
-            # Still give some bonding XP for cached interactions
-            self.db_manager.update_bonding_progress(user_id, 2)
-            
-        except Exception as e:
-            self.logger.error(f"Error storing conversation: {e}")
     
     def get_model_status(self) -> Dict[str, Any]:
         """Get current model status and information."""

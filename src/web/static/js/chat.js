@@ -24,15 +24,56 @@ async function sendMessage() {
     if (!text) return;
     addMessage('user', text);
     window.userInput.value = '';
+    
     try {
-        const response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: text })
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        addMessage('ai', data.reply || '[No reply]');
+        // Use the same fetchWithFallback system as Live2D models
+        let apiBaseUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL;
+        let response;
+        
+        // Try primary API URL first
+        if (apiBaseUrl) {
+            try {
+                response = await fetch(`${apiBaseUrl}/api/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    addMessage('ai', data.reply || '[No reply]');
+                    return;
+                }
+            } catch (error) {
+                console.warn(`Chat API failed with primary URL ${apiBaseUrl}:`, error.message);
+            }
+        }
+        
+        // Try fallback URLs if primary failed
+        const fallbackUrls = window.AI_COMPANION_CONFIG?.FALLBACK_URLS || [];
+        for (const fallbackUrl of fallbackUrls) {
+            try {
+                console.log(`Trying chat API fallback URL: ${fallbackUrl}`);
+                response = await fetch(`${fallbackUrl}/api/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+                if (response.ok) {
+                    console.log(`Chat API successful with fallback URL: ${fallbackUrl}`);
+                    // Update the working URL for future requests
+                    window.AI_COMPANION_CONFIG.API_BASE_URL = fallbackUrl;
+                    const data = await response.json();
+                    addMessage('ai', data.reply || '[No reply]');
+                    return;
+                }
+            } catch (error) {
+                console.warn(`Chat API fallback failed with ${fallbackUrl}:`, error.message);
+            }
+        }
+        
+        // If all URLs failed, throw error
+        throw new Error('All chat API endpoints failed');
+        
     } catch (error) {
         addSystemMessage('Failed to send message: ' + error.message, 'error');
     }

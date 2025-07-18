@@ -112,12 +112,27 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools]
-py-modules = ["cli"]
+include = ["*"]
 
 [tool.setuptools.package-dir]
 "" = "src"
+
+[tool.setuptools]
+py-modules = [
+    "cli", 
+    "config_manager", 
+    "app_globals", 
+    "app", 
+    "main", 
+    "app_routes_audio", 
+    "app_routes_chat", 
+    "app_routes_debug", 
+    "app_routes_live2d", 
+    "app_routes_tts", 
+    "socketio_handlers",
+    "api_spec",
+    "api_spec_fixed"
+]
 
 [tool.setuptools.package-data]
 "*" = [

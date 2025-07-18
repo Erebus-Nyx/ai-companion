@@ -109,10 +109,10 @@ except ImportError:
 
 # API specification imports with fallbacks
 try:
-    from api_spec import get_openapi_spec, get_swagger_ui_html
+    from api.api_spec import get_openapi_spec, get_swagger_ui_html
 except ImportError:
     try:
-        from .api_spec import get_openapi_spec, get_swagger_ui_html
+        from .api.api_spec import get_openapi_spec, get_swagger_ui_html
     except ImportError:
         # Minimal fallback
         def get_openapi_spec():
@@ -122,50 +122,50 @@ except ImportError:
 
 # Route imports with fallbacks
 try:
-    from app_routes_live2d import live2d_bp
+    from routes.app_routes_live2d import live2d_bp
 except ImportError:
     try:
-        from .app_routes_live2d import live2d_bp
+        from .routes.app_routes_live2d import live2d_bp
     except ImportError:
         live2d_bp = Blueprint('live2d', __name__)
 
 try:
-    from app_routes_chat import chat_bp
+    from routes.app_routes_chat import chat_bp
 except ImportError:
     try:
-        from .app_routes_chat import chat_bp
+        from .routes.app_routes_chat import chat_bp
     except ImportError:
         chat_bp = Blueprint('chat', __name__)
 
 try:
-    from app_routes_tts import tts_bp
+    from routes.app_routes_tts import tts_bp
 except ImportError:
     try:
-        from .app_routes_tts import tts_bp
+        from .routes.app_routes_tts import tts_bp
     except ImportError:
         tts_bp = Blueprint('tts', __name__)
 
 try:
-    from app_routes_audio import audio_bp
+    from routes.app_routes_audio import audio_bp
 except ImportError:
     try:
-        from .app_routes_audio import audio_bp
+        from .routes.app_routes_audio import audio_bp
     except ImportError:
         audio_bp = Blueprint('audio', __name__)
 
 try:
-    from app_routes_debug import debug_bp
+    from routes.app_routes_debug import debug_bp
 except ImportError:
     try:
-        from .app_routes_debug import debug_bp
+        from .routes.app_routes_debug import debug_bp
     except ImportError:
         debug_bp = Blueprint('debug', __name__)
 
 try:
-    from app_routes_system import system_bp
+    from routes.app_routes_system import system_bp
 except ImportError:
     try:
-        from .app_routes_system import system_bp
+        from .routes.app_routes_system import system_bp
     except ImportError:
         system_bp = Blueprint('system', __name__)
 
@@ -731,7 +731,8 @@ if __name__ != '__main__':
     init_thread = threading.Thread(target=initialize_app, daemon=True)
     init_thread.start()
 
-if __name__ == '__main__':
+def run_server():
+    """Entry point for pipx installation to run the server."""
     # Kill any existing instances first
     kill_existing_instances()
     
@@ -745,3 +746,6 @@ if __name__ == '__main__':
     
     logger.info(f"Starting AI Companion on http://{host}:{port}")
     socketio.run(app, host=host, port=port, debug=debug, allow_unsafe_werkzeug=True)
+
+if __name__ == '__main__':
+    run_server()

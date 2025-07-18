@@ -65,9 +65,11 @@ class MemorySystem:
         self.max_context_length = 2000
         
     def add_memory(self, user_id: str, memory_type: str, content: str, 
-                   topic: Optional[str] = None, importance: str = "medium") -> int:
+                   topic: Optional[str] = None, importance: str = "medium", 
+                   model_id: str = "default") -> int:
         """
         Add a new memory with automatic importance scoring and topic extraction
+        Now supports model isolation.
         """
         # Extract topic if not provided
         if not topic:
@@ -79,24 +81,80 @@ class MemorySystem:
         # Adjust importance based on content analysis
         importance_score = self._analyze_importance(content, importance_score)
         
-        # Store memory
-        memory_id = self.db_manager.add_memory(
-            user_id=user_id,
-            memory_type=memory_type,
-            key_topic=topic,
-            value_content=content,
-            importance_score=importance_score
-        )
+        # Store memory with model isolation
+        with self.db_manager.get_conversations_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO memories (user_id, model_id, memory_type, key_topic, value_content, importance_score)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (user_id, model_id, memory_type, topic, content, importance_score))
+            conn.commit()
+            memory_id = cursor.lastrowid
         
-        self.logger.info(f"Added memory: {topic} (importance: {importance_score:.2f})")
+        self.logger.info(f"Added memory for model {model_id}: {topic} (importance: {importance_score:.2f})")
         return memory_id
     
-    def get_relevant_memories(self, user_id: str, query: str, limit: int = 10) -> List[MemoryItem]:
+    def get_relevant_memories(self, user_id: str, query: str, limit: int = 10, 
+                            model_id: str = "default") -> List[MemoryItem]:
         """
         Retrieve memories relevant to a query using keyword matching and importance
+        Now supports model isolation.
         """
         # Extract keywords from query
         keywords = self._extract_keywords(query)
+        
+        with self.db_manager.get_conversations_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Build keyword search with model isolation
+            keyword_conditions = []
+            params = [user_id, model_id]
+            
+            for keyword in keywords[:5]:  # Limit to top 5 keywords
+                keyword_conditions.append("(key_topic LIKE ? OR value_content LIKE ?)")
+                params.extend([f"%{keyword}%", f"%{keyword}%"])
+            
+            if keyword_conditions:
+                where_clause = f"WHERE user_id = ? AND model_id = ? AND ({' OR '.join(keyword_conditions)})"
+            else:
+                where_clause = "WHERE user_id = ? AND model_id = ?"
+            
+            query_sql = f"""
+                SELECT id, memory_type, key_topic, value_content, importance_score, 
+                       created_at, last_accessed, access_count
+                FROM memories 
+                {where_clause}
+                ORDER BY importance_score DESC, last_accessed DESC
+                LIMIT ?
+            """
+            params.append(limit)
+            
+            cursor.execute(query_sql, params)
+            
+            memories = []
+            for row in cursor.fetchall():
+                memory = MemoryItem(
+                    id=row[0],
+                    memory_type=row[1],
+                    key_topic=row[2],
+                    value_content=row[3],
+                    importance_score=row[4],
+                    created_at=row[5],
+                    last_accessed=row[6],
+                    access_count=row[7]
+                )
+                memories.append(memory)
+                
+                # Update access tracking
+                cursor.execute("""
+                    UPDATE memories 
+                    SET last_accessed = CURRENT_TIMESTAMP, access_count = access_count + 1
+                    WHERE id = ?
+                """, (row[0],))
+            
+            conn.commit()
+        
+        return memories
         
         memories = []
         
@@ -131,55 +189,66 @@ class MemorySystem:
         
         return memory_items
     
-    def build_context_for_llm(self, user_id: str, current_query: str = "") -> str:
+    def build_context_for_llm(self, user_id: str, current_query: str, 
+                             model_id: str = "default") -> str:
         """
-        Build formatted context string for LLM from relevant memories
+        Build contextualized memory string for LLM prompting
+        Now supports model isolation.
         """
-        # Get relevant memories
-        memories = self.get_relevant_memories(user_id, current_query, self.max_context_memories)
+        # Get relevant memories for this model
+        relevant_memories = self.get_relevant_memories(user_id, current_query, 
+                                                     limit=self.max_context_memories, 
+                                                     model_id=model_id)
         
-        if not memories:
-            return "No previous memories available."
+        if not relevant_memories:
+            return "No previous conversations or memories stored yet."
+        
+        # Group memories by type for better organization
+        memory_groups = {
+            'fact': [],
+            'preference': [],
+            'interest': [],
+            'emotional_state': [],
+            'experience': [],
+            'other': []
+        }
+        
+        for memory in relevant_memories:
+            memory_type = memory.memory_type
+            if memory_type not in memory_groups:
+                memory_type = 'other'
+            memory_groups[memory_type].append(memory)
         
         # Build context string
         context_parts = []
         
-        # Group memories by type
-        memory_groups = {}
-        for memory in memories:
-            if memory.memory_type not in memory_groups:
-                memory_groups[memory.memory_type] = []
-            memory_groups[memory.memory_type].append(memory)
+        # Add facts first (most important)
+        if memory_groups['fact']:
+            facts = [f"- {mem.value_content}" for mem in memory_groups['fact'][:3]]
+            context_parts.append(f"Facts about the user:\n" + "\n".join(facts))
         
-        # Format each group
-        for memory_type, mem_list in memory_groups.items():
-            if memory_type == 'preference':
-                context_parts.append("User Preferences:")
-                for mem in mem_list[:5]:  # Limit preferences
-                    context_parts.append(f"- {mem.key_topic}: {mem.value_content}")
-            
-            elif memory_type == 'fact':
-                context_parts.append("Important Facts:")
-                for mem in mem_list[:5]:
-                    context_parts.append(f"- {mem.value_content}")
-            
-            elif memory_type == 'interest':
-                context_parts.append("User Interests:")
-                interests = [mem.value_content for mem in mem_list[:3]]
-                context_parts.append(f"- {', '.join(interests)}")
-            
-            elif memory_type == 'relationship':
-                context_parts.append("Relationship Context:")
-                for mem in mem_list[:3]:
-                    context_parts.append(f"- {mem.value_content}")
+        # Add preferences
+        if memory_groups['preference']:
+            prefs = [f"- {mem.value_content}" for mem in memory_groups['preference'][:3]]
+            context_parts.append(f"User preferences:\n" + "\n".join(prefs))
         
-        # Join with newlines and trim if too long
-        context = "\n".join(context_parts)
+        # Add interests
+        if memory_groups['interest']:
+            interests = [f"- {mem.value_content}" for mem in memory_groups['interest'][:3]]
+            context_parts.append(f"User interests:\n" + "\n".join(interests))
         
-        if len(context) > self.max_context_length:
-            context = context[:self.max_context_length] + "..."
+        # Add recent emotional states
+        if memory_groups['emotional_state']:
+            emotions = [f"- {mem.value_content}" for mem in memory_groups['emotional_state'][:2]]
+            context_parts.append(f"Recent emotional states:\n" + "\n".join(emotions))
         
-        return context
+        context_string = "\n\n".join(context_parts)
+        
+        # Ensure context doesn't exceed max length
+        if len(context_string) > self.max_context_length:
+            context_string = context_string[:self.max_context_length] + "..."
+        
+        return context_string
     
     def create_conversation_summary(self, user_id: str, messages: List[Dict[str, str]]) -> ConversationSummary:
         """

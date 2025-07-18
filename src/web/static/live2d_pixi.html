@@ -568,6 +568,56 @@ console.log('=== End Verification ===');
 
 <!-- Step 5: Verify Live2D plugin initialization -->
 <script>
+// AI Companion API Configuration - Auto-detect protocol and server
+window.AI_COMPANION_CONFIG = {
+    // Automatically detect the current protocol and server
+    API_BASE_URL: (() => {
+        const protocol = window.location.protocol; // 'http:' or 'https:'
+        const hostname = window.location.hostname;
+        const port = window.location.port;
+        
+        // For HTTPS deployments (like Cloudflare tunnel), use same protocol without port
+        if (protocol === 'https:') {
+            return `${protocol}//${hostname}`;
+        }
+        
+        // For HTTP deployments (local development), include port if available
+        if (port) {
+            return `${protocol}//${hostname}:${port}`;
+        }
+        
+        // Fallback to protocol and hostname only
+        return `${protocol}//${hostname}`;
+    })(),
+    
+    // Fallback URLs for different environments
+    FALLBACK_URLS: (() => {
+        const protocol = window.location.protocol;
+        const hostname = window.location.hostname;
+        
+        if (protocol === 'https:') {
+            return [
+                `${protocol}//${hostname}`, // HTTPS without port
+                `http://${hostname}:19443`, // Development fallback
+                `http://${hostname}:19447`  // Production fallback
+            ];
+        } else {
+            return [
+                `http://${hostname}:19443`, // Development
+                `http://${hostname}:19447`, // Production
+                'http://localhost:19443',   // Default dev
+                'http://localhost:19447'    // Default prod
+            ];
+        }
+    })()
+};
+
+console.log('AI Companion API Config:', window.AI_COMPANION_CONFIG.API_BASE_URL);
+console.log('Protocol detected:', window.location.protocol);
+console.log('Fallback URLs:', window.AI_COMPANION_CONFIG.FALLBACK_URLS);
+</script>
+
+<script>
 // Initialize Live2D plugin following Live2D Viewer Web pattern
 console.log('Initializing Live2D plugin (Live2D Viewer Web compatible)...');
 
@@ -1632,13 +1682,13 @@ async function loadAvailableModelsForDialog() {
     const modelGrid = document.getElementById('modelGrid');
     
     try {
-        // Get models from the Live2D API
-        const response = await fetch('http://localhost:19447/api/live2d/models');
-        if (!response.ok) {
-            throw new Error(`API request failed: ${response.status}`);
+        // Use the already-loaded model list from the multi-model manager
+        if (!live2dMultiModelManager || !live2dMultiModelManager.modelList || live2dMultiModelManager.modelList.length === 0) {
+            // If not loaded yet, try to load
+            await live2dMultiModelManager.loadAvailableModels();
         }
         
-        const availableModels = await response.json();
+        const availableModels = live2dMultiModelManager.modelList;
         
         if (!availableModels || availableModels.length === 0) {
             modelGrid.innerHTML = '<div style="text-align: center; padding: 20px; color: #aaa;">No models available. Please check your model directory.</div>';
@@ -1958,20 +2008,58 @@ async function sendAudioToServer(audioBlob) {
         const formData = new FormData();
         formData.append('audio', audioBlob, 'recording.wav');
         
-        const response = await fetch('/api/speech-to-text', {
-            method: 'POST',
-            body: formData
-        });
+        // Use the same fallback system as other API calls
+        let apiBaseUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL;
+        let response;
         
-        if (response.ok) {
-            const data = await response.json();
-            if (data.text) {
-                document.getElementById('chatInput').value = data.text;
-                addSystemMessage(`Voice transcribed: "${data.text}"`, 'success');
+        // Try primary API URL first
+        if (apiBaseUrl) {
+            try {
+                response = await fetch(`${apiBaseUrl}/api/speech-to-text`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.text) {
+                        document.getElementById('chatInput').value = data.text;
+                        addSystemMessage(`Voice transcribed: "${data.text}"`, 'success');
+                    }
+                    return;
+                }
+            } catch (error) {
+                console.warn(`Speech-to-text API failed with primary URL ${apiBaseUrl}:`, error.message);
             }
-        } else {
-            throw new Error(`HTTP ${response.status}`);
         }
+        
+        // Try fallback URLs if primary failed
+        const fallbackUrls = window.AI_COMPANION_CONFIG?.FALLBACK_URLS || [];
+        for (const fallbackUrl of fallbackUrls) {
+            try {
+                console.log(`Trying speech-to-text API fallback URL: ${fallbackUrl}`);
+                response = await fetch(`${fallbackUrl}/api/speech-to-text`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (response.ok) {
+                    console.log(`Speech-to-text API successful with fallback URL: ${fallbackUrl}`);
+                    // Update the working URL for future requests
+                    window.AI_COMPANION_CONFIG.API_BASE_URL = fallbackUrl;
+                    const data = await response.json();
+                    if (data.text) {
+                        document.getElementById('chatInput').value = data.text;
+                        addSystemMessage(`Voice transcribed: "${data.text}"`, 'success');
+                    }
+                    return;
+                }
+            } catch (error) {
+                console.warn(`Speech-to-text API fallback failed with ${fallbackUrl}:`, error.message);
+            }
+        }
+        
+        // If all URLs failed, throw error
+        throw new Error('All speech-to-text API endpoints failed');
+        
     } catch (error) {
         console.error('Error sending audio to server:', error);
         addSystemMessage('Failed to process voice recording', 'error');
@@ -1997,28 +2085,77 @@ async function sendMessage() {
     chatInput.value = '';
     
     try {
-        const response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: text })
-        });
+        // Use the same fetchWithFallback system as Live2D models
+        let apiBaseUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL;
+        let response;
         
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        
-        const data = await response.json();
-        
-        // Add AI response to chat
-        addChatMessage('ai', data.reply || '[No reply]');
-        
-        // Play TTS if available
-        if (data.tts_data) {
-            playEmotionalTTSAudio(data.tts_data);
+        // Try primary API URL first
+        if (apiBaseUrl) {
+            try {
+                response = await fetch(`${apiBaseUrl}/api/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Add AI response to chat
+                    addChatMessage('ai', data.reply || '[No reply]');
+                    
+                    // Play TTS if available
+                    if (data.tts_data) {
+                        playEmotionalTTSAudio(data.tts_data);
+                    }
+                    
+                    // Trigger Live2D emotion/motion if available
+                    if (data.emotion && window.live2dIntegration) {
+                        triggerEmotionalResponse(data.emotion, data.intensity || 0.5);
+                    }
+                    return;
+                }
+            } catch (error) {
+                console.warn(`Enhanced chat API failed with primary URL ${apiBaseUrl}:`, error.message);
+            }
         }
         
-        // Trigger Live2D emotion/motion if available
-        if (data.emotion && window.live2dIntegration) {
-            triggerEmotionalResponse(data.emotion, data.intensity || 0.5);
+        // Try fallback URLs if primary failed
+        const fallbackUrls = window.AI_COMPANION_CONFIG?.FALLBACK_URLS || [];
+        for (const fallbackUrl of fallbackUrls) {
+            try {
+                console.log(`Trying enhanced chat API fallback URL: ${fallbackUrl}`);
+                response = await fetch(`${fallbackUrl}/api/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+                if (response.ok) {
+                    console.log(`Enhanced chat API successful with fallback URL: ${fallbackUrl}`);
+                    // Update the working URL for future requests
+                    window.AI_COMPANION_CONFIG.API_BASE_URL = fallbackUrl;
+                    const data = await response.json();
+                    
+                    // Add AI response to chat
+                    addChatMessage('ai', data.reply || '[No reply]');
+                    
+                    // Play TTS if available
+                    if (data.tts_data) {
+                        playEmotionalTTSAudio(data.tts_data);
+                    }
+                    
+                    // Trigger Live2D emotion/motion if available
+                    if (data.emotion && window.live2dIntegration) {
+                        triggerEmotionalResponse(data.emotion, data.intensity || 0.5);
+                    }
+                    return;
+                }
+            } catch (error) {
+                console.warn(`Enhanced chat API fallback failed with ${fallbackUrl}:`, error.message);
+            }
         }
+        
+        // If all URLs failed, throw error
+        throw new Error('All enhanced chat API endpoints failed');
         
     } catch (error) {
         console.error('Error sending message:', error);
@@ -2127,6 +2264,50 @@ function initializeSocketIO() {
     } else {
         console.warn('⚠️ SocketIO not available');
     }
+}
+
+// Performance Testing Functions
+function testLoadingPerformance() {
+    console.log('Testing model loading performance...');
+    if (live2dMultiModelManager) {
+        // Test loading performance with current models
+        console.log('Performance test: Measuring model loading times');
+        // Implementation would go here - for now just log
+    } else {
+        console.log('No Live2D manager available for performance testing');
+    }
+}
+
+function benchmarkModelSwitching() {
+    console.log('Benchmarking model switching performance...');
+    if (live2dMultiModelManager) {
+        // Test model switching speed
+        console.log('Performance test: Measuring model switching speed');
+        // Implementation would go here - for now just log
+    } else {
+        console.log('No Live2D manager available for benchmarking');
+    }
+}
+
+function displayPerformanceStats() {
+    console.log('Displaying performance statistics...');
+    if (live2dMultiModelManager) {
+        // Display performance statistics
+        const models = live2dMultiModelManager.getAllModels();
+        console.log(`Performance Stats:
+- Total models loaded: ${models.length}
+- Active model: ${live2dMultiModelManager.activeModelId || 'None'}
+- Memory usage: ${(performance.memory ? performance.memory.usedJSHeapSize / 1024 / 1024 : 'Unknown')} MB`);
+    } else {
+        console.log('No Live2D manager available for performance stats');
+    }
+}
+
+function clearPerformanceCache() {
+    console.log('Clearing performance cache...');
+    // Clear any cached performance data
+    // Implementation would go here - for now just log
+    console.log('Performance cache cleared');
 }
 
 // System Utility Functions

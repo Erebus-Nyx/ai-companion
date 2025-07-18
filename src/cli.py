@@ -490,6 +490,63 @@ class AICompanionCLI:
             success = installer.install_model(model_name)
             print(f"{'✅' if success else '❌'} Model installation: {model_name}")
 
+    def handle_setup_command(self, args):
+        """Handle the setup command for AI Companion configuration."""
+        print("🔧 AI Companion Setup")
+        print("=====================")
+        
+        try:
+            from .config_manager import ConfigManager
+        except ImportError:
+            try:
+                from config_manager import ConfigManager
+            except ImportError:
+                # For installed package
+                from src.config_manager import ConfigManager
+            
+        # Check if configuration already exists
+        manager = ConfigManager()
+        config_exists = manager.get_config_path().exists()
+        secrets_exists = manager.get_secrets_path().exists()
+        
+        if config_exists and secrets_exists and not args.force:
+            print("✅ Configuration files already exist:")
+            print(f"   📝 Config: {manager.get_config_path()}")
+            print(f"   🔑 Secrets: {manager.get_secrets_path()}")
+            print("\n💡 Use --force to reinstall configuration")
+            return
+            
+        if args.force:
+            print("🔄 Force reinstalling configuration...")
+            
+        # Install configuration with clean database option
+        clean_db = args.clean or args.force
+        if clean_db:
+            print("🗑️  Cleaning existing databases for fresh installation...")
+            
+        try:
+            manager.install_configuration_files(clean_databases=clean_db)
+            print("\n✅ Setup complete!")
+            print(f"   📝 Config: {manager.get_config_path()}")
+            print(f"   🔑 Secrets: {manager.get_secrets_path()}")
+            
+            # Show important security notes
+            print("\n🔒 IMPORTANT SECURITY NOTES:")
+            print("   1. Check your secrets file and update API keys as needed")
+            print("   2. Change the auto-generated admin password immediately")
+            print("   3. Set proper file permissions on secrets file")
+            print(f"   4. Never commit {manager.get_secrets_path()} to version control")
+            
+            # Show next steps
+            print("\n🚀 Next Steps:")
+            print("   1. Update secrets file with your API keys")
+            print("   2. Run 'ai-companion models --download' to get AI models")
+            print("   3. Run 'ai-companion server' to start the application")
+            
+        except Exception as e:
+            print(f"❌ Setup failed: {e}")
+            return
+
     def show_models(self, list_models: bool = False, download_missing: bool = False):
         """Show model information and storage locations."""
         try:
@@ -582,6 +639,13 @@ Examples:
     # Status command
     subparsers.add_parser("status", help="Show system status")
     
+    # Setup command
+    setup_parser = subparsers.add_parser("setup", help="Set up AI Companion configuration")
+    setup_parser.add_argument("--clean", action="store_true", 
+                             help="Clean existing databases for fresh installation")
+    setup_parser.add_argument("--force", action="store_true",
+                             help="Force reinstall configuration files")
+    
     # Version command
     subparsers.add_parser("version", help="Show detailed version information")
     
@@ -600,8 +664,6 @@ Examples:
     
     install_parser = live2d_subparsers.add_parser("install-single", help="Install specific model")
     install_parser.add_argument("model_name", help="Name of model to install")
-    models_parser.add_argument("--list", "-l", action="store_true", help="List available models")
-    models_parser.add_argument("--paths", "-p", action="store_true", help="Show model storage paths")
     
     args = parser.parse_args()
     
@@ -619,6 +681,9 @@ Examples:
     
     elif args.command == "status":
         cli.show_status()
+    
+    elif args.command == "setup":
+        cli.handle_setup_command(args)
     
     elif args.command == "version":
         version_info = get_version_info()

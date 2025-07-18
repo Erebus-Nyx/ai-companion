@@ -28,6 +28,40 @@ class Live2DMultiModelManager {
         }
     }
 
+    // Helper function for API calls with automatic fallback
+    async fetchWithFallback(endpoint) {
+        const primaryUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+        const fallbackUrls = window.AI_COMPANION_CONFIG?.FALLBACK_URLS || [];
+        const urlsToTry = [primaryUrl, ...fallbackUrls];
+        
+        let lastError = null;
+        
+        for (const apiBaseUrl of urlsToTry) {
+            try {
+                const fullUrl = `${apiBaseUrl}${endpoint}`;
+                console.log(`Trying API URL: ${fullUrl}`);
+                const response = await fetch(fullUrl);
+                
+                if (response.ok) {
+                    // Update global config with working URL
+                    if (window.AI_COMPANION_CONFIG) {
+                        window.AI_COMPANION_CONFIG.API_BASE_URL = apiBaseUrl;
+                    }
+                    return response;
+                }
+                
+                throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+                
+            } catch (error) {
+                lastError = error;
+                console.warn(`Failed to fetch from ${apiBaseUrl}: ${error.message}`);
+                continue; // Try next URL
+            }
+        }
+        
+        throw lastError || new Error(`Failed to fetch ${endpoint} from any API endpoint`);
+    }
+
     initializeUI() {
         // Create character icons container at bottom of canvas
         this.createCharacterIconsContainer();
@@ -139,35 +173,55 @@ class Live2DMultiModelManager {
     }
 
     async loadAvailableModels() {
-        try {
-            const response = await fetch('http://localhost:19443/api/live2d/models');
-            
-            if (!response.ok) {
-                throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        // Get primary URL and fallback URLs
+        const primaryUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+        const fallbackUrls = window.AI_COMPANION_CONFIG?.FALLBACK_URLS || [];
+        const urlsToTry = [primaryUrl, ...fallbackUrls];
+        
+        let lastError = null;
+        
+        for (const apiBaseUrl of urlsToTry) {
+            try {
+                console.log(`Trying API URL: ${apiBaseUrl}/api/live2d/models`);
+                const response = await fetch(`${apiBaseUrl}/api/live2d/models`);
+                
+                if (!response.ok) {
+                    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+                }
+                
+                const models = await response.json();
+                
+                if (!Array.isArray(models) || models.length === 0) {
+                    throw new Error('No models returned from API');
+                }
+                
+                // Update global config with working URL
+                if (window.AI_COMPANION_CONFIG) {
+                    window.AI_COMPANION_CONFIG.API_BASE_URL = apiBaseUrl;
+                }
+                
+                this.modelList = models.map(model => ({
+                    name: model.model_name,
+                    path: model.model_path,
+                    configFile: model.config_file,
+                    url: `${apiBaseUrl}/${model.model_path}/${model.config_file}`,
+                    info: model.info || model.model_name
+                }));
+                
+                this.log(`Successfully loaded ${this.modelList.length} available models from API (${apiBaseUrl})`, 'success');
+                return this.modelList;
+                
+            } catch (error) {
+                lastError = error;
+                console.warn(`Failed to load from ${apiBaseUrl}: ${error.message}`);
+                continue; // Try next URL
             }
-            
-            const models = await response.json();
-            
-            if (!Array.isArray(models) || models.length === 0) {
-                throw new Error('No models returned from API');
-            }
-            
-            this.modelList = models.map(model => ({
-                name: model.model_name,
-                path: model.model_path,
-                configFile: model.config_file,
-                url: `http://localhost:19443/${model.model_path}/${model.config_file}`,
-                info: model.info || model.model_name
-            }));
-            
-            this.log(`Successfully loaded ${this.modelList.length} available models from API`, 'success');
-            return this.modelList;
-            
-        } catch (error) {
-            this.log(`Failed to load model list from API: ${error.message}`, 'error');
-            this.modelList = [];
-            throw error;
         }
+        
+        // If all URLs failed
+        this.log(`Failed to load model list from any API endpoint. Last error: ${lastError?.message}`, 'error');
+        this.modelList = [];
+        throw lastError || new Error('Failed to load from any API endpoint');
     }
 
     async addModel(modelName) {
@@ -219,7 +273,7 @@ class Live2DMultiModelManager {
             // Initialize model state
             this.modelStates.set(modelId, {
                 scale: 1.0, // Zoom level (multiplied by baseScale)
-                // position: { x: 0, y: 0 },
+                position: { x: 0, y: 0 },
                 visible: true,
                 motions: {
                     idle: null,
@@ -242,13 +296,27 @@ class Live2DMultiModelManager {
                 this.interactionManager.centerModel();
             }
 
-            // Create character icon with image
-            await this.createCharacterIcon(modelData);
-            
             // Set as active model
             this.setActiveModel(modelId);
             
-            // Refresh people panel to show the new model
+            // Extract character image in background and update People panel when done
+            this.extractCharacterImage(modelData).then(characterImage => {
+                // Store the character image on the model data for People panel
+                modelData.characterImage = characterImage;
+                
+                // Refresh people panel to show the new model with image
+                if (typeof populatePeopleModels === 'function') {
+                    populatePeopleModels();
+                }
+            }).catch(error => {
+                this.log(`Failed to load character image for ${modelData.name}: ${error.message}`, 'warning');
+                // Still refresh people panel even without image
+                if (typeof populatePeopleModels === 'function') {
+                    populatePeopleModels();
+                }
+            });
+            
+            // Refresh people panel immediately to show the new model (will show loading state)
             if (typeof populatePeopleModels === 'function') {
                 populatePeopleModels();
             }
@@ -406,7 +474,7 @@ class Live2DMultiModelManager {
 
     async loadModelMotions(modelData) {
         try {
-            const response = await fetch(`http://localhost:19443/api/live2d/motions/${modelData.name}`);
+            const response = await this.fetchWithFallback(`/api/live2d/motions/${modelData.name}`);
             if (!response.ok) {
                 throw new Error(`Failed to load motions: ${response.status}`);
             }
@@ -461,6 +529,9 @@ class Live2DMultiModelManager {
         
         // Extract character image in background
         this.extractCharacterImage(modelData).then(characterImage => {
+            // Store the character image on the model data for People panel
+            modelData.characterImage = characterImage;
+            
             const avatarDiv = iconElement.querySelector('.character-avatar');
             if (avatarDiv) {
                 avatarDiv.innerHTML = characterImage ? 
@@ -563,11 +634,13 @@ class Live2DMultiModelManager {
     async getModelTexture(modelData) {
         try {
             // First, try to get texture info from the API
-            const textureResponse = await fetch(`http://localhost:19443/api/live2d/textures/${modelData.name}`);
+            // Use dynamic API base URL from global config
+            const apiBaseUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            const textureResponse = await fetch(`${apiBaseUrl}/api/live2d/textures/${modelData.name}`);
             if (textureResponse.ok) {
                 const textureInfo = await textureResponse.json();
                 if (textureInfo.primary_texture && textureInfo.primary_texture.exists) {
-                    return `http://localhost:19443${textureInfo.primary_texture.url}`;
+                    return `${apiBaseUrl}${textureInfo.primary_texture.url}`;
                 }
             }
             
@@ -898,7 +971,9 @@ class Live2DMultiModelManager {
     // Database preview caching methods
     async getCachedPreview(modelName) {
         try {
-            const response = await fetch(`http://localhost:19443/api/live2d/preview/${encodeURIComponent(modelName)}`);
+            // Use dynamic API base URL from global config
+            const apiBaseUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            const response = await fetch(`${apiBaseUrl}/api/live2d/preview/${encodeURIComponent(modelName)}`);
             
             if (response.ok) {
                 const data = await response.json();
@@ -922,7 +997,9 @@ class Live2DMultiModelManager {
 
     async saveCachedPreview(modelName, previewData) {
         try {
-            const response = await fetch(`http://localhost:19443/api/live2d/preview/${encodeURIComponent(modelName)}`, {
+            // Use dynamic API base URL from global config
+            const apiBaseUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            const response = await fetch(`${apiBaseUrl}/api/live2d/preview/${encodeURIComponent(modelName)}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -953,7 +1030,9 @@ class Live2DMultiModelManager {
 
     async hasCachedPreview(modelName) {
         try {
-            const response = await fetch(`http://localhost:19443/api/live2d/preview/${encodeURIComponent(modelName)}/check`);
+            // Use dynamic API base URL from global config
+            const apiBaseUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            const response = await fetch(`${apiBaseUrl}/api/live2d/preview/${encodeURIComponent(modelName)}/check`);
             
             if (response.ok) {
                 const data = await response.json();
