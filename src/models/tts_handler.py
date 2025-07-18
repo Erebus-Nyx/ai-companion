@@ -53,8 +53,11 @@ class EmotionalTTSHandler:
         self.model_loaded = False
         self.loading_lock = threading.Lock()
         
-        # Model paths
-        self.model_dir = Path("/home/nyx/ai-companion/models/tts/kokoro")
+        # Model paths - use user data directory
+        from pathlib import Path
+        import os
+        user_data_dir = Path.home() / ".local" / "share" / "ai-companion"
+        self.model_dir = user_data_dir / "models" / "tts" / "kokoro"
         self.model_path = self.model_dir / "onnx" / "model.onnx"
         self.config_path = self.model_dir / "config.json"
         self.tokenizer_path = self.model_dir / "tokenizer.json"
@@ -286,18 +289,17 @@ class EmotionalTTSHandler:
             return True
         self.logger.info("Initializing Kokoro TTS ONNX model...")
         try:
-            # Use the correct ONNX model path
-            model_path = Path("models/tts/kokoro/onnx/model.onnx")
-            if not model_path.exists():
-                self.logger.error(f"Kokoro ONNX model not found at {model_path}")
-                raise FileNotFoundError(f"Kokoro ONNX model not found at {model_path}")
-            if ort is not None and model_path.exists():
-                self.model = ort.InferenceSession(str(model_path), providers=["CPUExecutionProvider"])
+            # Use the user data directory path that was already set in __init__
+            if not self.model_path.exists():
+                self.logger.error(f"Kokoro ONNX model not found at {self.model_path}")
+                raise FileNotFoundError(f"Kokoro ONNX model not found at {self.model_path}")
+            if ort is not None and self.model_path.exists():
+                self.model = ort.InferenceSession(str(self.model_path), providers=["CPUExecutionProvider"])
                 # Log input names for debugging
                 input_names = [i.name for i in self.model.get_inputs()]
                 self.logger.info(f"Kokoro ONNX model input names: {input_names}")
                 self.model_loaded = True
-                self.logger.info(f"✅ Kokoro TTS ONNX model loaded: {model_path}")
+                self.logger.info(f"✅ Kokoro TTS ONNX model loaded: {self.model_path}")
                 return True
             else:
                 self.logger.warning("ONNXRuntime not available or model file missing. Falling back to lightweight TTS.")
@@ -325,7 +327,7 @@ class EmotionalTTSHandler:
         tokenizer = None
         try:
             from transformers import PreTrainedTokenizerFast
-            tokenizer = PreTrainedTokenizerFast(tokenizer_file="models/tts/kokoro/tokenizer.json")
+            tokenizer = PreTrainedTokenizerFast(tokenizer_file=str(self.tokenizer_path))
             input_ids = np.array(tokenizer.encode(text), dtype=np.int64)
         except Exception as e:
             self.logger.warning(f"Failed to load transformers tokenizer: {e}. Using minimal tokenizer.")

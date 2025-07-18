@@ -1,8 +1,5 @@
 ## .gitignore for a Python project
 
-# Model Assets - will be added back later once transitioned to zip format
-src/web/static/assets/
-
 # Python
 *.so
 build/
@@ -61,9 +58,11 @@ logs/
 cache/
 .cache/
 
-
 # Secrets
 .secrets
+
+# Templates
+!.secrets.template
 
 # Database files (keep structure, ignore data)
 *.db-journal
@@ -76,12 +75,24 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Model Assets - will be added back later once transitioned to zip format
+!src/live2d_models/
+
 # LLM files (too large for git)
 src/models/llm/
 src/models/kokoro/
+src/models/faster-whisper/
+src/models/Kokoro-82M-v1.0-ONNX/
+
+# Allow specific small/medium models in git
+!src/models/pyannote/
+!src/models/silero_vad/
+!src/models/faster-whisper/tiny/
+!src/models/llm/text_completion_fallback/
+!src/models/voices
 
 # Reference implementations (external git repos)
-src/web/static/ref/
+src/ref/
 
 # Hugging Face cache
 cache/models--*

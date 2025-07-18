@@ -329,13 +329,17 @@ class AICompanionCLI:
         print(f"🚀 Starting AI Companion Server on {host}:{port}")
         print("=" * 60)
         
-        # Step 1: Check and download models
-        print("📋 Step 1: Preparing AI models...")
-        models_ready = self.check_and_download_models()
-        
-        if not models_ready:
-            print("\n❌ Aborting server startup due to model download failure.")
-            sys.exit(1)
+        # Step 1: Check and download models (skip in dev mode)
+        if dev:
+            print("📋 Step 1: Skipping model checks (dev mode)")
+            print("⚠️  WARNING: Running in dev mode - models may not be available")
+        else:
+            print("📋 Step 1: Preparing AI models...")
+            models_ready = self.check_and_download_models()
+            
+            if not models_ready:
+                print("\n❌ Aborting server startup due to model download failure.")
+                sys.exit(1)
         
         # Step 2: Import and start the Flask app
         print("\n🔧 Step 2: Loading AI Companion modules...")
@@ -436,7 +440,57 @@ class AICompanionCLI:
             for component, version in version_info['components'].items():
                 print(f"  • {component}: {version}")
 
-    def show_models(self, list_models: bool = False, show_paths: bool = False):
+    def handle_live2d_command(self, args):
+        """Handle Live2D model management commands."""
+        try:
+            from utils.live2d_model_installer import Live2DModelInstaller
+        except ImportError:
+            from src.utils.live2d_model_installer import Live2DModelInstaller
+        
+        installer = Live2DModelInstaller()
+        
+        if args.live2d_action == "install":
+            print("🎭 Installing all Live2D models...")
+            results = installer.install_all_models()
+            successful = sum(1 for success in results.values() if success)
+            total = len(results)
+            print(f"✅ Successfully installed {successful}/{total} models")
+            
+            if successful < total:
+                failed = [name for name, success in results.items() if not success]
+                print(f"❌ Failed models: {', '.join(failed)}")
+        
+        elif args.live2d_action == "refresh":
+            print("🔄 Refreshing Live2D models...")
+            results = installer.refresh_models()
+            print(f"✅ Refresh complete:")
+            print(f"   • New models installed: {results['new_installed']}")
+            print(f"   • Models updated: {results['updated']}")
+            if results['errors'] > 0:
+                print(f"   • Errors: {results['errors']}")
+        
+        elif args.live2d_action == "list":
+            available = installer.get_available_models_from_project()
+            installed = installer.get_installed_models()
+            
+            print(f"🎭 Live2D Models")
+            print(f"================")
+            print(f"📦 Available in project: {len(available)}")
+            for model in available:
+                status = "✅" if any(m["name"] == model["name"] for m in installed) else "⭕"
+                print(f"   {status} {model['name']} ({model['size_mb']} MB)")
+            
+            print(f"\n💾 Installed in user directory: {len(installed)}")
+            for model in installed:
+                print(f"   ✅ {model['name']} ({model['size_mb']} MB)")
+        
+        elif args.live2d_action == "install-single":
+            model_name = args.model_name
+            print(f"🎭 Installing model: {model_name}")
+            success = installer.install_model(model_name)
+            print(f"{'✅' if success else '❌'} Model installation: {model_name}")
+
+    def show_models(self, list_models: bool = False, download_missing: bool = False):
         """Show model information and storage locations."""
         try:
             from utils.model_downloader import ModelDownloader, get_user_data_dir
@@ -447,22 +501,21 @@ class AICompanionCLI:
         print("=" * 50)
         
         # Show storage paths
-        if show_paths or not list_models:
-            data_dir = get_user_data_dir()
-            print(f"\n📁 Model Storage Locations:")
-            print(f"  • User Data Directory: {data_dir}")
-            print(f"  • Models Directory: {data_dir / 'models'}")
-            print(f"  • Cache Directory: {data_dir / 'cache'}")
-            
-            # Check if models exist
-            models_exist = (data_dir / 'models').exists()
-            cache_exists = (data_dir / 'cache').exists()
-            print(f"\n📊 Directory Status:")
-            print(f"  • Models Directory: {'✅ Exists' if models_exist else '❌ Not created yet'}")
-            print(f"  • Cache Directory: {'✅ Exists' if cache_exists else '❌ Not created yet'}")
+        data_dir = get_user_data_dir()
+        print(f"\n📁 Model Storage Locations:")
+        print(f"  • User Data Directory: {data_dir}")
+        print(f"  • Models Directory: {data_dir / 'models'}")
+        print(f"  • Cache Directory: {data_dir / 'cache'}")
+        
+        # Check if models exist
+        models_exist = (data_dir / 'models').exists()
+        cache_exists = (data_dir / 'cache').exists()
+        print(f"\n📊 Directory Status:")
+        print(f"  • Models Directory: {'✅ Exists' if models_exist else '❌ Not created yet'}")
+        print(f"  • Cache Directory: {'✅ Exists' if cache_exists else '❌ Not created yet'}")
         
         # List available models
-        if list_models or not show_paths:
+        if list_models:
             try:
                 downloader = ModelDownloader()
                 available_models = downloader.list_available_models()
@@ -534,6 +587,19 @@ Examples:
     
     # Models command
     models_parser = subparsers.add_parser("models", help="Show model information and locations")
+    models_parser.add_argument("--list", action="store_true", help="List all models")
+    models_parser.add_argument("--download", action="store_true", help="Download missing models")
+    
+    # Live2D command
+    live2d_parser = subparsers.add_parser("live2d", help="Live2D model management")
+    live2d_subparsers = live2d_parser.add_subparsers(dest="live2d_action", help="Live2D actions")
+    
+    live2d_subparsers.add_parser("install", help="Install all Live2D models")
+    live2d_subparsers.add_parser("refresh", help="Refresh Live2D models (install new/updated)")
+    live2d_subparsers.add_parser("list", help="List available and installed Live2D models")
+    
+    install_parser = live2d_subparsers.add_parser("install-single", help="Install specific model")
+    install_parser.add_argument("model_name", help="Name of model to install")
     models_parser.add_argument("--list", "-l", action="store_true", help="List available models")
     models_parser.add_argument("--paths", "-p", action="store_true", help="Show model storage paths")
     
@@ -559,7 +625,10 @@ Examples:
         print(json.dumps(version_info, indent=2))
     
     elif args.command == "models":
-        cli.show_models(list_models=args.list, show_paths=args.paths)
+        cli.show_models(list_models=getattr(args, 'list', False), download_missing=getattr(args, 'download', False))
+    
+    elif args.command == "live2d":
+        cli.handle_live2d_command(args)
     
     else:
         # No command specified, show help

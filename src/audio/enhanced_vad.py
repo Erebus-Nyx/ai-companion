@@ -49,7 +49,11 @@ logger = logging.getLogger(__name__)
 class ModelCacheManager:
     """Manages caching of downloaded models to avoid re-downloading"""
     
-    def __init__(self, cache_dir: str = "/home/nyx/ai-companion/models"):
+    def __init__(self, cache_dir: str = None):
+        if cache_dir is None:
+            # Use user data directory
+            from pathlib import Path
+            cache_dir = str(Path.home() / ".local" / "share" / "ai-companion" / "models")
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.cache_info_file = self.cache_dir / "model_cache.json"

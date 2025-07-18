@@ -1,65 +1,546 @@
-model_paths:
-  llm: "path/to/llm/model"
-  tts: "path/to/tts/model"
+##config.yaml
+config_version: "1.0"
+
+# TODO: Configuration Updates Needed
+# =================================
+# RECENT CHANGES TO INTEGRATE:
+# A. Database Consolidation:
+#    - Update all database connection code to use consolidated src/databases/ paths
+#    - Implement database migration scripts for new structure
+#    - Update backup/restore scripts for new directory layout
+#
+# B. SafeTensor LLM Model:
+#    - Update LLM handler to support SafeTensor format loading
+#    - Add SafeTensor-specific optimization settings
+#    - Implement SafeTensor model validation and error handling
+#    - Add model conversion utilities (GGUF ↔ SafeTensor)
+#
+# C. Kokoro Voice Directory Structure:
+#    - Update TTS handler to use new voice directory structure
+#    - Implement voice file discovery and validation
+#    - Add voice switching API endpoints
+#    - Create voice preview functionality
+#
+# 1. Audio Processing Integration:
+#    - Update TTS handler to read voice settings from config
+#    - Integrate STT model selection with config values
+#    - Connect VAD thresholds to enhanced VAD system
+#    - Add audio quality settings (sample rate, format)
+#
+# 2. Live2D Model Integration:
+#    - Update Live2D manager to read model paths from config
+#    - Implement trait-based model selection algorithm
+#    - Connect appearance data to emotional response engine
+#    - Add dynamic model switching based on conversation context
+#
+# 3. Personality System Enhancement:
+#    - Connect avatar traits to LLM personality prompts
+#    - Implement trait inheritance (SFW/NSFW/light/dark/etc.)
+#    - Add dynamic personality adaptation based on user interaction
+#    - Create trait-based response filtering system
+#
+# 4. Database Configuration:
+#    - Update all database connections to use config paths
+#    - Implement database migration for new schema
+#    - Add backup/restore functionality for user data
+#    - Connect personality data to database storage
+#
+# 5. Model Management:
+#    - Update model downloader to respect config model preferences
+#    - Add model switching API endpoints
+#    - Implement model health checking and auto-recovery
+#    - Add model usage statistics and optimization
+#
+# 6. Expression Engine:
+#    - Connect Live2D expression_method to animation system
+#    - Implement emotion-to-motion mapping
+#    - Add idle animation scheduling based on config
+#    - Create expression queue management system
+#
+# 7. Security & Access Control:
+#    - Implement NSFW content filtering based on model flags
+#    - Add user preference management for content types
+#    - Create session-based model access controls
+#    - Add parental controls for SFW-only mode
+#
+# 8. Performance Optimization:
+#    - Add model preloading based on user preferences
+#    - Implement resource usage limits from config
+#    - Add adaptive quality based on system capabilities
+#    - Create cache management for model assets
+#
+# 9. API Enhancement:
+#    - Add config-driven API endpoint generation
+#    - Implement model/avatar selection endpoints
+#    - Add real-time config updates via WebSocket
+#    - Create admin panel for config management
+#
+# 10. Monitoring & Analytics:
+#     - Add usage tracking for different avatar personalities
+#     - Implement performance metrics for model switching
+#     - Create user interaction analytics
+#     - Add system health monitoring dashboards
+
+# General settings
+general:
+  app_name: "AI Companion"
+  app_version: "0.4.0"
+  debug_mode: false
+  developer_mode: false
+  logging_level: "INFO"
+  logging_file: "~/.local/share/ai-companion/.cache/logs/app.log"
+
+# Server settings
+server:
+  host: "0.0.0.0"
+  port: 19443
+  enable_ssl: false
+  ssl_cert: ""
+  ssl_key: ""
+
+# Database settings
+database:
+  default_settings:
+    type: "sqlite"
+    pool_size: 5
+    timeout: 30
+  paths:
+    # NOTE: All databases consolidated to src/databases/ directory
+    ai_companion: "~/.local/share/ai-companion/databases/ai_companion.db"
+    conversations: "~/.local/share/ai-companion/databases/conversations.db"
+    live2d_models: "~/.local/share/ai-companion/databases/live2d_models.db"
+    personality: "~/.local/share/ai-companion/databases/personality.db"
+    system: "~/.local/share/ai-companion/databases/system.db"
   
-user_preferences:
-  voice: "default_voice"
-  language: "en-US"
-  
-avatar_settings:
-  personality_traits:
-    - "friendly"
-    - "curious"
-    - "playful"
-  animation_speed: 1.0
-  
-voice_detection:
-  cue_words:
-    - "hello"
-    - "help"
-    - "avatar"
-  
-  # Enhanced VAD Configuration
-  enhanced_vad:
-    enabled: true
-    vad_engine: "hybrid"  # pyannote, silero, hybrid
-    mode: "lightweight"  # lightweight, balanced, high_accuracy
-    fallback_to_basic: true
-    
-    # VAD Settings
-    vad_model: "pyannote/segmentation-3.0"
-    vad_onset_threshold: 0.5
-    vad_offset_threshold: 0.5
-    vad_min_duration_on: 0.1
-    vad_min_duration_off: 0.1
-    
-    # Silero VAD Settings
+# Model settings
+integrated_models:
+  llm:
+    # NOTE: Changed to SafeTensor model format
+    model_name: "TheBloke/Wizard-Vicuna-13B-Uncensored-GPTQ"  # Updated to SafeTensor model
+    model_path: "~/.local/share/ai-companion/models/llm/Wizard-Vicuna-13B-Uncensored-GPTQ"
+    model_format: "safetensors"  # New: specify model format
+    max_tokens: 4096
+    temperature: 0.7
+    top_p: 1.0
+    # TODO: Add SafeTensor-specific configuration options
+  tts:
+    # NOTE: Updated Kokoro paths with separate voice directory
+    model_name: "onnx-community/Kokoro-82M-ONNX"  # Updated model name
+    model_path: "~/.local/share/ai-companion/models/tts/kokoro"  # Updated path structure
+    voice_path: "~/.local/share/ai-companion/models/tts/voices"  # New: dedicated voice directory
+    voice: "af_heart"  # Updated default voice
+    language: "en-US"
+    # TODO: Add voice selection and configuration options
+  stt:
+    model_name: "faster-whisper"
+    model_path: "~/.local/share/ai-companion/models/faster-whisper"
+    stt_model: "large-v3"  # tiny, base, small, medium, large
+    stt_language: "en"
+    stt_device: "auto"  # auto, cpu, cuda
+    stt_compute_type: "float16"  # float16, int8, float32
+    stt_cpu_threads: 0
+  vad:
+    model_name: "silero_vad"
+    model_path: "~/.local/share/ai-companion/models/silero_vad"
+    threshold: 0.5
     silero_threshold: 0.5
     silero_min_speech_duration_ms: 250
     silero_max_speech_duration_s: 30
     silero_min_silence_duration_ms: 100
     silero_window_size_samples: 1536
-    
-    # Diarization Settings
-    enable_diarization: true
-    diarization_model: "pyannote/speaker-diarization-3.1"
+  pyannote_segmentation:
+    model_name: "pyannote/segmentation-3.0"
+    model_path: "~/.local/share/ai-companion/models/pyannote/segmentation-3.0"
+    vad_onset_threshold: 0.5
+    vad_offset_threshold: 0.5
+    vad_min_duration_on: 0.1
+    vad_min_duration_off: 0.1
+  pyannote_diarization:
+    model_name: "pyannote/speaker-diarization-3.1"
+    model_path: "~/.local/share/ai-companion/models/pyannote/speaker-diarization-3.1"
     min_speakers: 1
     max_speakers: 2
     speaker_verification_enabled: true
-    
-    # STT Settings  
-    stt_model: "small"  # tiny, base, small, medium, large
-    stt_language: "en"
-    stt_device: "auto"  # auto, cpu, cuda
-    stt_compute_type: "float16"  # float16, int8, float32
-    stt_cpu_threads: 0
-    
-    # Audio Processing
-    sample_rate: 16000
-    chunk_duration: 1.0
-    min_speech_duration: 0.5
-    max_speech_duration: 30.0
-    silence_threshold: 0.01
+    enable_diarization: true
+  enhanced_vad:
+    enabled: true
+    vad_engine: "hybrid"  # pyannote, silero, hybrid
+    mode: "lightweight"  # lightweight, balanced, high_accuracy
+    fallback_to_basic: true
+
+# Audio processing settings
+audio_processing:
+  sample_rate: 16000
+  chunk_size: 1024
+  min_speech_duration: 0.5
+  max_speech_duration: 30.0
+  audio_format: "wav"  # wav, mp3, flac
+  audio_output_path: "~/.local/share/ai-companion/.cache/audio_output/"
+  audio_input_path: "~/.local/share/ai-companion/.cache/audio_input/"
+  voice_detection:
+    cue_words:
+      - "hello"
+      - "help"
+      - "avatar"
+      - "ai"
+  detection_threshold: 0.5
+  detection_timeout: 5.0
+
+logging:
+  enable_file_logging: true
+  file_log_path: "~/.local/share/ai-companion/.cache/logs/app.log"
+  file_log_level: "DEBUG"
+  enable_console_logging: true
+  console_log_level: "INFO"
   
-database:
-  path: "path/to/database.db"
+avatar_settings:
+  personality:
+    default: "SFW"
+    traits:
+      SFW:
+        - "friendly"
+        - "curious"
+        - "playful"
+        - "thoughtful"
+        - "empathetic"
+        - "creative"
+        - "humorous"
+      NSFW:
+        - "flirtatious"
+        - "seductive"
+        - "adventurous"
+        - "mischievous"
+        - "sexually adventurous"
+        - "sensual"
+        - "horny"
+      dark:
+        - "mysterious"
+        - "enigmatic"
+        - "brooding"
+      light:
+        - "cheerful"
+        - "optimistic"
+        - "bubbly"
+      serious:
+        - "stoic"
+        - "focused"
+        - "determined"
+      neutral:
+        - "intelligent"
+        - "analytical"
+
+  animation_speed: 1.0
+  idle_animation: true
+  idle_animation_interval: 5.0
+
+live2d_models:
+  Epsilon:
+    active: true
+    nsfw: false
+    model_info:
+      path: "~/.local/share/ai-companion/live2d_models/epsilon"    
+      model_version: "4.0"
+      model_type: "Cubism" 
+      expression_method: "seperated"
+      motions: true
+      idle_animation: true
+    avatar_name: "Epsilon"
+    traits:
+      - "SFW"
+      - "light"
+      - "neutral"
+    appearance:
+      skin_tone: "light"
+      eye_color: "blue"      
+      hair:
+        color: "pink"
+        style: 
+          - "long"
+          - "bangs"
+          - "straight"
+          - "side twin-tails"
+      body_type: "slender"
+      animal_characteristics: "none"
+      clothing: 
+        - "spaghetti strap yellow shirt"
+        - "short blue dress"
+      accessories:
+        glasses: false
+        earrings: false
+        hats: false
+        hair:
+          - "black hair ties"
+  Iori:
+    active: true
+    nsfw: true
+    model_info:
+      path: "~/.local/share/ai-companion/live2d_models/iori"
+      model_version: "3.2"
+      model_type: "Cubism"
+      expression_method: "none"
+      motions: false
+      idle_animation: false
+    avatar_name: "Iori"
+    traits:
+      - "NSFW"
+      - "neutral"
+    appearance:
+      skin_tone: "light"
+      eye_color: "red"      
+      hair:
+        color: "brown"
+        style: 
+          - "long"
+          - "bangs"
+          - "straight"
+      body_type: "slender"
+      animal_characteristics: "none"
+      clothing: 
+        - "naked"
+        - "varying stages of dress"
+      accessories:
+        glasses: false
+        earrings: false
+        hats: false
+        hair:
+          - "none"
+  Nodoka:
+    active: true
+    nsfw: true
+    model_info:
+      path: "~/.local/share/ai-companion/live2d_models/nodoka"
+      model_version: "3.2"
+      model_type: "Cubism"
+      expression_method: "none"
+      motions: false
+      idle_animation: false
+    avatar_name: "Nodoka"
+    traits:
+      - "NSFW"
+      - "neutral"
+    appearance:
+      skin_tone: "light"
+      eye_color: "blue"      
+      hair:
+        color: "blond"
+        style: 
+          - "long"
+          - "bangs"
+          - "light curls"
+      body_type: "slender"
+      animal_characteristics: "none"
+      clothing: 
+        - "naked"
+        - "varying stages of dress"
+      accessories:
+        glasses: false
+        earrings: false
+        hats: false
+        ribbons: false
+  Haru:
+    active: true
+    nsfw: false
+    model_info:
+      path: "~/.local/share/ai-companion/live2d_models/haru"
+      model_version: "4.0"
+      model_type: "Cubism" 
+      expression_method: "seperated"
+      motions: true
+      idle_animation: true
+    avatar_name: "Haru"
+    traits:
+      - "SFW"
+      - "light"
+      - "neutral"
+    appearance:
+      skin_tone: "light"
+      eye_color: "green"      
+      hair:
+        color: "grey"
+        style: 
+          - "long"
+          - "straight"
+      body_type: "slender"
+      animal_characteristics: "none"
+      clothing:
+        - "casual white dress"
+        - "black pants"
+      accessories:
+        glasses: false
+        earrings: false
+        hats: false
+        ribbons: false
+  Haruka:
+    active: true
+    nsfw: false
+    model_info:
+      path: "~/.local/share/ai-companion/live2d_models/haruka"
+      model_version: "3.3"
+      model_type: "Cubism"
+      expression_method: "merged"  # Fixed: was missing
+      motions: true
+      idle_animation: true
+    avatar_name: "Haruka"
+    traits:
+      - "SFW"
+      - "light"
+      - "neutral"
+    appearance:
+      skin_tone: "light"
+      eye_color: "green"  # Fixed: was duplicated with different values
+      hair:
+        color: "blue"
+        style: 
+          - "long"
+          - "straight"
+      body_type: "slender"
+      animal_characteristics: "none"
+      clothing: 
+        - "blue pleated skirt"  # Fixed: typo "plea" -> "pleated"
+        - "white sweater"
+        - "black pants"
+      accessories:
+        glasses: false
+        earrings: false
+        hats: false
+        ribbons: false
+  Mori:
+    active: true
+    nsfw: false
+    model_info:
+      path: "~/.local/share/ai-companion/live2d_models/mori"
+      model_version: "3.2"
+      model_type: "Cubism"
+      expression_method: "merged"
+      motions: true
+      idle_animation: false
+    avatar_name: "Mori"
+    traits:
+      - "SFW"
+      - "light"
+      - "neutral"  
+    appearance:
+      skin_tone: "light"
+      hair:
+        color: "blonde"
+        style: 
+          - "long"
+          - "bangs"
+          - "straight"
+          - "fox ears"
+      eye_color: "red"
+      body_type: "slender"
+      animal_characteristics: "fox ears and tail"
+      clothing: 
+        - "blue dress"
+        - "blue skirt"
+        - "white knee socks"
+      accessories:
+        glasses: false
+        earrings: false
+        hats: false
+        ribbons: true
+  hiyori:
+    active: true
+    nsfw: false
+    model_info:
+      path: "~/.local/share/ai-companion/live2d_models/hiyori"
+      model_version: "4.0"
+      default_model: "hiyori"
+      model_type: "Cubism"
+      expression_method: "merged"
+      motions: true
+      idle_animation: true
+    avatar_name: "Hiyori"
+    traits:
+      - "SFW"
+      - "light"
+      - "neutral"  
+    appearance:
+      skin_tone: "light"
+      hair:
+        color: "brown"
+        style: 
+          - "medium"
+          - "bangs"
+          - "straight"
+          - "twin-tails with red bows"
+      body_type: "slender"
+      animal_characteristics: "fox ears and tail"
+      clothing:
+        - "yellow sweater"
+        - "pleated blue short skirt"
+        - "long socks"
+      accessories:
+        glasses: false
+        earrings: false
+        hats: false
+        ribbons: true
+  kanade:
+    active: true
+    nsfw: false
+    model_info:
+      path: "~/.local/share/ai-companion/live2d_models/kanade"
+      model_version: "4.0"
+      model_type: "Cubism" 
+      expression_method: "seperated"
+      motions: true
+      idle_animation: false
+    avatar_name: "Kanade"
+    traits:
+      - "SFW"
+      - "light"
+      - "neutral"    
+    appearance:
+      skin_tone: "light"
+      eye_color: "blue"
+      hair:
+        color: "silver"
+        style:
+          - "long"
+          - "straight"
+      body_type: "slender"
+      animal_characteristics: "none"
+      clothing: 
+        - "casual purple dress"
+        - "black pants"
+      accessories:
+        glasses: false
+        earrings: false
+        hats: false
+        ribbons: true
+  Tsumiki:
+    active: true
+    nsfw: false
+    model_info:
+      path: "~/.local/share/ai-companion/live2d_models/tsumiki"
+      model_version: "4.0"
+      model_type: "Cubism" 
+      expression_method: "seperated"
+      motions: true
+      idle_animation: false
+    avatar_name: "Tsumiki"
+    traits:
+      - "SFW"
+      - "light"
+      - "neutral"
+    appearance:
+      skin_tone: "light"
+      eye_color: "green"      
+      hair:
+        color: "green"
+        style: 
+          - "short"
+          - "straight"
+          - "twin tails with white ribbons"
+      body_type: "slender"
+      animal_characteristics: "none"
+      clothing:
+        - "beige sweater and red tie"
+        - "blue pleated skirt"
+        - "red knee socks and white tennis shoes"
+      accessories:
+        glasses: false
+        earrings: false
+        hats: false
+        ribbons: true

@@ -1,0 +1,14 @@
+[Unit]
+Description=AI Companion Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/nyx/ai-companion
+Environment=PATH=/home/nyx/ai-companion/.venv/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/nyx/ai-companion/.venv/bin/ai-companion server --port 19443 --host 0.0.0.0
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

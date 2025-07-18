@@ -68,6 +68,16 @@ class ModelDownloader:
                     "size_mb": 700,
                     "min_ram_gb": 2
                 },
+                "text_completion_fallback": {
+                    "source_type": "local_git",
+                    "local_path": "src/models/llm/text_completion_fallback",
+                    "files": ["simple_responses.json", "context_templates.json"],
+                    "size_mb": 1,
+                    "min_ram_gb": 0.1,
+                    "is_fallback": True,
+                    "fallback_for": ["tiny", "small", "medium"],
+                    "description": "Simple rule-based text completion for offline scenarios"
+                },
                 "small": {
                     "source_type": "huggingface",
                     "repo_id": "TheBloke/Llama-2-7B-Chat-GGUF", 
@@ -97,9 +107,14 @@ class ModelDownloader:
             },
             "whisper": {
                 "tiny": {
-                    "source_type": "pip_package",
-                    "package_name": "faster-whisper",
-                    "model_name": "tiny",
+                    "source_type": "local_git",
+                    "local_path": "src/models/faster-whisper/tiny",
+                    "files": [
+                        "model.bin",
+                        "config.json",
+                        "tokenizer.json",
+                        "vocabulary.txt"
+                    ],
                     "size_mb": 39,
                     "min_ram_gb": 1
                 },
@@ -120,8 +135,8 @@ class ModelDownloader:
             },
             "silero_vad": {
                 "v5": {
-                    "source_type": "huggingface",
-                    "repo_id": "deepghs/silero-vad-onnx",
+                    "source_type": "local_git",
+                    "local_path": "src/models/silero_vad",
                     "files": ["silero_vad.onnx"],
                     "size_mb": 2,
                     "min_ram_gb": 1
@@ -130,9 +145,8 @@ class ModelDownloader:
             "pyannote_vad": {
                 "segmentation": {
                     "source_type": "local_git",
-                    "local_path": "models/pyannote_segmentation-3.0",
+                    "local_path": "src/models/pyannote/segmentation-3.0/models--pyannote--segmentation-3.0/snapshots/e66f3d3b9eb0873085418a7b813d3b369bf160bb",
                     "files": [
-                        "pytorch_model.bin",
                         "config.yaml"
                     ],
                     "size_mb": 17,
@@ -142,9 +156,8 @@ class ModelDownloader:
             "pyannote_diarization": {
                 "speaker_diarization": {
                     "source_type": "local_git",
-                    "local_path": "models/pyannote_speaker-diarization-3.1", 
+                    "local_path": "src/models/pyannote/speaker-diarization-3.1/models--pyannote--speaker-diarization-3.1/snapshots/84fd25912480287da0247647c3d2b4853cb3ee5d", 
                     "files": [
-                        "pytorch_model.bin",
                         "config.yaml"
                     ],
                     "size_mb": 23,
@@ -192,6 +205,20 @@ class ModelDownloader:
         
         model_info = self.model_registry[model_type][model_variant]
         source_type = model_info.get("source_type", "huggingface")
+        
+        # Handle local git models - check if files exist in repository
+        if source_type == "local_git":
+            local_path = Path(model_info["local_path"])
+            if not local_path.exists():
+                return False
+            
+            # Check if all required files exist
+            if "files" in model_info:
+                for filename in model_info["files"]:
+                    if not (local_path / filename).exists():
+                        return False
+                return True
+            return local_path.exists()
         
         # Skip models don't need to be downloaded
         if source_type == "skip":
@@ -323,6 +350,31 @@ class ModelDownloader:
                 self.logger.info(f"✅ Pip package {package_name} will be installed if needed")
                 return True
                 
+            elif source_type == "local_git":
+                # Check if local git repository files exist
+                local_path = Path(model_info["local_path"])
+                if not local_path.exists():
+                    self.logger.error(f"Local git path {local_path} does not exist")
+                    return False
+                
+                # Check if all required files exist
+                if "files" in model_info:
+                    required_files = model_info["files"]
+                    missing_files = []
+                    for filename in required_files:
+                        file_path = local_path / filename
+                        if not file_path.exists():
+                            missing_files.append(filename)
+                        else:
+                            self.logger.info(f"✅ Local file found: {file_path}")
+                    
+                    if missing_files:
+                        self.logger.error(f"Missing local files in {local_path}: {missing_files}")
+                        return False
+                
+                self.logger.info(f"✅ Local git model {model_type}:{model_variant} is available")
+                return True
+                
             elif source_type == "skip":
                 # Models that should be skipped
                 reason = model_info.get("reason", "No download source available")
@@ -341,6 +393,46 @@ class ModelDownloader:
             self.logger.error(f"Failed to verify access to {model_type}:{model_variant}: {e}")
             return False
 
+    def download_model_with_fallback(self, model_type: str, model_variant: str, 
+                                    progress_callback: Optional[Callable] = None) -> tuple[bool, str]:
+        """
+        Download a model with automatic fallback to local alternatives if download fails.
+        Returns (success, actual_variant_used)
+        """
+        # First try the requested model
+        success = self.download_model(model_type, model_variant, progress_callback)
+        if success:
+            return True, model_variant
+        
+        # If failed, look for fallback models
+        fallback_variant = self._find_fallback_model(model_type, model_variant)
+        if fallback_variant:
+            self.logger.warning(f"Primary model {model_type}:{model_variant} failed, trying fallback: {fallback_variant}")
+            success = self.download_model(model_type, fallback_variant, progress_callback)
+            if success:
+                return True, fallback_variant
+        
+        return False, model_variant
+    
+    def _find_fallback_model(self, model_type: str, primary_variant: str) -> Optional[str]:
+        """Find a suitable fallback model for the given type and variant."""
+        if model_type not in self.model_registry:
+            return None
+        
+        # Look for models marked as fallbacks
+        for variant_name, model_info in self.model_registry[model_type].items():
+            if model_info.get("is_fallback", False):
+                fallback_for = model_info.get("fallback_for", [])
+                if isinstance(fallback_for, str):
+                    fallback_for = [fallback_for]
+                
+                if primary_variant in fallback_for:
+                    # Check if this fallback is actually available
+                    if self.verify_model_access(model_type, variant_name):
+                        return variant_name
+        
+        return None
+    
     def download_model(self, model_type: str, model_variant: str, 
                       progress_callback: Optional[Callable] = None) -> bool:
         """Download a specific model variant."""
@@ -402,6 +494,8 @@ class ModelDownloader:
                 return self._download_direct_url(model_type, model_variant, model_info, progress_callback)
             elif source_type == "pip_package":
                 return self._install_pip_package(model_type, model_variant, model_info, progress_callback)
+            elif source_type == "local_git":
+                return self._use_local_git_model(model_type, model_variant, model_info, progress_callback)
         except Exception as e:
             self.logger.error(f"Failed to download {model_type}:{model_variant}: {e}")
             return False
@@ -614,6 +708,32 @@ class ModelDownloader:
             self.logger.error(f"Failed to download PyAnnote {model_subtype} model: {e}")
             return False
     
+    def download_recommended_models_with_fallbacks(self, progress_callback: Optional[Callable] = None) -> Dict[str, tuple[bool, str]]:
+        """
+        Download all recommended models with automatic fallback to local alternatives.
+        Returns dict mapping model_type to (success, actual_variant_used)
+        """
+        recommended = self.get_recommended_models()
+        results = {}
+        
+        for model_type, model_variant in recommended.items():
+            self.logger.info(f"Downloading recommended {model_type}: {model_variant}")
+            
+            if self.check_model_exists(model_type, model_variant):
+                self.logger.info(f"Model {model_type}:{model_variant} already exists, skipping")
+                results[model_type] = (True, model_variant)
+                continue
+            
+            success, actual_variant = self.download_model_with_fallback(model_type, model_variant, progress_callback)
+            results[model_type] = (success, actual_variant)
+            
+            if not success:
+                self.logger.error(f"Failed to download {model_type}:{model_variant} and no fallback available")
+            elif actual_variant != model_variant:
+                self.logger.info(f"Using fallback {model_type}:{actual_variant} instead of {model_variant}")
+        
+        return results
+
     def download_recommended_models(self, progress_callback: Optional[Callable] = None) -> Dict[str, bool]:
         """Download all recommended models for the current system."""
         recommended = self.get_recommended_models()
@@ -646,6 +766,10 @@ class ModelDownloader:
         # Pip packages don't have local file paths
         if source_type == "pip_package":
             return None
+        
+        # Local git models use their repository path directly
+        if source_type == "local_git":
+            return Path(model_info["local_path"])
             
         if model_type == "llm":
             if "filename" in model_info:
@@ -807,6 +931,49 @@ class ModelDownloader:
         except subprocess.CalledProcessError as e:
             self.logger.error(f"❌ Failed to install {model_type}:{model_variant}: {e}")
             self.logger.error(f"Pip stderr: {e.stderr}")
+            return False
+
+    def _use_local_git_model(self, model_type: str, model_variant: str, model_info: dict, progress_callback=None):
+        """Use model that's already available in the local git repository."""
+        local_path = Path(model_info["local_path"])
+        
+        self.logger.info(f"📁 Using local git model {model_type}:{model_variant} from {local_path}")
+        
+        try:
+            if progress_callback:
+                progress_callback(0, f"Checking local {model_variant}")
+            
+            # Verify all required files exist
+            if "files" in model_info:
+                missing_files = []
+                for filename in model_info["files"]:
+                    file_path = local_path / filename
+                    if not file_path.exists():
+                        missing_files.append(filename)
+                
+                if missing_files:
+                    self.logger.error(f"❌ Missing files in local git repo: {missing_files}")
+                    return False
+                
+                # All files found
+                if progress_callback:
+                    progress_callback(100, f"✅ {model_variant} ready from local git")
+                
+                self.logger.info(f"✅ Local git model {model_type}:{model_variant} is ready to use")
+                return True
+            
+            # Just check if path exists for models without specific file lists
+            if local_path.exists():
+                if progress_callback:
+                    progress_callback(100, f"✅ {model_variant} ready from local git")
+                self.logger.info(f"✅ Local git model {model_type}:{model_variant} is ready to use")
+                return True
+            else:
+                self.logger.error(f"❌ Local git path {local_path} does not exist")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"❌ Failed to verify local git model {model_type}:{model_variant}: {e}")
             return False
 
 
