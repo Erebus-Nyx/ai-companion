@@ -248,6 +248,11 @@ class Live2DMultiModelManager {
             // Set as active model
             this.setActiveModel(modelId);
             
+            // Refresh people panel to show the new model
+            if (typeof populatePeopleModels === 'function') {
+                populatePeopleModels();
+            }
+            
             this.log(`Successfully added model: ${modelInfo.name}`, 'success');
             return true;
             
@@ -444,7 +449,7 @@ class Live2DMultiModelManager {
                 <div class="loading-spinner-small"></div>
             </div>
             <div class="character-name">${modelData.name}</div>
-            <button class="remove-character" onclick="event.stopPropagation(); live2dMultiModelManager.removeModel('${modelData.id}')">×</button>
+            <button class="remove-character" onclick="event.stopPropagation(); removeModel('${modelData.id}')">×</button>
         `;
 
         // Add click handler to focus model
@@ -844,6 +849,11 @@ class Live2DMultiModelManager {
         }
 
         this.log(`Model removed: ${modelData.name}`, 'success');
+        
+        // Refresh people panel to reflect the removal
+        if (typeof populatePeopleModels === 'function') {
+            populatePeopleModels();
+        }
     }
 
     clearUIForNoModel() {

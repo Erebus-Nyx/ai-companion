@@ -27,7 +27,7 @@ except ImportError:
 from .memory_system import MemorySystem
 from utils.system_detector import SystemDetector
 from utils.model_downloader import ModelDownloader
-from database.db_manager import DBManager
+from databases.database_manager import DatabaseManager
 
 
 @dataclass
@@ -46,10 +46,10 @@ class EnhancedLLMHandler:
     Enhanced LLM handler with memory integration, caching, and personality awareness.
     """
     
-    def __init__(self, config_path: str = "config.yaml", db_manager: Optional[DBManager] = None):
+    def __init__(self, config_path: str = "config.yaml", db_manager: Optional[DatabaseManager] = None):
         self.logger = logging.getLogger(__name__)
         self.config_path = config_path
-        self.db_manager = db_manager or DBManager()
+        self.db_manager = db_manager or DatabaseManager()
         
         # Initialize memory system
         self.memory_system = MemorySystem(self.db_manager)

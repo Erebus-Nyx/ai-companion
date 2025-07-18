@@ -18,7 +18,9 @@ def analyze_motion_type(motion_file_path):
     Returns: dictionary with detailed analysis
     """
     try:
-        full_path = f"src/web/static/assets/{motion_file_path}"
+        # Use the new user data directory for Live2D models
+        user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
+        full_path = os.path.join(user_data_dir, motion_file_path)
         if os.path.exists(full_path):
             with open(full_path, 'r') as f:
                 motion_data = json.load(f)
@@ -311,7 +313,9 @@ def api_live2d_system_status():
             except Exception as e:
                 logger.error(f"Error getting Live2D status: {e}")
                 status['database_error'] = str(e)
-        assets_dir = 'web/static/assets'
+        # Use user data directory for Live2D models
+        user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
+        assets_dir = os.path.join(user_data_dir, "live2d_models")
         if os.path.exists(assets_dir):
             try:
                 status['system_info']['available_model_directories'] = [
@@ -368,7 +372,9 @@ def api_live2d_comprehensive_test():
                 'error': str(e),
                 'message': 'Database connection failed'
             })
-        assets_dir = 'web/static/assets'
+        # Use user data directory for Live2D models
+        user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
+        assets_dir = os.path.join(user_data_dir, "live2d_models")
         assets_exist = os.path.exists(assets_dir)
         add_test_result('assets_directory_exists', assets_exist, {
             'path': assets_dir,
@@ -431,17 +437,22 @@ def api_debug_paths():
     """Debug endpoint to check path resolution"""
     import os
     import sys
+    user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
+    live2d_models_path = os.path.join(user_data_dir, "live2d_models")
     return jsonify({
         'current_working_directory': os.getcwd(),
         'python_path': sys.path[0] if sys.path else None,
-        'assets_path_tests': {
-            'web/static/assets': os.path.exists('web/static/assets'),
-            'src/web/static/assets': os.path.exists('src/web/static/assets'),
-            './web/static/assets': os.path.exists('./web/static/assets'),
-            'absolute_path': os.path.exists('/home/nyx/ai-companion/src/web/static/assets')
+        'user_data_directory': user_data_dir,
+        'live2d_models_path': live2d_models_path,
+        'path_tests': {
+            'user_data_dir_exists': os.path.exists(user_data_dir),
+            'live2d_models_exists': os.path.exists(live2d_models_path),
+            'old_web_static_assets': os.path.exists('web/static/assets'),
+            'old_src_web_static_assets': os.path.exists('src/web/static/assets'),
         },
         'directory_listings': {
             'current_dir': os.listdir('.') if os.path.exists('.') else 'Not found',
+            'live2d_models_contents': os.listdir(live2d_models_path) if os.path.exists(live2d_models_path) else 'Not found',
             'web_exists': os.path.exists('web'),
             'web_static_exists': os.path.exists('web/static') if os.path.exists('web') else False
         }
@@ -477,7 +488,8 @@ def api_live2d_model_expressions(model_name):
             return jsonify({'error': f'Model {model_name} not found'}), 404
         
         # Try to load model configuration to get expressions
-        model_config_path = f"web/static/assets/{model_name}/{model['config_file']}"
+        user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
+        model_config_path = os.path.join(user_data_dir, "live2d_models", model_name, model['config_file'])
         expressions = []
         
         if os.path.exists(model_config_path):
@@ -538,7 +550,8 @@ def api_live2d_model_motions(model_name):
             return jsonify({'error': f'Model {model_name} not found'}), 404
         
         # Try to get motions from model configuration file first
-        model_config_path = f"web/static/assets/{model_name}/{model['config_file']}"
+        user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
+        model_config_path = os.path.join(user_data_dir, "live2d_models", model_name, model['config_file'])
         motions = {}
         
         if os.path.exists(model_config_path):
@@ -664,7 +677,8 @@ def api_live2d_animation_compatibility(model_name):
             return jsonify({'error': f'Model {model_name} not found'}), 404
         
         # Get motions with conflict information
-        model_config_path = f"web/static/assets/{model_name}/{model['config_file']}"
+        user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
+        model_config_path = os.path.join(user_data_dir, "live2d_models", model_name, model['config_file'])
         compatibility_rules = {
             'face_only_groups': [],
             'body_only_groups': [],

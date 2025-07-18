@@ -2,7 +2,7 @@ class Live2DConfig {
     constructor() {
         this.settings = {
             // Basic settings
-            'modelUrl': '/static/assets',                    // URL of directory containing model folders
+            'modelUrl': '/live2d_models',                   // URL of directory containing model folders (from user data directory)
             'tipsMessage': '',                              // Message tips file (can be empty)
             
             // Model settings

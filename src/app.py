@@ -49,10 +49,10 @@ except ImportError:
             def get_relevant_memories(self, *args, **kwargs): return []
 
 try:
-    from database.db_manager import DBManager
+    from databases.db_manager import DBManager
 except ImportError:
     try:
-        from .database.db_manager import DBManager
+        from .databases.db_manager import DBManager
     except ImportError:
         # Minimal fallback for DBManager
         class DBManager:
@@ -60,10 +60,10 @@ except ImportError:
             def get_connection(self): return None
 
 try:
-    from database.live2d_models_separated import Live2DModelManager
+    from databases.live2d_models_separated import Live2DModelManager
 except ImportError:
     try:
-        from .database.live2d_models_separated import Live2DModelManager
+        from .databases.live2d_models_separated import Live2DModelManager
     except ImportError:
         # Minimal fallback for Live2DModelManager
         class Live2DModelManager:
@@ -255,6 +255,13 @@ def live2d_interface():
     """Serve the Live2D interface"""
     return send_from_directory('web/static', 'live2d_pixi.html')
 
+@app.route('/live2d_models/<path:filename>')
+def serve_live2d_models(filename):
+    """Serve Live2D models from user data directory"""
+    user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
+    live2d_models_path = os.path.join(user_data_dir, "live2d_models")
+    return send_from_directory(live2d_models_path, filename)
+
 @app.route('/api/docs')
 def api_docs():
     """Serve Swagger UI documentation"""
@@ -373,12 +380,14 @@ class AICompanionApp:
             
             # Initialize Live2D model manager
             global live2d_manager
-            # Use relative path to ai_companion.db in the current working directory (src/)
-            db_path = 'ai_companion.db'
-            live2d_manager = Live2DModelManager(db_path)
+            # Use separated databases architecture - no need to pass db_path
+            live2d_manager = Live2DModelManager()
             app_globals.live2d_manager = live2d_manager
-            live2d_manager.scan_models_directory()
-            logger.info(f"Live2D model manager initialized with DB: {db_path} and models scanned")
+            # Use user data directory for Live2D models
+            user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
+            live2d_models_path = os.path.join(user_data_dir, "live2d_models")
+            live2d_manager.scan_models_directory(live2d_models_path)
+            logger.info(f"Live2D model manager initialized with separated databases and models scanned from: {live2d_models_path}")
             
             # Update status
             app_state['initialization_status'] = 'Downloading models...'

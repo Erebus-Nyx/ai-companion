@@ -12,7 +12,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from database.live2d_models import Live2DModelManager
+from databases.live2d_models_separated import Live2DModelManager
 
 def classify_motion_type(group_name, motion_name=""):
     """Classify motion type based on group and motion names"""
@@ -46,8 +46,9 @@ def populate_motions():
     """Populate all motions for all models"""
     print("🔄 === POPULATING ALL LIVE2D MOTIONS ===")
     
-    # Initialize database manager
-    db_path = '/home/nyx/ai-companion/src/ai_companion.db'
+    # Use user data directory for database
+    user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
+    db_path = os.path.join(user_data_dir, "databases", "live2d.db")
     print(f"📂 Database path: {db_path}")
     
     try:
@@ -57,15 +58,16 @@ def populate_motions():
         print(f"❌ Failed to initialize database manager: {e}")
         return False
     
-    # Assets directory
-    assets_dir = '/home/nyx/ai-companion/src/web/static/assets'
-    print(f"📂 Assets directory: {assets_dir}")
+    # Use user data directory for Live2D models  
+    user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
+    assets_dir = os.path.join(user_data_dir, "live2d_models")
+    print(f"📂 Live2D models directory: {assets_dir}")
     
     if not os.path.exists(assets_dir):
-        print(f"❌ Assets directory not found: {assets_dir}")
+        print(f"❌ Live2D models directory not found: {assets_dir}")
         return False
     
-    print("✅ Assets directory found")
+    print("✅ Live2D models directory found")
     
     total_motions = 0
     

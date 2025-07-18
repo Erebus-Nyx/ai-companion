@@ -131,6 +131,20 @@ class ModelDownloader:
                     "model_name": "small",
                     "size_mb": 244,
                     "min_ram_gb": 2
+                },
+                "medium": {
+                    "source_type": "pip_package",
+                    "package_name": "faster-whisper",
+                    "model_name": "medium", 
+                    "size_mb": 769,
+                    "min_ram_gb": 4
+                },
+                "large-v3": {
+                    "source_type": "pip_package",
+                    "package_name": "faster-whisper",
+                    "model_name": "large-v3",
+                    "size_mb": 1550,
+                    "min_ram_gb": 8
                 }
             },
             "silero_vad": {
@@ -145,7 +159,7 @@ class ModelDownloader:
             "pyannote_vad": {
                 "segmentation": {
                     "source_type": "local_git",
-                    "local_path": "src/models/pyannote/segmentation-3.0/models--pyannote--segmentation-3.0/snapshots/e66f3d3b9eb0873085418a7b813d3b369bf160bb",
+                    "local_path": "/home/nyx/.local/share/ai-companion/models/pyannote/segmentation-3.0",
                     "files": [
                         "config.yaml"
                     ],
@@ -156,7 +170,7 @@ class ModelDownloader:
             "pyannote_diarization": {
                 "speaker_diarization": {
                     "source_type": "local_git",
-                    "local_path": "src/models/pyannote/speaker-diarization-3.1/models--pyannote--speaker-diarization-3.1/snapshots/84fd25912480287da0247647c3d2b4853cb3ee5d", 
+                    "local_path": "/home/nyx/.local/share/ai-companion/models/pyannote/speaker-diarization-3.1", 
                     "files": [
                         "config.yaml"
                     ],
@@ -175,13 +189,17 @@ class ModelDownloader:
         llm_size = capabilities["recommended_llm_size"]
         memory_gb = self.system_detector.system_info.get("total_memory_gb", 4)
         
-        # Select whisper model based on system capability
-        if memory_gb >= 8:
-            whisper_size = "small"
+        # Select whisper model based on system capability  
+        if memory_gb >= 32:
+            whisper_size = "large-v3"  # Best quality for very high-end systems (64GB+ gets this)
+        elif memory_gb >= 16:
+            whisper_size = "large-v3"  # Best quality for high-end systems  
+        elif memory_gb >= 8:
+            whisper_size = "medium"    # Good quality for mid-range systems
         elif memory_gb >= 4:
-            whisper_size = "base" 
+            whisper_size = "small"     # Decent quality for lower-end systems
         else:
-            whisper_size = "tiny"
+            whisper_size = "base"      # Basic quality for minimal systems
         
         # All required models for AI Companion
         models = {

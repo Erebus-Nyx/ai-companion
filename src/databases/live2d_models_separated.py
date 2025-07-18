@@ -67,11 +67,13 @@ class Live2DModelManager:
             conn.commit()
             self.logger.info("Live2D database tables created/verified")
     
-    def scan_models_directory(self, models_base_path: str = "/home/nyx/ai-companion/src/web/static/assets"):
+    def scan_models_directory(self, models_base_path: str = None):
         """
         Scan the models directory and register all available Live2D models.
         This also removes models that no longer exist in the filesystem.
         """
+        if models_base_path is None:
+            models_base_path = os.path.expanduser("~/.local/share/ai-companion/live2d_models")
         models_path = Path(models_base_path)
         if not models_path.exists():
             self.logger.warning(f"Models directory not found: {models_path}")
@@ -89,8 +91,8 @@ class Live2DModelManager:
                 model_files = list(model_dir.glob("**/*.model3.json"))
                 if model_files:
                     model_file = model_files[0]  # Use first found
-                    # Store model_path as web-relative path without leading slash
-                    rel_model_path = f"static/assets/{model_dir.name}"
+                    # For models in user directory, use relative path from live2d_models
+                    rel_model_path = f"live2d_models/{model_dir.name}"
                     # Get relative path from model directory to config file
                     config_relative_path = str(model_file.relative_to(model_dir))
                     self.register_model(
@@ -114,14 +116,9 @@ class Live2DModelManager:
         """
         try:
             model_dir = Path(model_path)
-            motions_dir = model_dir / "motions"
             
-            if not motions_dir.exists():
-                self.logger.info(f"No motions directory found for model: {model_name}")
-                return
-            
-            # Find all .motion3.json files
-            motion_files = list(motions_dir.glob("**/*.motion3.json"))
+            # Find all .motion3.json files recursively (not just in motions/ directory)
+            motion_files = list(model_dir.glob("**/*.motion3.json"))
             
             if not motion_files:
                 self.logger.info(f"No motion files found for model: {model_name}")
@@ -133,9 +130,10 @@ class Live2DModelManager:
                 # Extract motion name from filename
                 motion_name = motion_file.stem
                 
-                # Try to determine motion group from directory structure or filename
+                # Try to determine motion group from directory structure
                 motion_group = "default"
-                if motion_file.parent != motions_dir:
+                # Use the immediate parent directory as the group
+                if motion_file.parent.name != model_dir.name:
                     motion_group = motion_file.parent.name
                 
                 # Determine motion type based on filename patterns
@@ -146,6 +144,8 @@ class Live2DModelManager:
                     motion_type = "head"
                 elif any(keyword in motion_name.lower() for keyword in ["expression", "emotion"]):
                     motion_type = "expression"
+                elif any(keyword in motion_name.lower() for keyword in ["idle"]):
+                    motion_type = "idle"
                 
                 motions_data.append({
                     "group": motion_group,

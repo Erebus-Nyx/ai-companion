@@ -4,18 +4,29 @@ config_version: "1.0"
 # TODO: Configuration Updates Needed
 # =================================
 # RECENT CHANGES TO INTEGRATE:
-# A. Database Consolidation:
-#    - Update all database connection code to use consolidated src/databases/ paths
-#    - Implement database migration scripts for new structure
-#    - Update backup/restore scripts for new directory layout
+# A. Database Deployment Structure:
+#    - Databases will be created in user data directory (~/.local/share/ai-companion/databases/)
+#    - Implement database initialization on first app startup
+#    - Create database schema migration system for updates
+#    - Add database backup/restore functionality
+#    - Ensure proper isolation between different user installations
 #
-# B. SafeTensor LLM Model:
+# B. SafeTensor LLM Models:
+#    - Primary: TheBloke/Wizard-Vicuna-13B-Uncensored-GPTQ (SafeTensor format)
+#    - Fallback: Drakldol/Llama-3.1-8B-Instruct-1.2-Uncensored (if GPTQ causes llama.cpp issues)
 #    - Update LLM handler to support SafeTensor format loading
 #    - Add SafeTensor-specific optimization settings
-#    - Implement SafeTensor model validation and error handling
-#    - Add model conversion utilities (GGUF ↔ SafeTensor)
+#    - Implement model fallback mechanism for compatibility issues
+#    - Add model conversion utilities if needed
 #
-# C. Kokoro Voice Directory Structure:
+# C. Live2D Models in Git:
+#    - Live2D models now stored in git repository
+#    - Implement automatic model installation to user directory during setup
+#    - Add model refresh/update functionality via CLI and web interface
+#    - Create model discovery system for new models added to git
+#
+# D. Kokoro Voice Directory Structure:
+#    - Voice files moved to dedicated directory structure
 #    - Update TTS handler to use new voice directory structure
 #    - Implement voice file discovery and validation
 #    - Add voice switching API endpoints
@@ -105,24 +116,30 @@ database:
     pool_size: 5
     timeout: 30
   paths:
-    # NOTE: All databases consolidated to src/databases/ directory
+    # NOTE: Databases will be created in user data directory for deployment isolation
     ai_companion: "~/.local/share/ai-companion/databases/ai_companion.db"
     conversations: "~/.local/share/ai-companion/databases/conversations.db"
-    live2d_models: "~/.local/share/ai-companion/databases/live2d_models.db"
+    live2d_models: "~/.local/share/ai-companion/databases/live2d.db"
     personality: "~/.local/share/ai-companion/databases/personality.db"
     system: "~/.local/share/ai-companion/databases/system.db"
   
 # Model settings
 integrated_models:
   llm:
-    # NOTE: Changed to SafeTensor model format
-    model_name: "TheBloke/Wizard-Vicuna-13B-Uncensored-GPTQ"  # Updated to SafeTensor model
+    # Primary SafeTensor model
+    model_name: "TheBloke/Wizard-Vicuna-13B-Uncensored-GPTQ"
     model_path: "~/.local/share/ai-companion/models/llm/Wizard-Vicuna-13B-Uncensored-GPTQ"
-    model_format: "safetensors"  # New: specify model format
+    model_format: "safetensors"
     max_tokens: 4096
     temperature: 0.7
     top_p: 1.0
+    # Alternative SafeTensor model if GPTQ causes llama.cpp integration issues
+    fallback_model:
+      model_name: "Drakldol/Llama-3.1-8B-Instruct-1.2-Uncensored"
+      model_path: "~/.local/share/ai-companion/models/llm/Llama-3.1-8B-Instruct-1.2-Uncensored"
+      model_format: "safetensors"
     # TODO: Add SafeTensor-specific configuration options
+    # TODO: Implement fallback mechanism for GPTQ compatibility issues
   tts:
     # NOTE: Updated Kokoro paths with separate voice directory
     model_name: "onnx-community/Kokoro-82M-ONNX"  # Updated model name

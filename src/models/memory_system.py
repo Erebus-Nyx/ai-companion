@@ -16,7 +16,7 @@ import re
 # Add the src directory to Python path for absolute imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from database.db_manager import DBManager
+from databases.database_manager import DatabaseManager as DBManager
 
 
 @dataclass

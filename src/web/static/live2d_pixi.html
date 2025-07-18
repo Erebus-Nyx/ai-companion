@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live2D AI Companion - Dual Architecture Testing Interface</title>
-    <link rel="stylesheet" href="css/live2d_test.css">
+    <link rel="stylesheet" href="/static/css/live2d_test.css">
 </head>
     
     <!-- 
@@ -527,16 +527,16 @@
 
 <!-- Load PIXI.js and Live2D libraries in correct order -->
 <!-- Step 1: Load PIXI.js 6.5.10 from dist folder -->
-<script src="dist/pixi-6.5.10.min.js"></script>
+<script src="/static/dist/pixi-6.5.10.min.js"></script>
 
 <!-- Step 2: Load EventEmitter compatibility for PIXI v6 -->
-<script src="js/eventemitter-preloader-v6.js"></script>
+<script src="/static/js/eventemitter-preloader-v6.js"></script>
 
 <!-- Step 3: Load Live2D v2 Bundle for Cubism 2.x models -->
-<script src="dist/live2d_bundle.js"></script>
+<script src="/static/dist/live2d_bundle.js"></script>
 
 <!-- Step 4: Load Cubism 5 Core for modern models -->
-<script src="dist/CubismSdkForWeb-5-r.4/Core/live2dcubismcore.min.js"></script>
+<script src="/static/dist/CubismSdkForWeb-5-r.4/Core/live2dcubismcore.min.js"></script>
 
 <!-- Step 6: Verify dual architecture setup -->
 <script>
@@ -564,7 +564,7 @@ console.log('=== End Verification ===');
 </script>
 
 <!-- Step 5: Load pixi-live2d-display (local for offline installation) -->
-<script src="dist/pixi-live2d-display-0.4.0.min.js"></script>
+<script src="/static/dist/pixi-live2d-display-0.4.0.min.js"></script>
 
 <!-- Step 5: Verify Live2D plugin initialization -->
 <script>
@@ -640,24 +640,24 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <!-- Step 5: Load Live2D modular system -->
-<script src="js/live2d_config.js"></script>
-<script src="js/live2d_logger.js"></script>
-<script src="js/live2d_tester.js"></script>
-<script src="js/live2d_interaction.js"></script>
-<script src="js/live2d_core.js"></script>
-<script src="js/live2d_model_manager.js"></script>
-<script src="js/live2d_multi_model_manager.js"></script>
-<script src="js/live2d_motion_manager.js"></script>
-<script src="js/live2d_integration.js"></script>
-<script src="js/live2d_ui_controller.js"></script>
-<script src="js/live2d_simple_fix.js"></script>
+<script src="/static/js/live2d_config.js"></script>
+<script src="/static/js/live2d_logger.js"></script>
+<script src="/static/js/live2d_tester.js"></script>
+<script src="/static/js/live2d_interaction.js"></script>
+<script src="/static/js/live2d_core.js"></script>
+<script src="/static/js/live2d_model_manager.js"></script>
+<script src="/static/js/live2d_multi_model_manager.js"></script>
+<script src="/static/js/live2d_motion_manager.js"></script>
+<script src="/static/js/live2d_integration.js"></script>
+<script src="/static/js/live2d_ui_controller.js"></script>
+<script src="/static/js/live2d_simple_fix.js"></script>
 
 <!-- AI Companion Core Functionality -->
-<script src="js/tts-audio.js"></script>
-<script src="js/chat.js"></script>
-<script src="js/db.js"></script>
-<script src="js/debug.js"></script>
-<script src="js/voice-recording.js"></script>
+<script src="/static/js/tts-audio.js"></script>
+<script src="/static/js/chat.js"></script>
+<script src="/static/js/db.js"></script>
+<script src="/static/js/debug.js"></script>
+<script src="/static/js/voice-recording.js"></script>
 
 <!-- SocketIO for real-time communication -->
 <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
@@ -694,6 +694,9 @@ async function initializeLive2D() {
         
         // Set up connection between multi-model manager and UI controller
         live2dMultiModelManager.setUIController(uiController);
+        
+        // Initialize the People panel with actual loaded models (clear any hardcoded data)
+        populatePeopleModels();
         
         console.log('Live2D system initialized successfully!');
         
@@ -1539,28 +1542,40 @@ function populatePeopleModels() {
     // Clear existing models
     modelsList.innerHTML = '';
     
-    // This would normally get models from the multi-model manager
-    // For now, we'll simulate some models
-    const models = [
-        { id: 'miku_2', name: 'Miku 2', emoji: '🎤', active: true },
-        { id: 'example_model', name: 'Example', emoji: '👋', active: false }
-    ];
+    // Get loaded models from multi-model manager
+    if (!live2dMultiModelManager) {
+        modelsList.innerHTML = '<div style="text-align: center; padding: 20px; color: #aaa;">No models loaded</div>';
+        return;
+    }
     
-    models.forEach(model => {
+    const loadedModels = live2dMultiModelManager.getAllModels();
+    
+    if (loadedModels.length === 0) {
+        modelsList.innerHTML = '<div style="text-align: center; padding: 20px; color: #aaa;">No models loaded</div>';
+        return;
+    }
+    
+    loadedModels.forEach(modelData => {
+        const isActive = live2dMultiModelManager.activeModelId === modelData.id;
+        
         const modelItem = document.createElement('div');
-        modelItem.className = `people-model-item ${model.active ? 'active' : ''}`;
+        modelItem.className = `people-model-item ${isActive ? 'active' : ''}`;
         modelItem.innerHTML = `
-            <div class="people-model-avatar">${model.emoji}</div>
+            <div class="people-model-avatar">${modelData.characterImage ? `<img src="${modelData.characterImage}" alt="${modelData.name}">` : '👤'}</div>
             <div class="people-model-info">
-                <div class="people-model-name">${model.name}</div>
-                <div class="people-model-status">${model.active ? 'Active' : 'Inactive'}</div>
+                <div class="people-model-name">${modelData.name}</div>
+                <div class="people-model-status">${isActive ? 'Active' : 'Inactive'}</div>
             </div>
-            <button class="people-model-remove" onclick="removeModel('${model.id}')">×</button>
+            <button class="people-model-remove" onclick="event.stopPropagation(); removeModel('${modelData.id}')">×</button>
         `;
         
         modelItem.addEventListener('click', (e) => {
             if (!e.target.classList.contains('people-model-remove')) {
-                selectModel(model.id);
+                if (live2dMultiModelManager) {
+                    live2dMultiModelManager.setActiveModel(modelData.id);
+                    // Refresh the panel to update active states
+                    populatePeopleModels();
+                }
             }
         });
         
@@ -1617,22 +1632,15 @@ async function loadAvailableModelsForDialog() {
     const modelGrid = document.getElementById('modelGrid');
     
     try {
-        // Get the list of models from the model select dropdown
-        const modelSelect = document.getElementById('modelSelect');
-        const availableModels = [];
-        
-        // Extract models from the dropdown options (excluding the first empty option)
-        for (let i = 1; i < modelSelect.options.length; i++) {
-            const option = modelSelect.options[i];
-            if (option.value) {
-                availableModels.push({
-                    name: option.text,
-                    value: option.value
-                });
-            }
+        // Get models from the Live2D API
+        const response = await fetch('http://localhost:19447/api/live2d/models');
+        if (!response.ok) {
+            throw new Error(`API request failed: ${response.status}`);
         }
         
-        if (availableModels.length === 0) {
+        const availableModels = await response.json();
+        
+        if (!availableModels || availableModels.length === 0) {
             modelGrid.innerHTML = '<div style="text-align: center; padding: 20px; color: #aaa;">No models available. Please check your model directory.</div>';
             return;
         }
@@ -1642,7 +1650,7 @@ async function loadAvailableModelsForDialog() {
         availableModels.forEach(model => {
             const modelCard = document.createElement('div');
             modelCard.className = 'model-card';
-            modelCard.onclick = () => selectModelFromDialog(model.value, model.name);
+            modelCard.onclick = () => selectModelFromDialog(model.name, model.name);
             
             modelCard.innerHTML = `
                 <div class="model-preview">
@@ -1666,16 +1674,22 @@ async function loadAvailableModelsForDialog() {
 function selectModelFromDialog(modelValue, modelName) {
     console.log('Selected model from dialog:', modelName, modelValue);
     
-    // Add to people panel (simulate adding to active models)
-    addModelToPeoplePanel(modelValue, modelName);
+    // Add model using the multi-model manager
+    if (live2dMultiModelManager) {
+        live2dMultiModelManager.addModel(modelName).then(() => {
+            console.log('Model added successfully:', modelName);
+            // The people panel will be refreshed automatically by the multi-model manager
+        }).catch(error => {
+            console.error('Failed to add model:', error);
+            addSystemMessage(`Failed to add model: ${error.message}`, 'error');
+        });
+    } else {
+        console.error('Multi-model manager not available');
+        addSystemMessage('Live2D system not ready', 'error');
+    }
     
     // Close dialog
     closeAddModelDialog();
-    
-    // Optionally load the model in the main view
-    const modelSelect = document.getElementById('modelSelect');
-    modelSelect.value = modelValue;
-    onModelChange();
 }
 
 function addModelToPeoplePanel(modelValue, modelName) {

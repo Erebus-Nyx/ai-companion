@@ -45,12 +45,14 @@ def test_model_files():
     
     import os
     
-    models_dir = "/home/nyx/ai-companion/src/web/static/assets"
+    # Use user data directory for Live2D models
+    user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
+    models_dir = os.path.join(user_data_dir, "live2d_models")
     if not os.path.exists(models_dir):
-        print(f"❌ Models directory not found: {models_dir}")
+        print(f"❌ Live2D models directory not found: {models_dir}")
         return False
     
-    print(f"✅ Models directory exists: {models_dir}")
+    print(f"✅ Live2D models directory exists: {models_dir}")
     
     # Check for kanade model specifically
     kanade_dir = os.path.join(models_dir, "kanade")
