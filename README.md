@@ -1,5 +1,9 @@
 # AI Companion Project
 
+## 📚 **Key Documentation**
+- **[📋 TODO.md](TODO.md)** - Current development status, priorities, and roadmap
+- **[🏗️ ARCHITECTURE_SUMMARY.md](docs/ARCHITECTURE_SUMMARY.md)** - Comprehensive system architecture and implementation details
+
 ## 🎉 Enhanced VAD, Embedded LLM, Personality System & Complete Live2D Integration!
 
 **Latest Update**: Complete production-ready Live2D avatar system with advanced features including mouse interaction, smart scaling, visual debugging, and comprehensive UI integration! Full embedded llama.cpp integration with advanced SQLite memory system, enhanced emotional personality, and interactive animated avatars supporting both legacy and modern model formats.

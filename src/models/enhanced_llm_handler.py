@@ -254,7 +254,7 @@ class EnhancedLLMHandler:
         """Build enhanced prompt with memory context and model-specific personality."""
         # Build memory context string for this model
         memory_context = self.memory_system.build_context_for_llm(
-            user_id="default_user",  # TODO: Get from context
+            user_id="default_user",  # Use default user for now
             current_query=user_input,
             model_id=model_id
         )

@@ -496,13 +496,13 @@ class AICompanionCLI:
         print("=====================")
         
         try:
-            from .config_manager import ConfigManager
+            from .config.config_manager import ConfigManager
         except ImportError:
             try:
-                from config_manager import ConfigManager
+                from config.config_manager import ConfigManager
             except ImportError:
                 # For installed package
-                from src.config_manager import ConfigManager
+                from src.config.config_manager import ConfigManager
             
         # Check if configuration already exists
         manager = ConfigManager()

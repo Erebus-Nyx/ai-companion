@@ -10,6 +10,7 @@ Scripts for database management, migration, and cleanup:
 - `check_motions.py` - Motion data validation
 - `clean_ai_companion_db.py` - Clean AI companion database
 - `clear_database.py` - Clear database contents
+- `migrate_config.py` - Configuration migration
 - `migrate_preview_column.py` - Preview column migration
 - `migrate_pyannote_models.py` - Pyannote model migration
 - `migrate_to_separated_dbs.py` - Migrate to separated databases
@@ -23,6 +24,7 @@ Scripts for initial setup, installation, and data population:
 - `populate_all_motions.py` - Populate motion data
 - `populate_correct_paths.py` - Fix and populate correct paths
 - `populate_live2d_separated.py` - Populate Live2D separated database
+- `populate_model_personalities.py` - Populate model personality data
 - `setup.py` - Legacy setup script
 
 ### `/testing/`
@@ -42,6 +44,7 @@ Test scripts and validation utilities:
 - `test_llm_simple.py` - Test simple LLM functionality
 - `test_local_git_models.py` - Test local git model handling
 - `test_model_downloads.py` - Test model download functionality
+- `test_production_service.py` - Test production service
 - `test_quick_cache.py` - Test quick cache functionality
 - `test_silero.py` - Test Silero VAD
 - `test_var_and_diarization.py` - Test VAR and diarization
@@ -56,7 +59,9 @@ Scripts for running the application and deployment:
 - `deploy.sh` - Main deployment script
 - `deploy_live2d_integration.sh` - Deploy Live2D integration
 - `enhanced_vad_example.py` - Enhanced VAD example
+- `install-systemd-service.sh` - Install systemd service
 - `run_app.py` - Application runner
+- `service-manager.sh` - Service management utilities
 
 ### `/debug/`
 Debug utilities and diagnostic tools:
