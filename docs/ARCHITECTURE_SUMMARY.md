@@ -123,10 +123,11 @@ ai-companion/
 ### Packaging & Distribution ✅
 
 #### Production Packaging
-- **Format**: Modern Python wheel (18MB including Live2D dependencies)
+- **Format**: Modern Python wheel (lightweight, essential components only)
 - **Installation**: `pipx install dist/ai_companion-0.4.0-py3-none-any.whl`
 - **CLI**: Global `ai-companion` command with comprehensive subcommands
 - **Dependencies**: All included for offline operation
+- **Model Storage**: Large models stored in user's local directory (`~/.local/share/ai-companion/`)
 
 #### CLI Interface
 - **Entry Point**: `ai-companion` command
@@ -158,6 +159,7 @@ ai-companion/
 - **Hardware Detection**: Automatic system capability assessment
 - **Model Selection**: Appropriate model size based on available resources
 - **Memory Optimization**: Efficient memory usage for long-running sessions
+- **Model Storage**: Large models automatically downloaded to user's local directory
 
 ## Current Status & Priorities
 
