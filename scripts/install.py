@@ -216,7 +216,7 @@ from pathlib import Path
 
 # Find the correct pipx venv path dynamically
 home = Path.home()
-venv_base = home / ".local" / "share" / "pipx" / "venvs" / "ai2d_chat"
+venv_base = home / ".local" / "share" / "pipx" / "venvs" / "ai2d-chat"
 python_exe = venv_base / "bin" / "python"
 
 # Also find site-packages for backup method
@@ -229,7 +229,7 @@ try:
         "-c", 
         """
 try:
-    from config.config_manager import ConfigManager
+    from ai2d_chat.config.config_manager import ConfigManager
     config_manager = ConfigManager.setup_fresh_installation(clean_databases=True)
     print("Configuration setup completed successfully!")
 except Exception as e:
@@ -273,14 +273,14 @@ except Exception as e:
             try:
                 from pathlib import Path
                 home = Path.home()
-                python_exe = home / ".local" / "share" / "pipx" / "venvs" / "ai2d_chat" / "bin" / "python"
+                python_exe = home / ".local" / "share" / "pipx" / "venvs" / "ai2d-chat" / "bin" / "python"
                 
                 result = subprocess.run([
                     str(python_exe), 
                     "-c", 
                     """
 try:
-    from config.config_manager import ConfigManager
+    from ai2d_chat.config.config_manager import ConfigManager
     config_manager = ConfigManager()
     config = config_manager.load_config()
     print(f"Configuration loaded successfully - Server port: {config.get('server', {}).get('port', 'unknown')}")
