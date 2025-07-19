@@ -27,11 +27,11 @@ The AI Companion is a production-ready local AI assistant featuring Live2D avata
 - **Port**: 19443 (production-ready for Cloudflare/DNS setup)
 - **Architecture**: Modular blueprint routing system
 - **Routes**:
-  - `app_routes_chat.py` - Chat and conversation handling
-  - `app_routes_audio.py` - Audio processing and voice detection
-  - `app_routes_live2d.py` - Live2D model management
-  - `app_routes_tts.py` - Text-to-speech processing
-  - `app_routes_debug.py` - Debug and diagnostics
+  - `routes/app_routes_chat.py` - Chat and conversation handling
+  - `routes/app_routes_audio.py` - Audio processing and voice detection
+  - `routes/app_routes_live2d.py` - Live2D model management
+  - `routes/app_routes_tts.py` - Text-to-speech processing
+  - `routes/app_routes_debug.py` - Debug and diagnostics
 
 #### 3. **LLM Integration** ✅ Enhanced & Functional
 - **Engine**: llama-cpp-python with local inference

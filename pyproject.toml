@@ -99,6 +99,7 @@ Documentation = "https://github.com/Erebus-Nyx/ai-companion/blob/main/README.md"
 
 [project.scripts]
 ai-companion = "cli:main"
+ai-companion-server = "main:main"
 
 [project.optional-dependencies]
 dev = [
@@ -112,27 +113,13 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["*"]
 
 [tool.setuptools.package-dir]
 "" = "src"
 
 [tool.setuptools]
-py-modules = [
-    "cli", 
-    "config_manager", 
-    "app_globals", 
-    "app", 
-    "main", 
-    "app_routes_audio", 
-    "app_routes_chat", 
-    "app_routes_debug", 
-    "app_routes_live2d", 
-    "app_routes_tts", 
-    "socketio_handlers",
-    "api_spec",
-    "api_spec_fixed"
-]
+# Use automatic package discovery for packages and explicitly include top-level modules
+py-modules = ["cli", "main", "app", "app_globals", "__version__"]
 
 [tool.setuptools.package-data]
 "*" = [

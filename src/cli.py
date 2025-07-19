@@ -411,6 +411,77 @@ class AICompanionCLI:
         else:
             print("ℹ️  No server process found")
     
+    def shutdown_servers(self, force=False):
+        """Shutdown all running AI Companion servers."""
+        import subprocess
+        import time
+        
+        print("🔍 Searching for running AI Companion servers...")
+        
+        try:
+            # Find AI companion processes
+            result = subprocess.run(
+                ["ps", "aux"], 
+                capture_output=True, 
+                text=True
+            )
+            
+            ai_processes = []
+            for line in result.stdout.split('\n'):
+                if 'ai-companion server' in line and 'grep' not in line:
+                    parts = line.split()
+                    if len(parts) > 1:
+                        pid = parts[1]
+                        ai_processes.append(pid)
+            
+            if not ai_processes:
+                print("ℹ️  No running AI Companion servers found")
+                return
+            
+            print(f"🎯 Found {len(ai_processes)} running AI Companion server(s)")
+            
+            for pid in ai_processes:
+                print(f"🛑 Stopping server (PID: {pid})...")
+                try:
+                    if force:
+                        subprocess.run(["kill", "-9", pid], check=True)
+                        print(f"   ✅ Force killed process {pid}")
+                    else:
+                        subprocess.run(["kill", "-TERM", pid], check=True)
+                        print(f"   ✅ Sent shutdown signal to process {pid}")
+                except subprocess.CalledProcessError:
+                    print(f"   ❌ Failed to stop process {pid}")
+            
+            if not force:
+                print("⏳ Waiting for graceful shutdown...")
+                time.sleep(2)
+                
+                # Check if processes are still running
+                result = subprocess.run(
+                    ["ps", "aux"], 
+                    capture_output=True, 
+                    text=True
+                )
+                
+                still_running = []
+                for line in result.stdout.split('\n'):
+                    if 'ai-companion server' in line and 'grep' not in line:
+                        parts = line.split()
+                        if len(parts) > 1:
+                            still_running.append(parts[1])
+                
+                if still_running:
+                    print(f"⚠️  {len(still_running)} process(es) still running. Use --force to kill them.")
+                else:
+                    print("✅ All servers shutdown successfully")
+            else:
+                print("✅ All servers force-stopped")
+                
+        except Exception as e:
+            print(f"❌ Error during shutdown: {e}")
+            if not force:
+                print("💡 Try using --force flag for forceful shutdown")
+    
     def show_status(self):
         """Show system status."""
         print(f"📊 {get_version_string()}")
@@ -489,6 +560,216 @@ class AICompanionCLI:
             print(f"🎭 Installing model: {model_name}")
             success = installer.install_model(model_name)
             print(f"{'✅' if success else '❌'} Model installation: {model_name}")
+
+    def handle_tunnel_command(self, args):
+        """Handle Cloudflare tunnel management commands."""
+        if args.tunnel_action == "install":
+            self.install_cloudflared(force=args.force)
+        elif args.tunnel_action == "setup":
+            self.setup_tunnel()
+        elif args.tunnel_action == "start":
+            self.start_tunnel()
+        elif args.tunnel_action == "stop":
+            self.stop_tunnel()
+        elif args.tunnel_action == "status":
+            self.tunnel_status()
+        else:
+            print("❌ Unknown tunnel action. Use: install, setup, start, stop, or status")
+
+    def install_cloudflared(self, force: bool = False):
+        """Install cloudflared for tunnel functionality."""
+        print("🌐 Installing Cloudflare Tunnel (cloudflared)...")
+        
+        # Check if already installed
+        try:
+            result = subprocess.run(['cloudflared', '--version'], capture_output=True, text=True)
+            if result.returncode == 0 and not force:
+                print(f"✅ cloudflared already installed: {result.stdout.strip()}")
+                return True
+        except FileNotFoundError:
+            pass
+        
+        try:
+            import platform
+            system = platform.system().lower()
+            
+            if system == "linux":
+                print("📦 Installing cloudflared for Linux...")
+                subprocess.run([
+                    'curl', '-L', '--output', '/tmp/cloudflared.deb',
+                    'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb'
+                ], check=True)
+                subprocess.run(['sudo', 'dpkg', '-i', '/tmp/cloudflared.deb'], check=True)
+                subprocess.run(['rm', '/tmp/cloudflared.deb'], check=True)
+                
+            elif system == "darwin":
+                print("📦 Installing cloudflared for macOS...")
+                subprocess.run(['brew', 'install', 'cloudflared'], check=True)
+                
+            else:
+                print(f"❌ Automatic installation not supported for {system}")
+                print("Please install cloudflared manually:")
+                print("https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/")
+                return False
+                
+            print("✅ cloudflared installed successfully")
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to install cloudflared: {e}")
+            return False
+        except Exception as e:
+            print(f"❌ Installation error: {e}")
+            return False
+
+    def setup_tunnel(self):
+        """Setup Cloudflare tunnel configuration."""
+        print("🔧 Setting up Cloudflare tunnel...")
+        
+        # Check if cloudflared is installed
+        try:
+            subprocess.run(['cloudflared', '--version'], capture_output=True, check=True)
+        except FileNotFoundError:
+            print("❌ cloudflared not found. Run 'ai-companion tunnel install' first")
+            return False
+        
+        print("\n📋 Tunnel Setup Instructions:")
+        print("=============================")
+        print("\n1. First, authenticate with Cloudflare:")
+        print("   cloudflared tunnel login")
+        print("\n2. Create a tunnel:")
+        print("   cloudflared tunnel create ai-companion")
+        print("\n3. Configure the tunnel:")
+        print("   Create ~/.cloudflared/config.yml with your tunnel ID")
+        print("\n4. Route traffic through the tunnel:")
+        print("   cloudflared tunnel route dns ai-companion your-domain.com")
+        print("\n5. Test your tunnel:")
+        print("   ai-companion tunnel start")
+        
+        print("\n💡 Example config.yml:")
+        print("----------------------")
+        config_example = """tunnel: YOUR_TUNNEL_ID
+credentials-file: ~/.cloudflared/YOUR_TUNNEL_ID.json
+
+ingress:
+  - hostname: ai-companion.yourdomain.com
+    service: http://localhost:19447
+  - service: http_status:404"""
+        print(config_example)
+        
+        return True
+
+    def start_tunnel(self):
+        """Start Cloudflare tunnel."""
+        print("🚀 Starting Cloudflare tunnel...")
+        
+        try:
+            # Check if cloudflared is installed
+            subprocess.run(['cloudflared', '--version'], capture_output=True, check=True)
+        except FileNotFoundError:
+            print("❌ cloudflared not found. Run 'ai-companion tunnel install' first")
+            return False
+        
+        # Check if config exists
+        config_path = os.path.expanduser("~/.cloudflared/config.yml")
+        if not os.path.exists(config_path):
+            print("❌ Tunnel configuration not found at ~/.cloudflared/config.yml")
+            print("💡 Run 'ai-companion tunnel setup' for configuration instructions")
+            return False
+        
+        try:
+            # Start tunnel in background
+            process = subprocess.Popen(
+                ['cloudflared', 'tunnel', 'run'],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=True
+            )
+            
+            # Give it a moment to start
+            time.sleep(2)
+            
+            # Check if it's still running
+            if process.poll() is None:
+                print("✅ Cloudflare tunnel started successfully")
+                print(f"📋 Process ID: {process.pid}")
+                print("💡 Use 'ai-companion tunnel status' to check tunnel status")
+                print("🛑 Use 'ai-companion tunnel stop' to stop the tunnel")
+                return True
+            else:
+                stdout, stderr = process.communicate()
+                print("❌ Failed to start tunnel")
+                if stderr:
+                    print(f"Error: {stderr.decode()}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Error starting tunnel: {e}")
+            return False
+
+    def stop_tunnel(self):
+        """Stop Cloudflare tunnel."""
+        print("🛑 Stopping Cloudflare tunnel...")
+        
+        try:
+            # Find cloudflared processes
+            result = subprocess.run(['pgrep', '-f', 'cloudflared.*tunnel.*run'], capture_output=True, text=True)
+            
+            if result.returncode == 0:
+                pids = result.stdout.strip().split('\n')
+                for pid in pids:
+                    if pid:
+                        try:
+                            subprocess.run(['kill', pid], check=True)
+                            print(f"✅ Stopped tunnel process (PID: {pid})")
+                        except subprocess.CalledProcessError:
+                            print(f"❌ Failed to stop process {pid}")
+                return True
+            else:
+                print("ℹ️  No running tunnel processes found")
+                return True
+                
+        except Exception as e:
+            print(f"❌ Error stopping tunnel: {e}")
+            return False
+
+    def tunnel_status(self):
+        """Show Cloudflare tunnel status."""
+        print("📊 Cloudflare Tunnel Status")
+        print("===========================")
+        
+        # Check if cloudflared is installed
+        try:
+            result = subprocess.run(['cloudflared', '--version'], capture_output=True, text=True)
+            print(f"✅ cloudflared installed: {result.stdout.strip()}")
+        except FileNotFoundError:
+            print("❌ cloudflared not installed")
+            print("💡 Run 'ai-companion tunnel install' to install")
+            return
+        
+        # Check for running processes
+        try:
+            result = subprocess.run(['pgrep', '-f', 'cloudflared.*tunnel.*run'], capture_output=True, text=True)
+            
+            if result.returncode == 0:
+                pids = result.stdout.strip().split('\n')
+                print(f"🚀 Running tunnel processes: {len(pids)}")
+                for pid in pids:
+                    if pid:
+                        print(f"   • PID: {pid}")
+            else:
+                print("⏹️  No tunnel processes running")
+                
+        except Exception as e:
+            print(f"❌ Error checking tunnel status: {e}")
+        
+        # Check config file
+        config_path = os.path.expanduser("~/.cloudflared/config.yml")
+        if os.path.exists(config_path):
+            print(f"✅ Configuration file found: {config_path}")
+        else:
+            print(f"❌ Configuration file not found: {config_path}")
+            print("💡 Run 'ai-companion tunnel setup' for setup instructions")
 
     def handle_setup_command(self, args):
         """Handle the setup command for AI Companion configuration."""
@@ -606,6 +887,13 @@ Examples:
   ai-companion server                    # Start server on default port
   ai-companion server --port 8080       # Start server on custom port
   ai-companion server --dev             # Start in development mode
+  ai-companion shutdown                  # Shutdown running servers gracefully
+  ai-companion shutdown --force          # Force kill all AI companion processes
+  ai-companion tunnel install           # Install Cloudflare tunnel
+  ai-companion tunnel setup             # Setup tunnel configuration
+  ai-companion tunnel start             # Start Cloudflare tunnel
+  ai-companion tunnel stop              # Stop Cloudflare tunnel
+  ai-companion tunnel status            # Show tunnel status
   ai-companion api                       # Show API documentation
   ai-companion api --format json        # Show API docs in JSON format
   ai-companion status                    # Show system status
@@ -613,8 +901,6 @@ Examples:
   ai-companion models                    # Show model information
   ai-companion models --list             # List available models
   ai-companion models --paths            # Show model storage paths
-  ai-companion models                    # Show model storage paths
-  ai-companion models --list             # List all available models
         """
     )
     
@@ -638,6 +924,11 @@ Examples:
     
     # Status command
     subparsers.add_parser("status", help="Show system status")
+    
+    # Shutdown command
+    shutdown_parser = subparsers.add_parser("shutdown", help="Shutdown running AI Companion servers")
+    shutdown_parser.add_argument("--force", action="store_true", help="Force kill all AI companion processes")
+    shutdown_parser.add_argument("--all", action="store_true", help="Shutdown all AI companion processes (same as --force)")
     
     # Setup command
     setup_parser = subparsers.add_parser("setup", help="Set up AI Companion configuration")
@@ -665,6 +956,18 @@ Examples:
     install_parser = live2d_subparsers.add_parser("install-single", help="Install specific model")
     install_parser.add_argument("model_name", help="Name of model to install")
     
+    # Tunnel command
+    tunnel_parser = subparsers.add_parser("tunnel", help="Cloudflare tunnel management")
+    tunnel_subparsers = tunnel_parser.add_subparsers(dest="tunnel_action", help="Tunnel actions")
+    
+    tunnel_subparsers.add_parser("start", help="Start Cloudflare tunnel")
+    tunnel_subparsers.add_parser("stop", help="Stop Cloudflare tunnel")
+    tunnel_subparsers.add_parser("status", help="Show tunnel status")
+    tunnel_subparsers.add_parser("setup", help="Setup Cloudflare tunnel configuration")
+    
+    tunnel_install_parser = tunnel_subparsers.add_parser("install", help="Install cloudflared")
+    tunnel_install_parser.add_argument("--force", action="store_true", help="Force reinstall cloudflared")
+    
     args = parser.parse_args()
     
     cli = AICompanionCLI()
@@ -682,6 +985,9 @@ Examples:
     elif args.command == "status":
         cli.show_status()
     
+    elif args.command == "shutdown":
+        cli.shutdown_servers(force=args.force or args.all)
+    
     elif args.command == "setup":
         cli.handle_setup_command(args)
     
@@ -694,6 +1000,9 @@ Examples:
     
     elif args.command == "live2d":
         cli.handle_live2d_command(args)
+    
+    elif args.command == "tunnel":
+        cli.handle_tunnel_command(args)
     
     else:
         # No command specified, show help

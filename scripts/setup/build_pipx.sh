@@ -15,12 +15,16 @@ find . -name "__pycache__" -delete
 # Verify version consistency
 echo "📋 Verifying version consistency..."
 echo "   - pyproject.toml: $(grep 'version =' pyproject.toml | cut -d'"' -f2)"
-echo "   - setup.py: $(grep "version=" setup.py | cut -d"'" -f2)"
+if [ -f "setup.py" ]; then
+    echo "   - setup.py: $(grep "version=" setup.py | cut -d"'" -f2)"
+else
+    echo "   - setup.py: not found (using pyproject.toml only)"
+fi
 echo "   - package.json: $(grep '"version"' package.json | cut -d'"' -f4)"
 
 # Build the package
 echo "📦 Building package..."
-python -m build
+python3 -m build
 
 # Verify the package
 echo "✅ Verifying package contents..."
@@ -46,7 +50,7 @@ cd $TEST_DIR
 echo "📍 Testing in: $TEST_DIR"
 
 # Create virtual environment
-python -m venv test_env
+python3 -m venv test_env
 source test_env/bin/activate
 
 # Install the package

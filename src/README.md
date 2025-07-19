@@ -28,12 +28,12 @@ Configuration management and templates:
 
 ### `/routes/`
 Flask route handlers by functionality:
-- `app_routes_audio.py` - Audio processing routes
-- `app_routes_chat.py` - Chat functionality routes
-- `app_routes_debug.py` - Debug and diagnostic routes
-- `app_routes_live2d.py` - Live2D avatar routes
-- `app_routes_system.py` - System management routes
-- `app_routes_tts.py` - Text-to-speech routes
+- `routes/app_routes_audio.py` - Audio processing routes
+- `routes/app_routes_chat.py` - Chat functionality routes
+- `routes/app_routes_debug.py` - Debug and diagnostic routes
+- `routes/app_routes_live2d.py` - Live2D avatar routes
+- `routes/app_routes_system.py` - System management routes
+- `routes/app_routes_tts.py` - Text-to-speech routes
 
 ### `/audio/`
 Audio processing components:

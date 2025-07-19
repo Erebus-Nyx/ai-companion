@@ -209,31 +209,180 @@ class ConfigManager:
             logger.warning(f"Could not copy default secrets: {e}")
             self._create_minimal_secrets(secrets_path)
             
+    def _update_template_config_paths(self, config_path: Path):
+        """Update template configuration with system-specific paths and model selection."""
+        try:
+            # Load the installed template
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
+            
+            # Use proper system detector and model downloader for model selection
+            try:
+                from ..utils.system_detector import SystemDetector
+                from ..utils.model_downloader import ModelDownloader
+                
+                system_detector = SystemDetector()
+                model_downloader = ModelDownloader(
+                    models_dir=str(self.models_dir),
+                    cache_dir=str(self.cache_dir)
+                )
+                
+                # Get recommended models from the proper system
+                recommended_models = model_downloader.get_recommended_models()
+                llm_variant = recommended_models.get("llm", "tiny")
+                stt_variant = recommended_models.get("whisper", "base")
+                
+                # Get the proper model names from the registry
+                llm_registry = model_downloader.model_registry.get("llm", {})
+                llm_config = llm_registry.get(llm_variant, {})
+                llm_model_name = llm_config.get("repo_id", "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF")
+                
+                logger.info(f"System detector recommended: LLM={llm_variant}, STT={stt_variant}")
+                
+            except ImportError as e:
+                logger.warning(f"Could not import system detector/model downloader: {e}")
+                # Fallback to basic system detection
+                try:
+                    import psutil
+                    memory_gb = int(psutil.virtual_memory().total / (1024**3))
+                    if memory_gb >= 16:
+                        llm_model_name = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
+                        stt_variant = "large-v3"
+                    elif memory_gb >= 8:
+                        llm_model_name = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
+                        stt_variant = "medium"
+                    elif memory_gb >= 4:
+                        llm_model_name = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
+                        stt_variant = "small"
+                    else:
+                        llm_model_name = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
+                        stt_variant = "base"
+                except ImportError:
+                    # Ultimate fallback
+                    llm_model_name = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
+                    stt_variant = "base"
+            
+            # Update paths to use proper user directories instead of ~ placeholders
+            path_mappings = {
+                # Database paths
+                'database.paths.ai_companion': str(self.database_dir / 'ai_companion.db'),
+                'database.paths.conversations': str(self.database_dir / 'conversations.db'),
+                'database.paths.live2d_models': str(self.database_dir / 'live2d.db'),
+                'database.paths.personality': str(self.database_dir / 'personality.db'),
+                'database.paths.system': str(self.database_dir / 'system.db'),
+                'database.paths.users': str(self.database_dir / 'users.db'),
+                'database.paths.user_profiles': str(self.database_dir / 'user_profiles.db'),
+                'database.paths.user_sessions': str(self.database_dir / 'user_sessions.db'),
+                
+                # Model paths - use system-detected model names
+                'integrated_models.llm.model_name': llm_model_name,
+                'integrated_models.llm.model_path': str(self.models_dir / 'llm'),
+                'integrated_models.tts.model_path': str(self.models_dir / 'tts' / 'kokoro'),
+                'integrated_models.tts.voice_path': str(self.models_dir / 'tts' / 'voices'),
+                'integrated_models.stt.model_path': str(self.models_dir / 'faster-whisper'),
+                'integrated_models.stt.stt_model': stt_variant,
+                'integrated_models.vad.model_path': str(self.models_dir / 'silero_vad'),
+                
+                # Cache and log paths
+                'audio_processing.audio_output_path': str(self.cache_dir / 'audio_output/'),
+                'audio_processing.audio_input_path': str(self.cache_dir / 'audio_input/'),
+                'logging.file_log_path': str(self.cache_dir / 'logs/app.log'),
+                'general.logging_file': str(self.cache_dir / 'logs/app.log'),
+                'general.secrets_file': str(self.config_dir / '.secrets'),
+                
+                # Service configuration
+                'service.deployment_mode': 'pipx',
+                'service.working_directory': str(self.data_dir),
+                'service.environment_vars.PYTHONPATH': str(self.data_dir),
+                'service.environment_vars.AI_COMPANION_CONFIG': str(self.config_dir / 'config.yaml'),
+                
+                # Live2D model paths
+                'live2d_models.Epsilon.model_info.path': str(self.live2d_models_dir / 'epsilon'),
+                'live2d_models.Iori.model_info.path': str(self.live2d_models_dir / 'iori'),
+                'live2d_models.Nodoka.model_info.path': str(self.live2d_models_dir / 'nodoka'),
+                'live2d_models.Haru.model_info.path': str(self.live2d_models_dir / 'haru'),
+                'live2d_models.Haruka.model_info.path': str(self.live2d_models_dir / 'haruka'),
+                'live2d_models.Mori.model_info.path': str(self.live2d_models_dir / 'mori'),
+                'live2d_models.hiyori.model_info.path': str(self.live2d_models_dir / 'hiyori'),
+                'live2d_models.kanade.model_info.path': str(self.live2d_models_dir / 'kanade'),
+                'live2d_models.Tsumiki.model_info.path': str(self.live2d_models_dir / 'tsumiki'),
+            }
+            
+            # Apply path mappings using dot notation
+            for path_key, new_value in path_mappings.items():
+                self._set_nested_dict_value(config, path_key, new_value)
+            
+            # Write the updated configuration back
+            with open(config_path, 'w') as f:
+                yaml.dump(config, f, default_flow_style=False, indent=2, width=120)
+                
+            logger.info(f"Updated template config with system-specific paths and models: LLM={llm_model_name}, STT={stt_variant}")
+            
+        except Exception as e:
+            logger.error(f"Failed to update template config paths: {e}")
+            raise
+    
+    def _set_nested_dict_value(self, dictionary: dict, key_path: str, value):
+        """Set a value in a nested dictionary using dot notation."""
+        keys = key_path.split('.')
+        current_dict = dictionary
+        
+        # Navigate to the parent dictionary
+        for key in keys[:-1]:
+            if key not in current_dict:
+                current_dict[key] = {}
+            current_dict = current_dict[key]
+        
+        # Set the final value
+        current_dict[keys[-1]] = value
+
     def _create_functional_default_config(self, config_path: Path):
         """Create functional default configuration with appropriate model settings."""
-        # Import system detector to determine appropriate model sizes
+        # Use proper system detector and model downloader for model selection
         try:
-            from .utils.system_detector import SystemDetector
-            system_detector = SystemDetector()
-            memory_gb = system_detector.system_info.get("total_memory_gb", 4)
+            from ..utils.system_detector import SystemDetector
+            from ..utils.model_downloader import ModelDownloader
             
-            # Select appropriate models based on system capabilities
-            if memory_gb >= 16:
-                llm_model = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"  # Start with tiny for reliability
-                stt_model = "large-v3"  # High quality for good systems
-            elif memory_gb >= 8:
-                llm_model = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
-                stt_model = "medium"
-            elif memory_gb >= 4:
-                llm_model = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
-                stt_model = "small"
-            else:
-                llm_model = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
-                stt_model = "base"
-        except:
-            # Fallback if system detection fails
-            llm_model = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
-            stt_model = "base"
+            system_detector = SystemDetector()
+            model_downloader = ModelDownloader(
+                models_dir=str(self.models_dir),
+                cache_dir=str(self.cache_dir)
+            )
+            
+            # Get recommended models from the proper system
+            recommended_models = model_downloader.get_recommended_models()
+            llm_variant = recommended_models.get("llm", "tiny")
+            stt_variant = recommended_models.get("whisper", "base")
+            
+            # Get the proper model names from the registry
+            llm_registry = model_downloader.model_registry.get("llm", {})
+            llm_config = llm_registry.get(llm_variant, {})
+            llm_model_name = llm_config.get("repo_id", "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF")
+            
+            logger.info(f"System detector recommended for fallback config: LLM={llm_variant}, STT={stt_variant}")
+            
+        except ImportError as e:
+            logger.warning(f"Could not import system detector/model downloader: {e}")
+            # Fallback to basic system detection
+            try:
+                import psutil
+                memory_gb = int(psutil.virtual_memory().total / (1024**3))
+                if memory_gb >= 16:
+                    llm_model_name = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
+                    stt_variant = "large-v3"
+                elif memory_gb >= 8:
+                    llm_model_name = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
+                    stt_variant = "medium"
+                elif memory_gb >= 4:
+                    llm_model_name = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
+                    stt_variant = "small"
+                else:
+                    llm_model_name = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
+                    stt_variant = "base"
+            except ImportError:
+                # Ultimate fallback
+                llm_model_name = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
+                stt_variant = "base"
         
         # Create functional default configuration based on current config.yaml structure
         default_config = {
@@ -322,7 +471,7 @@ class ConfigManager:
             },
             'integrated_models': {
                 'llm': {
-                    'model_name': llm_model,
+                    'model_name': llm_model_name,
                     'model_path': str(self.models_dir / 'llm' / 'TinyLlama-1.1B-Chat-v1.0-GGUF'),
                     'model_format': 'gguf',
                     'max_tokens': 4096,
@@ -339,7 +488,7 @@ class ConfigManager:
                 'stt': {
                     'model_name': 'faster-whisper',
                     'model_path': str(self.models_dir / 'faster-whisper'),
-                    'stt_model': stt_model,
+                    'stt_model': stt_variant,
                     'stt_language': 'en',
                     'stt_device': 'auto',
                     'stt_compute_type': 'float16',
@@ -448,7 +597,7 @@ class ConfigManager:
         with open(config_path, 'w') as f:
             yaml.dump(default_config, f, default_flow_style=False, indent=2, width=120)
             
-        logger.info(f"Created functional default config at: {config_path} with LLM: {llm_model}, STT: {stt_model}")
+        logger.info(f"Created functional default config at: {config_path} with LLM: {llm_model_name}, STT: {stt_variant}")
         
     def _create_functional_default_secrets(self, secrets_path: Path):
         """Create functional default secrets file with secure random values."""
@@ -646,7 +795,14 @@ VOICE_CLONING_API_KEY=your_voice_cloning_api_key_here
         
         # Create functional defaults if copying failed or not in dev mode
         if not config_exists:
-            self._create_functional_default_config(config_path)
+            # Try to copy template first, fall back to functional default
+            try:
+                self._copy_default_config(config_path)
+                # Update paths for system installation
+                self._update_template_config_paths(config_path)
+            except Exception as e:
+                logger.warning(f"Could not copy config template: {e}, creating functional default")
+                self._create_functional_default_config(config_path)
             
         if not secrets_exists:
             self._create_functional_default_secrets(secrets_path)

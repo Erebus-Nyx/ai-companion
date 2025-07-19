@@ -97,6 +97,17 @@ except ImportError:
             def get_hardware_info(): return {"cpu": "unknown", "memory": "unknown"}
 
 try:
+    from config.config_manager import ConfigManager
+except ImportError:
+    try:
+        from .config.config_manager import ConfigManager
+    except ImportError:
+        # Minimal fallback for ConfigManager
+        class ConfigManager:
+            def __init__(self, *args, **kwargs): pass
+            def load_config(self): return {"server": {"host": "0.0.0.0", "port": 19443}}
+
+try:
     from utils.model_downloader import ModelDownloader
 except ImportError:
     try:
@@ -288,7 +299,7 @@ def api_status():
     })
 
 # Import SocketIO event handlers to register them
-import socketio_handlers
+from routes import socketio_handlers
 
 # =============================================================================
 # Helper Functions
@@ -736,14 +747,20 @@ def run_server():
     # Kill any existing instances first
     kill_existing_instances()
     
+    # Load configuration
+    config_manager = ConfigManager()
+    config = config_manager.load_config()
+    
+    # Get server settings from config
+    server_config = config.get('server', {})
+    host = server_config.get('host', '0.0.0.0')
+    port = server_config.get('port', 19443)
+    debug = server_config.get('debug', False)
+    
     # Initialize and run
     initialize_app()
     
     # Run the application
-    host = '0.0.0.0'  # Allow connections from any IP
-    port = 19443
-    debug = False  # Set to True for development
-    
     logger.info(f"Starting AI Companion on http://{host}:{port}")
     socketio.run(app, host=host, port=port, debug=debug, allow_unsafe_werkzeug=True)
 

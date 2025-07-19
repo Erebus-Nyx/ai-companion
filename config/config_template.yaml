@@ -1,6 +1,9 @@
 ##config.yaml
 config_version: "1.0"
 
+# AI Companion Configuration File
+# ==============================
+
 # General settings
 general:
   app_name: "AI Companion"
@@ -14,7 +17,7 @@ general:
 # Server settings
 server:
   host: "0.0.0.0"
-  port: 19443
+  port: 4011
   enable_ssl: false
   ssl_cert: ""
   ssl_key: ""
@@ -84,7 +87,7 @@ database:
     users: "~/.local/share/ai-companion/databases/users.db"
     user_profiles: "~/.local/share/ai-companion/databases/user_profiles.db"
     user_sessions: "~/.local/share/ai-companion/databases/user_sessions.db"
-
+  
 # Model settings
 integrated_models:
   llm:
@@ -102,10 +105,10 @@ integrated_models:
       model_format: "safetensors"
   tts:
     # NOTE: Updated Kokoro paths with separate voice directory
-    model_name: "onnx-community/Kokoro-82M-ONNX"
-    model_path: "~/.local/share/ai-companion/models/tts/kokoro"
-    voice_path: "~/.local/share/ai-companion/models/tts/voices"
-    voice: "af_heart"
+    model_name: "onnx-community/Kokoro-82M-ONNX"  # Updated model name
+    model_path: "~/.local/share/ai-companion/models/tts/kokoro"  # Updated path structure
+    voice_path: "~/.local/share/ai-companion/models/tts/voices"  # New: dedicated voice directory
+    voice: "af_heart"  # Updated default voice
     language: "en-US"
   stt:
     model_name: "faster-whisper"
@@ -161,6 +164,18 @@ audio_processing:
       - "ai"
   detection_threshold: 0.5
   detection_timeout: 5.0
+
+logging:
+  enable_file_logging: true
+  file_log_path: "~/.local/share/ai-companion/.cache/logs/app.log"
+  file_log_level: "DEBUG"
+  enable_console_logging: true
+  console_log_level: "INFO"
+  log_rotation:
+    enabled: true
+    max_size: "100MB"
+    backup_count: 5
+  structured_logging: true  # JSON format for production
 
 # RAG (Retrieval-Augmented Generation) Configuration
 rag:
@@ -218,19 +233,7 @@ service:
     memory_limit: "8G"
     cpu_limit: "4"
     max_file_descriptors: 1024
-
-logging:
-  enable_file_logging: true
-  file_log_path: "~/.local/share/ai-companion/.cache/logs/app.log"
-  file_log_level: "DEBUG"
-  enable_console_logging: true
-  console_log_level: "INFO"
-  log_rotation:
-    enabled: true
-    max_size: "100MB"
-    backup_count: 5
-  structured_logging: true  # JSON format for production
-
+  
 avatar_settings:
   personality:
     default: "SFW"
@@ -266,6 +269,7 @@ avatar_settings:
       neutral:
         - "intelligent"
         - "analytical"
+
   animation_speed: 1.0
   idle_animation: true
   idle_animation_interval: 5.0
@@ -307,6 +311,73 @@ live2d_models:
         hats: false
         hair:
           - "black hair ties"
+  Iori:
+    active: true
+    nsfw: true
+    model_info:
+      path: "~/.local/share/ai-companion/live2d_models/iori"
+      model_version: "3.2"
+      model_type: "Cubism"
+      expression_method: "none"
+      motions: false
+      idle_animation: false
+    avatar_name: "Iori"
+    traits:
+      - "NSFW"
+      - "neutral"
+    appearance:
+      skin_tone: "light"
+      eye_color: "red"      
+      hair:
+        color: "brown"
+        style: 
+          - "long"
+          - "bangs"
+          - "straight"
+      body_type: "slender"
+      animal_characteristics: "none"
+      clothing: 
+        - "naked"
+        - "varying stages of dress"
+      accessories:
+        glasses: false
+        earrings: false
+        hats: false
+        hair:
+          - "none"
+  Nodoka:
+    active: true
+    nsfw: true
+    model_info:
+      path: "~/.local/share/ai-companion/live2d_models/nodoka"
+      model_version: "3.2"
+      model_type: "Cubism"
+      expression_method: "none"
+      motions: false
+      idle_animation: false
+    avatar_name: "Nodoka"
+    traits:
+      - "NSFW"
+      - "neutral"
+    appearance:
+      skin_tone: "light"
+      eye_color: "blue"      
+      hair:
+        color: "blond"
+        style: 
+          - "long"
+          - "bangs"
+          - "light curls"
+      body_type: "slender"
+      animal_characteristics: "none"
+      clothing: 
+        - "naked"
+        - "varying stages of dress"
+      accessories:
+        glasses: false
+        earrings: false
+        hats: false
+        ribbons: false
   Haru:
     active: true
     nsfw: false
@@ -340,6 +411,76 @@ live2d_models:
         earrings: false
         hats: false
         ribbons: false
+  Haruka:
+    active: true
+    nsfw: false
+    model_info:
+      path: "~/.local/share/ai-companion/live2d_models/haruka"
+      model_version: "3.3"
+      model_type: "Cubism"
+      expression_method: "merged"  # Fixed: was missing
+      motions: true
+      idle_animation: true
+    avatar_name: "Haruka"
+    traits:
+      - "SFW"
+      - "light"
+      - "neutral"
+    appearance:
+      skin_tone: "light"
+      eye_color: "green"  # Fixed: was duplicated with different values
+      hair:
+        color: "blue"
+        style: 
+          - "long"
+          - "straight"
+      body_type: "slender"
+      animal_characteristics: "none"
+      clothing: 
+        - "blue pleated skirt"  # Fixed: typo "plea" -> "pleated"
+        - "white sweater"
+        - "black pants"
+      accessories:
+        glasses: false
+        earrings: false
+        hats: false
+        ribbons: false
+  Mori:
+    active: true
+    nsfw: false
+    model_info:
+      path: "~/.local/share/ai-companion/live2d_models/mori"
+      model_version: "3.2"
+      model_type: "Cubism"
+      expression_method: "merged"
+      motions: true
+      idle_animation: false
+    avatar_name: "Mori"
+    traits:
+      - "SFW"
+      - "light"
+      - "neutral"  
+    appearance:
+      skin_tone: "light"
+      hair:
+        color: "blonde"
+        style: 
+          - "long"
+          - "bangs"
+          - "straight"
+          - "fox ears"
+      eye_color: "red"
+      body_type: "slender"
+      animal_characteristics: "fox ears and tail"
+      clothing: 
+        - "blue dress"
+        - "blue skirt"
+        - "white knee socks"
+      accessories:
+        glasses: false
+        earrings: false
+        hats: false
+        ribbons: true
   hiyori:
     active: true
     nsfw: false
@@ -371,6 +512,74 @@ live2d_models:
         - "yellow sweater"
         - "pleated blue short skirt"
         - "long socks"
+      accessories:
+        glasses: false
+        earrings: false
+        hats: false
+        ribbons: true
+  kanade:
+    active: true
+    nsfw: false
+    model_info:
+      path: "~/.local/share/ai-companion/live2d_models/kanade"
+      model_version: "4.0"
+      model_type: "Cubism" 
+      expression_method: "seperated"
+      motions: true
+      idle_animation: false
+    avatar_name: "Kanade"
+    traits:
+      - "SFW"
+      - "light"
+      - "neutral"    
+    appearance:
+      skin_tone: "light"
+      eye_color: "blue"
+      hair:
+        color: "silver"
+        style:
+          - "long"
+          - "straight"
+      body_type: "slender"
+      animal_characteristics: "none"
+      clothing: 
+        - "casual purple dress"
+        - "black pants"
+      accessories:
+        glasses: false
+        earrings: false
+        hats: false
+        ribbons: true
+  Tsumiki:
+    active: true
+    nsfw: false
+    model_info:
+      path: "~/.local/share/ai-companion/live2d_models/tsumiki"
+      model_version: "4.0"
+      model_type: "Cubism" 
+      expression_method: "seperated"
+      motions: true
+      idle_animation: false
+    avatar_name: "Tsumiki"
+    traits:
+      - "SFW"
+      - "light"
+      - "neutral"
+    appearance:
+      skin_tone: "light"
+      eye_color: "green"      
+      hair:
+        color: "green"
+        style: 
+          - "short"
+          - "straight"
+          - "twin tails with white ribbons"
+      body_type: "slender"
+      animal_characteristics: "none"
+      clothing:
+        - "beige sweater and red tie"
+        - "blue pleated skirt"
+        - "red knee socks and white tennis shoes"
       accessories:
         glasses: false
         earrings: false

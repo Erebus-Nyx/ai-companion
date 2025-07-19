@@ -17,15 +17,20 @@ def check_version_consistency():
     expected_version = "0.4.0"
     files_to_check = {
         "pyproject.toml": r'version = "([^"]+)"',
-        "setup.py": r"version='([^']+)'",
         "package.json": r'"version": "([^"]+)"',
         "src/__version__.py": r'__version__ = "([^"]+)"',
         "src/web/static/js/live2d_config.js": r"'l2dVersion': '([^']+)'",
         "src/audio/__init__.py": r"__version__ = '([^']+)'"
     }
     
+    # Optional files (won't fail if missing)
+    optional_files = {
+        "setup.py": r"version='([^']+)'"
+    }
+    
     all_good = True
     
+    # Check required files
     for file_path, pattern in files_to_check.items():
         if os.path.exists(file_path):
             with open(file_path, 'r') as f:
@@ -44,6 +49,23 @@ def check_version_consistency():
         else:
             print(f"   ❌ {file_path}: file not found")
             all_good = False
+    
+    # Check optional files
+    for file_path, pattern in optional_files.items():
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as f:
+                content = f.read()
+                match = re.search(pattern, content)
+                if match:
+                    version = match.group(1)
+                    if version == expected_version:
+                        print(f"   ✅ {file_path}: {version} (optional)")
+                    else:
+                        print(f"   ⚠️  {file_path}: {version} (expected {expected_version}, optional)")
+                else:
+                    print(f"   ⚠️  {file_path}: version pattern not found (optional)")
+        else:
+            print(f"   ⚠️  {file_path}: file not found (optional)")
     
     return all_good
 
