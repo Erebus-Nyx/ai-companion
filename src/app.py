@@ -754,8 +754,20 @@ def run_server():
     # Get server settings from config
     server_config = config.get('server', {})
     host = server_config.get('host', '0.0.0.0')
-    port = server_config.get('port', 19443)
-    debug = server_config.get('debug', False)
+    
+    # Determine if we're running in development mode
+    is_dev_mode = config_manager.is_dev_mode
+    
+    if is_dev_mode:
+        # Development mode: use dev_port
+        port = server_config.get('dev_port', server_config.get('port', 19080) + 1)
+        debug = True  # Always use debug in dev mode
+        logger.info("🔧 Running in DEVELOPMENT mode")
+    else:
+        # Production mode: use regular port
+        port = server_config.get('port', 19080)
+        debug = server_config.get('debug', False)
+        logger.info("📦 Running in PRODUCTION mode")
     
     # Initialize and run
     initialize_app()
@@ -763,6 +775,35 @@ def run_server():
     # Run the application
     logger.info(f"Starting AI Companion on http://{host}:{port}")
     socketio.run(app, host=host, port=port, debug=debug, allow_unsafe_werkzeug=True)
+
+def main():
+    """Main entry point for the application."""
+    # Check for first-time installation and run setup if needed
+    try:
+        from config.config_manager import ConfigManager
+        config_manager = ConfigManager()
+        
+        # Check if this is a fresh installation
+        config_path = config_manager.get_config_path()
+        if not config_path.exists():
+            print("🚀 First-time installation detected - running initial setup...")
+            
+            # Run post-install hook to set up configuration
+            try:
+                from scripts.install_command import post_install_hook
+                post_install_hook()
+            except ImportError:
+                # Fallback to basic config setup
+                config_manager = ConfigManager.setup_fresh_installation(clean_databases=True)
+                print("✅ Basic configuration setup completed!")
+                print("🔧 Run 'ai2d_chat-setup' to complete setup with models and Live2D")
+    
+    except Exception as e:
+        print(f"⚠️  Setup check failed: {e}")
+        print("🔧 Continuing with server startup...")
+    
+    # Run the server
+    run_server()
 
 if __name__ == '__main__':
     run_server()

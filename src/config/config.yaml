@@ -17,7 +17,8 @@ general:
 # Server settings
 server:
   host: "0.0.0.0"
-  port: 19080
+  port: 19080  # Production port (used by pipx install)
+  dev_port: 19081  # Development port (used when running from repo)
   enable_ssl: false
   ssl_cert: ""
   ssl_key: ""

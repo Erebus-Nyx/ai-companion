@@ -190,6 +190,86 @@ class ConfigManager:
             logger.warning(f"Could not copy default config from package: {e}")
             # Fall back to hardcoded full config
             self._create_hardcoded_config(destination)
+    
+    def _create_hardcoded_config(self, destination: Path):
+        """Create hardcoded configuration as fallback when package resources fail."""
+        try:
+            # This is the complete hardcoded config as fallback
+            hardcoded_config = f"""# AI Companion Configuration File
+# This configuration was created as a fallback when package resources failed
+
+server:
+  host: 127.0.0.1
+  port: 19080
+  dev_port: 19081
+  debug: true
+  cors_enabled: true
+
+live2d:
+  enabled: true
+  models_directory: {self.live2d_models_dir}
+  model_discovery_enabled: true
+  auto_model_refresh: true
+  default_model: null
+  viewer_web_path: {self.data_dir}/live2d-viewer-web
+  integration_mode: embedded
+
+ai:
+  llm:
+    enabled: true
+    model_path: {self.models_dir}/llm
+    model_name: TinyLlama-1.1B-Chat-v1.0.Q4_K_M.gguf
+    max_tokens: 2048
+    temperature: 0.7
+    memory_enabled: true
+
+audio:
+  enabled: true
+  sample_rate: 16000
+  chunk_size: 1024
+  vad:
+    enabled: true
+    model_path: {self.models_dir}/silero_vad
+    threshold: 0.5
+  tts:
+    enabled: true
+    model_path: {self.models_dir}/tts
+    voice: default
+    speed: 1.0
+  stt:
+    enabled: true
+    model_path: {self.models_dir}/faster-whisper
+    model_size: base
+    language: auto
+
+database:
+  conversations_db: {self.database_dir}/conversations.db
+  live2d_db: {self.database_dir}/live2d.db
+  personality_db: {self.database_dir}/personality.db
+
+paths:
+  config_dir: {self.config_dir}
+  data_dir: {self.data_dir}
+  cache_dir: {self.cache_dir}
+  models_dir: {self.models_dir}
+  database_dir: {self.database_dir}
+  live2d_models_dir: {self.live2d_models_dir}
+
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  directory: {self.cache_dir}/logs
+  max_files: 10
+"""
+            
+            with open(destination, 'w') as f:
+                f.write(hardcoded_config)
+                
+            logger.info(f"Created hardcoded fallback config at: {destination}")
+            
+        except Exception as e:
+            logger.error(f"Failed to create hardcoded config: {e}")
+            raise
             
     def _copy_default_secrets(self, secrets_path: Path):
         """Copy default secrets template."""
@@ -1035,3 +1115,59 @@ def is_user_profiles_enabled() -> bool:
 def get_sessions_path() -> Path:
     """Get path to sessions directory."""
     return config_manager.get_sessions_path()
+
+def get_live2d_config() -> Dict[str, Any]:
+    """Get Live2D specific configuration"""
+    config_path = config_manager.get_config_path()
+    try:
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        return config.get('live2d', {})
+    except Exception as e:
+        logger.warning(f"Could not load Live2D config: {e}")
+        return {}
+
+def is_live2d_enabled() -> bool:
+    """Check if Live2D is enabled"""
+    live2d_config = get_live2d_config()
+    return live2d_config.get('enabled', False)
+
+def get_live2d_viewer_path() -> str:
+    """Get path to Live2D Viewer Web"""
+    live2d_config = get_live2d_config()
+    return live2d_config.get('viewer_web_path', 'src/web/static/live2d-viewer-web')
+
+def get_live2d_models_directory() -> str:
+    """Get Live2D models directory"""
+    live2d_config = get_live2d_config()
+    return live2d_config.get('models_directory', 'models/live2d')
+
+def should_auto_setup_live2d() -> bool:
+    """Check if Live2D should be auto-setup"""
+    live2d_config = get_live2d_config()
+    return live2d_config.get('auto_setup', True)
+
+def get_live2d_repository_url() -> str:
+    """Get Live2D Viewer Web repository URL"""
+    live2d_config = get_live2d_config()
+    return live2d_config.get('repository_url', 'https://github.com/guansss/live2d-viewer-web.git')
+
+def update_live2d_setup_status(status: str):
+    """Update Live2D setup status"""
+    config_path = config_manager.get_config_path()
+    try:
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        # Update Live2D setup status
+        config['live2d']['setup_status'] = status
+        config['live2d']['setup_timestamp'] = str(os.time.time())
+        
+        with open(config_path, 'w') as f:
+            yaml.dump(config, f, default_flow_style=False, indent=2, width=120)
+            
+        logger.info(f"Updated Live2D setup status to: {status}")
+        
+    except Exception as e:
+        logger.error(f"Failed to update Live2D setup status: {e}")
+        raise

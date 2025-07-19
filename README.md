@@ -140,6 +140,33 @@ To install the AI Companion application, follow these steps:
    ```
 3. The application will automatically detect your system configuration and download the appropriate models.
 
+### Manual Installation
+
+If you prefer manual setup:
+
+```bash
+# Install Python dependencies
+poetry install
+
+# Setup Live2D Viewer Web (optional)
+python scripts/setup_live2d.py
+
+# Initialize databases
+python -c "from src.database.live2d_models_separated import initialize_live2d_database; initialize_live2d_database()"
+```
+
+## Running the Application
+
+```bash
+# Activate virtual environment
+poetry shell
+
+# Start the AI Companion
+python src/app.py
+```
+
+Access the application at `http://localhost:5000`
+
 ## Usage
 
 ### Enhanced VAD Integration
@@ -169,7 +196,40 @@ pipeline.start()
 2. Open your web browser and navigate to `http://localhost:13773` to access the web UI.
 3. Interact with the avatar through text or voice input.
 
+## Live2D Integration
+
+The AI Companion uses [Live2D Viewer Web](https://github.com/guansss/live2d-viewer-web) as the foundation for avatar interaction.
+
+### Adding Live2D Models
+
+1. Place Live2D model folders in `models/live2d/`
+2. Models should contain `.model3.json` files and associated assets
+3. The system will automatically detect and make them available
+
+### Live2D Features
+
+- **Interactive Avatar** - Mouse dragging, zoom controls, hit area detection
+- **Motion System** - Built-in motion and expression management
+- **Lipsync Integration** - Synchronized mouth movement with TTS
+- **Professional UI** - Vue.js + Vuetify interface with model editor
+
 ## Configuration
+
+Edit `config.json` to customize settings:
+
+```json
+{
+  "live2d": {
+    "enabled": true,
+    "auto_setup": true,
+    "integration_mode": "embedded"
+  },
+  "ai": {
+    "model_path": "models/llm",
+    "memory_enabled": true
+  }
+}
+```
 
 ### Enhanced VAD Settings
 
