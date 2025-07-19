@@ -4,9 +4,9 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/nyx/ai-companion
-Environment=PATH=/home/nyx/ai-companion/.venv/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/home/nyx/ai-companion/.venv/bin/ai-companion server --port 19443 --host 0.0.0.0 --dev
+WorkingDirectory=/home/nyx/ai2d_chat
+Environment=PATH=/home/nyx/ai2d_chat/.venv/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/nyx/ai2d_chat/.venv/bin/ai2d_chat server --port 19443 --host 0.0.0.0 --dev
 Restart=always
 RestartSec=10
 

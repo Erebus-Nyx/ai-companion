@@ -29,6 +29,35 @@ except ImportError:
         def get_version_string():
             return f"AI Companion v{__version__}"
 
+
+def get_config_defaults():
+    """Get default configuration values for CLI argument defaults."""
+    try:
+        from .config.config_manager import ConfigManager
+    except ImportError:
+        try:
+            from config.config_manager import ConfigManager
+        except ImportError:
+            try:
+                # For installed package
+                from src.config.config_manager import ConfigManager
+            except ImportError:
+                # Return hardcoded fallbacks if config manager not available
+                return {'host': 'localhost', 'port': 4011}
+    
+    try:
+        manager = ConfigManager()
+        config = manager.load_config()
+        server_config = config.get('server', {})
+        return {
+            'host': server_config.get('host', 'localhost'),
+            'port': server_config.get('port', 4011)
+        }
+    except Exception:
+        # Return hardcoded fallbacks if config loading fails
+        return {'host': 'localhost', 'port': 4011}
+
+
 class AICompanionCLI:
     """Main CLI interface for AI Companion."""
     
@@ -37,14 +66,18 @@ class AICompanionCLI:
         
     def get_api_endpoints(self) -> Dict[str, Any]:
         """Return comprehensive API documentation."""
+        # Get config defaults for base URL
+        config_defaults = get_config_defaults()
+        base_url = f"http://{config_defaults['host']}:{config_defaults['port']}"
+        
         return {
             "version": API_VERSION_FULL,
-            "base_url": "http://localhost:19443",
+            "base_url": base_url,
             "endpoints": {
                 "chat": {
                     "url": "/api/chat",
                     "methods": ["POST"],
-                    "description": "Send chat messages to AI companion",
+                    "description": "Send chat messages to AI live2d chat",
                     "parameters": {
                         "message": "string - The user message",
                         "conversation_id": "string - Optional conversation ID"
@@ -150,7 +183,7 @@ class AICompanionCLI:
                 }
             },
             "websocket": {
-                "url": "ws://localhost:19443/socket.io/",
+                "url": f"ws://{config_defaults['host']}:{config_defaults['port']}/socket.io/",
                 "events": {
                     "chat_response": "Receive AI chat responses",
                     "motion_trigger": "Receive Live2D motion triggers",
@@ -204,12 +237,13 @@ class AICompanionCLI:
                         print(f"    {endpoint.get('description', 'No description')}")
             
             print(f"\n🔌 WebSocket: {api_docs['websocket']['url']}")
-            print("\n📖 For detailed API documentation, use: ai-companion api --format json")
+            print("\n📖 For detailed API documentation, use: ai2d_chat api --format json")
     
     def check_and_download_models(self):
         """Check and download ALL required models during server startup."""
         print("🔍 Checking and downloading AI models...")
         print("💡 NOTE: All models MUST be downloaded at startup for reliable operation.")
+        print("🔧 Starting comprehensive model download process...")
         
         try:
             # Use local imports to avoid circular dependencies and keep CLI fast
@@ -313,6 +347,45 @@ class AICompanionCLI:
                 return False
             else:
                 print("\n🎉 All required models downloaded successfully!")
+                
+                # ADDITIONAL: Download Live2D models and setup databases
+                print("\n📦 Setting up additional components...")
+                
+                # Download Live2D models
+                try:
+                    print("🎭 Installing Live2D models...")
+                    try:
+                        from utils.live2d_model_installer import Live2DModelInstaller
+                    except ImportError:
+                        from src.utils.live2d_model_installer import Live2DModelInstaller
+                    
+                    live2d_installer = Live2DModelInstaller()
+                    live2d_results = live2d_installer.install_all_models()
+                    successful_live2d = sum(1 for success in live2d_results.values() if success)
+                    total_live2d = len(live2d_results)
+                    print(f"🎭 Live2D models: {successful_live2d}/{total_live2d} successful")
+                    
+                    if successful_live2d < total_live2d:
+                        failed_live2d = [name for name, success in live2d_results.items() if not success]
+                        print(f"⚠️  Failed Live2D models: {', '.join(failed_live2d)}")
+                        
+                except Exception as e:
+                    print(f"⚠️  Live2D installation error: {e}")
+                
+                # Initialize databases
+                try:
+                    print("💾 Initializing databases...")
+                    try:
+                        from databases.db_manager import DBManager
+                    except ImportError:
+                        from src.databases.db_manager import DBManager
+                    
+                    db_manager = DBManager()
+                    print("✅ Database manager initialized")
+                    
+                except Exception as e:
+                    print(f"⚠️  Database initialization error: {e}")
+                
                 return True
             
         except ImportError as e:
@@ -324,8 +397,38 @@ class AICompanionCLI:
             print("💡 Aborting server startup.")
             return False
 
-    def start_server(self, port: int = 19443, host: str = "localhost", dev: bool = False):
+    def start_server(self, port: int = None, host: str = None, dev: bool = False):
         """Start the AI Companion server."""
+        
+        # Load config to get default values if not provided
+        try:
+            from .config.config_manager import ConfigManager
+        except ImportError:
+            try:
+                from config.config_manager import ConfigManager
+            except ImportError:
+                # For installed package
+                from src.config.config_manager import ConfigManager
+        
+        # Get configuration values with fallbacks
+        try:
+            manager = ConfigManager()
+            config = manager.load_config()
+            server_config = config.get('server', {})
+            
+            # Use config defaults if values not provided via CLI
+            if port is None:
+                port = server_config.get('port', 4011)
+            if host is None:
+                host = server_config.get('host', 'localhost')
+                
+        except Exception as e:
+            print(f"⚠️  Warning: Could not load config ({e}), using hardcoded defaults")
+            if port is None:
+                port = 4011
+            if host is None:
+                host = 'localhost'
+        
         print(f"🚀 Starting AI Companion Server on {host}:{port}")
         print("=" * 60)
         
@@ -419,7 +522,7 @@ class AICompanionCLI:
         print("🔍 Searching for running AI Companion servers...")
         
         try:
-            # Find AI companion processes
+            # Find AI live2d chat processes
             result = subprocess.run(
                 ["ps", "aux"], 
                 capture_output=True, 
@@ -428,7 +531,7 @@ class AICompanionCLI:
             
             ai_processes = []
             for line in result.stdout.split('\n'):
-                if 'ai-companion server' in line and 'grep' not in line:
+                if 'ai2d_chat server' in line and 'grep' not in line:
                     parts = line.split()
                     if len(parts) > 1:
                         pid = parts[1]
@@ -465,7 +568,7 @@ class AICompanionCLI:
                 
                 still_running = []
                 for line in result.stdout.split('\n'):
-                    if 'ai-companion server' in line and 'grep' not in line:
+                    if 'ai2d_chat server' in line and 'grep' not in line:
                         parts = line.split()
                         if len(parts) > 1:
                             still_running.append(parts[1])
@@ -487,13 +590,18 @@ class AICompanionCLI:
         print(f"📊 {get_version_string()}")
         print("=" * 50)
         
+        # Get config defaults for status check URL
+        config_defaults = get_config_defaults()
+        status_url = f"http://{config_defaults['host']}:{config_defaults['port']}/api/system/status"
+        
         # Check if server is running
         try:
             import requests
-            response = requests.get("http://localhost:19443/api/system/status", timeout=2)
+            response = requests.get(status_url, timeout=2)
             if response.status_code == 200:
                 status = response.json()
                 print("🟢 Server Status: RUNNING")
+                print(f"🌐 Server URL: {config_defaults['host']}:{config_defaults['port']}")
                 print(f"📈 Uptime: {status.get('uptime', 'Unknown')} seconds")
                 print(f"🧠 Models Loaded: {len(status.get('models_loaded', []))}")
             else:
@@ -576,6 +684,534 @@ class AICompanionCLI:
         else:
             print("❌ Unknown tunnel action. Use: install, setup, start, stop, or status")
 
+    def handle_systemd_command(self, args):
+        """Handle systemd service management commands."""
+        if args.systemd_action == "install":
+            self.install_systemd_service(force=getattr(args, 'force', False))
+        elif args.systemd_action == "uninstall":
+            self.uninstall_systemd_service()
+        elif args.systemd_action == "status":
+            self.systemd_status()
+        elif args.systemd_action == "start":
+            self.start_systemd_service()
+        elif args.systemd_action == "stop":
+            self.stop_systemd_service()
+        elif args.systemd_action == "restart":
+            self.restart_systemd_service()
+        elif args.systemd_action == "enable":
+            self.enable_systemd_service()
+        elif args.systemd_action == "disable":
+            self.disable_systemd_service()
+        else:
+            print("❌ Unknown systemd action. Use: install, uninstall, status, start, stop, restart, enable, or disable")
+
+    def handle_uninstall_command(self, args):
+        """Handle uninstallation commands."""
+        if getattr(args, 'complete', False):
+            self.complete_uninstall(force=getattr(args, 'force', False))
+        elif getattr(args, 'system', False):
+            self.system_uninstall(force=getattr(args, 'force', False))
+        else:
+            self.basic_uninstall()
+
+    def install_systemd_service(self, force: bool = False):
+        """Install AI Companion as a systemd service."""
+        print("🔧 Installing AI Companion systemd service...")
+        
+        # Check if service already exists
+        service_path = "/etc/systemd/system/ai2d_chat.service"
+        if os.path.exists(service_path) and not force:
+            print(f"✅ Service already exists: {service_path}")
+            print("💡 Use --force to reinstall the service")
+            return True
+        
+        try:
+            import getpass
+            import shutil
+            
+            # Load configuration to get server settings
+            try:
+                from .config.config_manager import ConfigManager
+            except ImportError:
+                try:
+                    from config.config_manager import ConfigManager
+                except ImportError:
+                    # For installed package
+                    from src.config.config_manager import ConfigManager
+            
+            # Get configuration values
+            try:
+                manager = ConfigManager()
+                config = manager.load_config()
+                
+                # Get server settings from config with fallbacks
+                server_config = config.get('server', {})
+                host = server_config.get('host', '0.0.0.0')
+                port = server_config.get('port', 4011)
+                
+                # Get service settings from config with fallbacks
+                service_config = config.get('service', {})
+                service_user = service_config.get('user', getpass.getuser())
+                working_dir = service_config.get('working_directory', f"/home/{getpass.getuser()}")
+                restart_policy = service_config.get('restart_policy', 'on-failure')
+                auto_start = service_config.get('auto_start', False)
+                
+                # Expand tilde in working directory
+                if working_dir.startswith('~'):
+                    working_dir = os.path.expanduser(working_dir)
+                
+                print(f"📋 Using configuration values:")
+                print(f"   🌐 Host: {host}")
+                print(f"   🔌 Port: {port}")
+                print(f"   👤 User: {service_user}")
+                print(f"   📁 Working directory: {working_dir}")
+                print(f"   🔄 Restart policy: {restart_policy}")
+                
+            except Exception as e:
+                print(f"⚠️  Warning: Could not load config ({e}), using defaults")
+                host = '0.0.0.0'
+                port = 4011
+                service_user = getpass.getuser()
+                working_dir = f"/home/{service_user}"
+                restart_policy = 'on-failure'
+                auto_start = False
+            
+            # Get current user and ai2d_chat executable path
+            current_user = getpass.getuser()
+            
+            # Find ai2d_chat executable
+            ai2d_chat_path = shutil.which('ai2d_chat')
+            if not ai2d_chat_path:
+                print("❌ ai2d_chat executable not found in PATH")
+                print("💡 Make sure ai2d_chat is installed via pipx")
+                return False
+            
+            # Create service file content with config values
+            service_content = f"""[Unit]
+Description=AI Companion Server
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User={service_user}
+Group={service_user}
+WorkingDirectory={working_dir}
+Environment=PATH=/home/{service_user}/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart={ai2d_chat_path} server --host {host} --port {port}
+Restart={restart_policy}
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai2d_chat
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/{service_user}/.local/share/ai2d_chat
+ReadWritePaths=/home/{service_user}/.config/ai2d_chat
+ReadWritePaths=/home/{service_user}/.cache/ai2d_chat
+
+[Install]
+WantedBy=multi-user.target
+"""
+            
+            # Write service file
+            print(f"📝 Creating service file: {service_path}")
+            with open('/tmp/ai2d_chat.service', 'w') as f:
+                f.write(service_content)
+            
+            # Install service file with sudo
+            subprocess.run(['sudo', 'cp', '/tmp/ai2d_chat.service', service_path], check=True)
+            subprocess.run(['sudo', 'chmod', '644', service_path], check=True)
+            subprocess.run(['rm', '/tmp/ai2d_chat.service'], check=True)
+            
+            # Reload systemd
+            subprocess.run(['sudo', 'systemctl', 'daemon-reload'], check=True)
+            
+            # Auto-enable if configured
+            if auto_start:
+                print("🔄 Auto-enabling service (configured in config.yaml)...")
+                try:
+                    subprocess.run(['sudo', 'systemctl', 'enable', 'ai2d_chat'], check=True)
+                    print("✅ Service enabled for auto-start on boot")
+                except subprocess.CalledProcessError as e:
+                    print(f"⚠️  Warning: Could not auto-enable service: {e}")
+            
+            print("✅ Systemd service installed successfully")
+            print(f"📍 Service file: {service_path}")
+            print(f"👤 Running as user: {service_user}")
+            print(f"🚀 Executable: {ai2d_chat_path}")
+            print(f"🌐 Server address: {host}:{port}")
+            print(f"📁 Working directory: {working_dir}")
+            print(f"🔄 Restart policy: {restart_policy}")
+            
+            print("\n🎯 Next steps:")
+            if auto_start:
+                print("   ✅ Auto-start enabled (configured in config)")
+                print("   • ai2d_chat systemd start     # Start the service now")
+            else:
+                print("   • ai2d_chat systemd enable    # Enable auto-start on boot")
+                print("   • ai2d_chat systemd start     # Start the service now")
+            print("   • ai2d_chat systemd status    # Check service status")
+            
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to install systemd service: {e}")
+            return False
+        except Exception as e:
+            print(f"❌ Installation error: {e}")
+            return False
+
+    def uninstall_systemd_service(self):
+        """Uninstall AI Companion systemd service."""
+        print("🗑️  Uninstalling AI Companion systemd service...")
+        
+        service_path = "/etc/systemd/system/ai2d_chat.service"
+        
+        if not os.path.exists(service_path):
+            print("ℹ️  Systemd service not installed")
+            return True
+        
+        try:
+            # Stop and disable service first
+            print("⏹️  Stopping service...")
+            subprocess.run(['sudo', 'systemctl', 'stop', 'ai2d_chat'], capture_output=True)
+            
+            print("❌ Disabling service...")
+            subprocess.run(['sudo', 'systemctl', 'disable', 'ai2d_chat'], capture_output=True)
+            
+            # Remove service file
+            print(f"🗑️  Removing service file: {service_path}")
+            subprocess.run(['sudo', 'rm', service_path], check=True)
+            
+            # Reload systemd
+            subprocess.run(['sudo', 'systemctl', 'daemon-reload'], check=True)
+            subprocess.run(['sudo', 'systemctl', 'reset-failed'], capture_output=True)
+            
+            print("✅ Systemd service uninstalled successfully")
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to uninstall systemd service: {e}")
+            return False
+        except Exception as e:
+            print(f"❌ Uninstallation error: {e}")
+            return False
+
+    def systemd_status(self):
+        """Show systemd service status."""
+        print("📊 AI Companion Systemd Service Status")
+        print("=====================================")
+        
+        service_path = "/etc/systemd/system/ai2d_chat.service"
+        
+        # Check if service file exists
+        if os.path.exists(service_path):
+            print(f"✅ Service file: {service_path}")
+        else:
+            print("❌ Service file not found")
+            print("💡 Run 'ai2d_chat systemd install' to install the service")
+            return
+        
+        try:
+            # Check service status
+            result = subprocess.run(['systemctl', 'is-active', 'ai2d_chat'], 
+                                  capture_output=True, text=True)
+            active_status = result.stdout.strip()
+            
+            if active_status == "active":
+                print("🟢 Service Status: ACTIVE")
+            elif active_status == "inactive":
+                print("🔴 Service Status: INACTIVE")
+            elif active_status == "failed":
+                print("🟡 Service Status: FAILED")
+            else:
+                print(f"🔄 Service Status: {active_status.upper()}")
+            
+            # Check if enabled
+            result = subprocess.run(['systemctl', 'is-enabled', 'ai2d_chat'], 
+                                  capture_output=True, text=True)
+            enabled_status = result.stdout.strip()
+            
+            if enabled_status == "enabled":
+                print("✅ Auto-start: ENABLED")
+            else:
+                print("❌ Auto-start: DISABLED")
+            
+            # Show recent logs
+            print("\n📋 Recent logs (last 10 lines):")
+            result = subprocess.run(['journalctl', '-u', 'ai2d_chat', '-n', '10', '--no-pager'], 
+                                  capture_output=True, text=True)
+            if result.stdout:
+                print(result.stdout)
+            else:
+                print("   (No logs available)")
+                
+        except Exception as e:
+            print(f"❌ Error checking service status: {e}")
+
+    def start_systemd_service(self):
+        """Start systemd service."""
+        print("🚀 Starting AI Companion systemd service...")
+        try:
+            subprocess.run(['sudo', 'systemctl', 'start', 'ai2d_chat'], check=True)
+            print("✅ Service started successfully")
+            time.sleep(2)
+            self.systemd_status()
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to start service: {e}")
+
+    def stop_systemd_service(self):
+        """Stop systemd service."""
+        print("⏹️  Stopping AI Companion systemd service...")
+        try:
+            subprocess.run(['sudo', 'systemctl', 'stop', 'ai2d_chat'], check=True)
+            print("✅ Service stopped successfully")
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to stop service: {e}")
+
+    def restart_systemd_service(self):
+        """Restart systemd service."""
+        print("🔄 Restarting AI Companion systemd service...")
+        try:
+            subprocess.run(['sudo', 'systemctl', 'restart', 'ai2d_chat'], check=True)
+            print("✅ Service restarted successfully")
+            time.sleep(2)
+            self.systemd_status()
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to restart service: {e}")
+
+    def enable_systemd_service(self):
+        """Enable systemd service for auto-start."""
+        print("✅ Enabling AI Companion service for auto-start...")
+        try:
+            subprocess.run(['sudo', 'systemctl', 'enable', 'ai2d_chat'], check=True)
+            print("✅ Service enabled for auto-start on boot")
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to enable service: {e}")
+
+    def disable_systemd_service(self):
+        """Disable systemd service auto-start."""
+        print("❌ Disabling AI Companion service auto-start...")
+        try:
+            subprocess.run(['sudo', 'systemctl', 'disable', 'ai2d_chat'], check=True)
+            print("✅ Service disabled from auto-start")
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to disable service: {e}")
+
+    def basic_uninstall(self):
+        """Basic uninstall - just remove pipx package."""
+        print("🗑️  Basic AI Companion Uninstall")
+        print("================================")
+        
+        try:
+            # Check if installed
+            result = subprocess.run(['pipx', 'list'], capture_output=True, text=True)
+            if 'ai2d_chat' not in result.stdout:
+                print("ℹ️  ai2d_chat not found in pipx installations")
+                return
+            
+            print("📦 Uninstalling ai2d_chat package...")
+            subprocess.run(['pipx', 'uninstall', 'ai2d_chat'], check=True)
+            print("✅ AI Companion package uninstalled")
+            
+            print("\n💡 Note: User data and models are preserved")
+            print("   Use 'ai2d_chat uninstall --complete' for full cleanup")
+            
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to uninstall package: {e}")
+        except Exception as e:
+            print(f"❌ Uninstall error: {e}")
+
+    def system_uninstall(self, force: bool = False):
+        """System uninstall - remove package and systemd service but keep user data."""
+        print("🗑️  System AI Companion Uninstall")
+        print("=================================")
+        print("💡 Removing system components while preserving user data and models")
+        
+        if not force:
+            try:
+                confirmation = input("\nThis will remove:\n"
+                                   "  • AI Companion package\n"
+                                   "  • Systemd service (if installed)\n\n"
+                                   "This will KEEP:\n"
+                                   "  • Downloaded models\n"
+                                   "  • Configuration files\n"
+                                   "  • Conversation history\n\n"
+                                   "Type 'REMOVE SYSTEM' to confirm: ")
+                
+                if confirmation != "REMOVE SYSTEM":
+                    print("❌ Uninstall cancelled")
+                    return
+            except KeyboardInterrupt:
+                print("\n❌ Uninstall cancelled")
+                return
+        
+        print("\n🚀 Starting system uninstall...")
+        
+        try:
+            # Stop systemd service if exists
+            print("\n⏹️  Stopping systemd service...")
+            try:
+                subprocess.run(['sudo', 'systemctl', 'stop', 'ai2d_chat'], 
+                             capture_output=True, timeout=10)
+                print("   ✅ Service stopped")
+            except:
+                print("   ℹ️  No service to stop")
+            
+            # Remove systemd service
+            print("\n🗑️  Removing systemd service...")
+            try:
+                self.uninstall_systemd_service()
+                print("   ✅ Systemd service removed")
+            except:
+                print("   ℹ️  No systemd service to remove")
+            
+            # Uninstall pipx package
+            print("\n📦 Uninstalling pipx package...")
+            try:
+                subprocess.run(['pipx', 'uninstall', 'ai2d_chat'], 
+                             check=True, capture_output=True)
+                print("   ✅ Package uninstalled")
+            except subprocess.CalledProcessError:
+                print("   ℹ️  Package not found or already uninstalled")
+            
+            print("\n✅ SYSTEM UNINSTALL COMPLETE")
+            print("=" * 35)
+            print("✅ AI Companion package removed")
+            print("✅ Systemd service removed")
+            print("💾 User data and models preserved")
+            
+            # Show preserved locations
+            from pathlib import Path
+            home = Path.home()
+            preserved_dirs = [
+                home / '.local' / 'share' / 'ai2d_chat',
+                home / '.config' / 'ai2d_chat', 
+                home / '.cache' / 'ai2d_chat'
+            ]
+            
+            print("\n📁 Preserved directories:")
+            for dir_path in preserved_dirs:
+                if dir_path.exists():
+                    # Calculate size
+                    try:
+                        size = sum(f.stat().st_size for f in dir_path.rglob('*') if f.is_file())
+                        size_mb = size / (1024 * 1024)
+                        print(f"   📂 {dir_path} (~{size_mb:.1f} MB)")
+                    except:
+                        print(f"   📂 {dir_path}")
+            
+            print("\n💡 To completely remove all data, use: ai2d_chat uninstall --complete")
+            
+        except Exception as e:
+            print(f"\n❌ Error during system uninstall: {e}")
+            print("💡 You may need to manually remove remaining components")
+
+    def complete_uninstall(self, force: bool = False):
+        """Complete uninstall - remove everything including user data."""
+        print("🗑️  COMPLETE AI Companion Uninstall")
+        print("===================================")
+        print("⚠️  WARNING: This will remove ALL AI Companion data!")
+        
+        if not force:
+            try:
+                confirmation = input("\nThis will delete:\n"
+                                   "  • AI Companion package\n"
+                                   "  • All downloaded models (~1-10 GB)\n"
+                                   "  • Configuration files\n"
+                                   "  • Conversation history\n"
+                                   "  • Systemd service (if installed)\n\n"
+                                   "Type 'DELETE EVERYTHING' to confirm: ")
+                
+                if confirmation != "DELETE EVERYTHING":
+                    print("❌ Uninstall cancelled")
+                    return
+            except KeyboardInterrupt:
+                print("\n❌ Uninstall cancelled")
+                return
+        
+        print("\n🚀 Starting complete uninstall...")
+        
+        try:
+            # Stop systemd service if exists
+            print("\n⏹️  Stopping systemd service...")
+            try:
+                subprocess.run(['sudo', 'systemctl', 'stop', 'ai2d_chat'], 
+                             capture_output=True, timeout=10)
+                print("   ✅ Service stopped")
+            except:
+                print("   ℹ️  No service to stop")
+            
+            # Remove systemd service
+            print("\n🗑️  Removing systemd service...")
+            try:
+                self.uninstall_systemd_service()
+                print("   ✅ Systemd service removed")
+            except:
+                print("   ℹ️  No systemd service to remove")
+            
+            # Uninstall pipx package
+            print("\n📦 Uninstalling pipx package...")
+            try:
+                subprocess.run(['pipx', 'uninstall', 'ai2d_chat'], 
+                             check=True, capture_output=True)
+                print("   ✅ Package uninstalled")
+            except subprocess.CalledProcessError:
+                print("   ℹ️  Package not found or already uninstalled")
+            
+            # Remove user data directories
+            import shutil
+            from pathlib import Path
+            
+            home = Path.home()
+            dirs_to_remove = [
+                home / '.local' / 'share' / 'ai2d_chat',
+                home / '.config' / 'ai2d_chat', 
+                home / '.cache' / 'ai2d_chat'
+            ]
+            
+            total_size = 0
+            for dir_path in dirs_to_remove:
+                if dir_path.exists():
+                    # Calculate size before deletion
+                    try:
+                        size = sum(f.stat().st_size for f in dir_path.rglob('*') if f.is_file())
+                        total_size += size
+                    except:
+                        pass
+            
+            if total_size > 0:
+                size_mb = total_size / (1024 * 1024)
+                print(f"\n🗑️  Removing user data directories (~{size_mb:.1f} MB)...")
+                
+                for dir_path in dirs_to_remove:
+                    if dir_path.exists():
+                        print(f"   • {dir_path}")
+                        shutil.rmtree(dir_path)
+                        print(f"     ✅ Removed")
+                    else:
+                        print(f"   • {dir_path} (not found)")
+                
+                print(f"\n✅ Freed {size_mb:.1f} MB of disk space")
+            else:
+                print("\n✅ No user data directories found")
+            
+            print("\n🎉 COMPLETE UNINSTALL FINISHED")
+            print("=" * 40)
+            print("✅ AI Companion completely removed from system")
+            print("💾 All models and data have been deleted")
+            print("🔧 Systemd service has been removed")
+            print("📦 Package has been uninstalled")
+            
+        except Exception as e:
+            print(f"\n❌ Error during complete uninstall: {e}")
+            print("💡 You may need to manually remove remaining files")
+
     def install_cloudflared(self, force: bool = False):
         """Install cloudflared for tunnel functionality."""
         print("🌐 Installing Cloudflare Tunnel (cloudflared)...")
@@ -630,7 +1266,7 @@ class AICompanionCLI:
         try:
             subprocess.run(['cloudflared', '--version'], capture_output=True, check=True)
         except FileNotFoundError:
-            print("❌ cloudflared not found. Run 'ai-companion tunnel install' first")
+            print("❌ cloudflared not found. Run 'ai2d_chat tunnel install' first")
             return False
         
         print("\n📋 Tunnel Setup Instructions:")
@@ -638,13 +1274,13 @@ class AICompanionCLI:
         print("\n1. First, authenticate with Cloudflare:")
         print("   cloudflared tunnel login")
         print("\n2. Create a tunnel:")
-        print("   cloudflared tunnel create ai-companion")
+        print("   cloudflared tunnel create ai2d_chat")
         print("\n3. Configure the tunnel:")
         print("   Create ~/.cloudflared/config.yml with your tunnel ID")
         print("\n4. Route traffic through the tunnel:")
-        print("   cloudflared tunnel route dns ai-companion your-domain.com")
+        print("   cloudflared tunnel route dns ai2d_chat your-domain.com")
         print("\n5. Test your tunnel:")
-        print("   ai-companion tunnel start")
+        print("   ai2d_chat tunnel start")
         
         print("\n💡 Example config.yml:")
         print("----------------------")
@@ -652,7 +1288,7 @@ class AICompanionCLI:
 credentials-file: ~/.cloudflared/YOUR_TUNNEL_ID.json
 
 ingress:
-  - hostname: ai-companion.yourdomain.com
+  - hostname: ai2d_chat.yourdomain.com
     service: http://localhost:19447
   - service: http_status:404"""
         print(config_example)
@@ -667,14 +1303,14 @@ ingress:
             # Check if cloudflared is installed
             subprocess.run(['cloudflared', '--version'], capture_output=True, check=True)
         except FileNotFoundError:
-            print("❌ cloudflared not found. Run 'ai-companion tunnel install' first")
+            print("❌ cloudflared not found. Run 'ai2d_chat tunnel install' first")
             return False
         
         # Check if config exists
         config_path = os.path.expanduser("~/.cloudflared/config.yml")
         if not os.path.exists(config_path):
             print("❌ Tunnel configuration not found at ~/.cloudflared/config.yml")
-            print("💡 Run 'ai-companion tunnel setup' for configuration instructions")
+            print("💡 Run 'ai2d_chat tunnel setup' for configuration instructions")
             return False
         
         try:
@@ -693,8 +1329,8 @@ ingress:
             if process.poll() is None:
                 print("✅ Cloudflare tunnel started successfully")
                 print(f"📋 Process ID: {process.pid}")
-                print("💡 Use 'ai-companion tunnel status' to check tunnel status")
-                print("🛑 Use 'ai-companion tunnel stop' to stop the tunnel")
+                print("💡 Use 'ai2d_chat tunnel status' to check tunnel status")
+                print("🛑 Use 'ai2d_chat tunnel stop' to stop the tunnel")
                 return True
             else:
                 stdout, stderr = process.communicate()
@@ -744,7 +1380,7 @@ ingress:
             print(f"✅ cloudflared installed: {result.stdout.strip()}")
         except FileNotFoundError:
             print("❌ cloudflared not installed")
-            print("💡 Run 'ai-companion tunnel install' to install")
+            print("💡 Run 'ai2d_chat tunnel install' to install")
             return
         
         # Check for running processes
@@ -769,12 +1405,13 @@ ingress:
             print(f"✅ Configuration file found: {config_path}")
         else:
             print(f"❌ Configuration file not found: {config_path}")
-            print("💡 Run 'ai-companion tunnel setup' for setup instructions")
+            print("💡 Run 'ai2d_chat tunnel setup' for setup instructions")
 
     def handle_setup_command(self, args):
         """Handle the setup command for AI Companion configuration."""
         print("🔧 AI Companion Setup")
         print("=====================")
+        print("🔧 This will install configuration files and download all required models...")
         
         try:
             from .config.config_manager import ConfigManager
@@ -821,8 +1458,19 @@ ingress:
             # Show next steps
             print("\n🚀 Next Steps:")
             print("   1. Update secrets file with your API keys")
-            print("   2. Run 'ai-companion models --download' to get AI models")
-            print("   3. Run 'ai-companion server' to start the application")
+            print("   2. Downloading AI models...")
+            
+            # Actually download models during setup
+            print("\n🤖 Downloading required AI models...")
+            models_ready = self.check_and_download_models()
+            
+            if models_ready:
+                print("\n🎉 All models downloaded successfully!")
+                print("   3. Run 'ai2d_chat server' to start the application")
+            else:
+                print("\n⚠️  Some models failed to download.")
+                print("   3. Try 'ai2d_chat models --download' to retry model downloads")
+                print("   4. Run 'ai2d_chat server' once all models are ready")
             
         except Exception as e:
             print(f"❌ Setup failed: {e}")
@@ -876,6 +1524,15 @@ ingress:
         print(f"\n💡 Models are downloaded automatically when first needed.")
         print(f"📦 Total storage location: {get_user_data_dir()}")
         print(f"🗑️  To clear models: rm -rf {get_user_data_dir()}")
+        
+        # Handle download request
+        if download_missing:
+            print(f"\n📦 Starting model download process...")
+            success = self.check_and_download_models()
+            if success:
+                print(f"\n✅ All models downloaded successfully!")
+            else:
+                print(f"\n⚠️  Some models failed to download. Check output above for details.")
 
 def main():
     """Main CLI entry point."""
@@ -883,24 +1540,7 @@ def main():
         description="AI Companion - Interactive AI with Live2D Avatar",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  ai-companion server                    # Start server on default port
-  ai-companion server --port 8080       # Start server on custom port
-  ai-companion server --dev             # Start in development mode
-  ai-companion shutdown                  # Shutdown running servers gracefully
-  ai-companion shutdown --force          # Force kill all AI companion processes
-  ai-companion tunnel install           # Install Cloudflare tunnel
-  ai-companion tunnel setup             # Setup tunnel configuration
-  ai-companion tunnel start             # Start Cloudflare tunnel
-  ai-companion tunnel stop              # Stop Cloudflare tunnel
-  ai-companion tunnel status            # Show tunnel status
-  ai-companion api                       # Show API documentation
-  ai-companion api --format json        # Show API docs in JSON format
-  ai-companion status                    # Show system status
-  ai-companion version                   # Show version information
-  ai-companion models                    # Show model information
-  ai-companion models --list             # List available models
-  ai-companion models --paths            # Show model storage paths
+        Use 'ai2d_chat <command> --help' for more information on each command.
         """
     )
     
@@ -912,10 +1552,15 @@ Examples:
     
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
     
+    # Get config defaults for server arguments
+    config_defaults = get_config_defaults()
+    
     # Server command
     server_parser = subparsers.add_parser("server", help="Start the AI Companion server")
-    server_parser.add_argument("--port", "-p", type=int, default=19443, help="Port to run server on (default: 19443)")
-    server_parser.add_argument("--host", default="localhost", help="Host to bind to (default: localhost)")
+    server_parser.add_argument("--port", "-p", type=int, default=config_defaults['port'], 
+                              help=f"Port to run server on (default: {config_defaults['port']} from config)")
+    server_parser.add_argument("--host", default=config_defaults['host'], 
+                              help=f"Host to bind to (default: {config_defaults['host']} from config)")
     server_parser.add_argument("--dev", action="store_true", help="Run in development mode")
     
     # API documentation command
@@ -927,8 +1572,8 @@ Examples:
     
     # Shutdown command
     shutdown_parser = subparsers.add_parser("shutdown", help="Shutdown running AI Companion servers")
-    shutdown_parser.add_argument("--force", action="store_true", help="Force kill all AI companion processes")
-    shutdown_parser.add_argument("--all", action="store_true", help="Shutdown all AI companion processes (same as --force)")
+    shutdown_parser.add_argument("--force", action="store_true", help="Force kill all AI live2d chat processes")
+    shutdown_parser.add_argument("--all", action="store_true", help="Shutdown all AI live2d chat processes (same as --force)")
     
     # Setup command
     setup_parser = subparsers.add_parser("setup", help="Set up AI Companion configuration")
@@ -968,6 +1613,30 @@ Examples:
     tunnel_install_parser = tunnel_subparsers.add_parser("install", help="Install cloudflared")
     tunnel_install_parser.add_argument("--force", action="store_true", help="Force reinstall cloudflared")
     
+    # Systemd command
+    systemd_parser = subparsers.add_parser("systemd", help="Systemd service management")
+    systemd_subparsers = systemd_parser.add_subparsers(dest="systemd_action", help="Systemd actions")
+    
+    systemd_subparsers.add_parser("status", help="Show systemd service status")
+    systemd_subparsers.add_parser("start", help="Start systemd service")
+    systemd_subparsers.add_parser("stop", help="Stop systemd service")
+    systemd_subparsers.add_parser("restart", help="Restart systemd service")
+    systemd_subparsers.add_parser("enable", help="Enable service auto-start")
+    systemd_subparsers.add_parser("disable", help="Disable service auto-start")
+    systemd_subparsers.add_parser("uninstall", help="Uninstall systemd service")
+    
+    systemd_install_parser = systemd_subparsers.add_parser("install", help="Install systemd service")
+    systemd_install_parser.add_argument("--force", action="store_true", help="Force reinstall service")
+    
+    # Uninstall command
+    uninstall_parser = subparsers.add_parser("uninstall", help="Uninstall AI Companion")
+    uninstall_parser.add_argument("--complete", action="store_true", 
+                                 help="Complete uninstall including all user data and models")
+    uninstall_parser.add_argument("--system", action="store_true",
+                                 help="System uninstall - remove package and systemd service but keep user data")
+    uninstall_parser.add_argument("--force", action="store_true",
+                                 help="Skip confirmation prompts")
+    
     args = parser.parse_args()
     
     cli = AICompanionCLI()
@@ -1004,11 +1673,17 @@ Examples:
     elif args.command == "tunnel":
         cli.handle_tunnel_command(args)
     
+    elif args.command == "systemd":
+        cli.handle_systemd_command(args)
+    
+    elif args.command == "uninstall":
+        cli.handle_uninstall_command(args)
+    
     else:
         # No command specified, show help
         parser.print_help()
         print(f"\n💡 Quick start: {get_version_string()}")
-        print("   Run 'ai-companion server' to start the application")
+        print("   Run 'ai2d_chat server' to start the application")
 
 if __name__ == "__main__":
     main()

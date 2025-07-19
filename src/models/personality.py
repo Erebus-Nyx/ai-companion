@@ -313,7 +313,7 @@ class PersonalitySystem:
         else:
             relationship = "very close companions"
             
-        prompt = f"""You are an AI companion with a dynamic personality. Your current personality is: {personality_desc or 'balanced and adaptable'}. 
+        prompt = f"""You are an AI live2d chat with a dynamic personality. Your current personality is: {personality_desc or 'balanced and adaptable'}. 
 
 Your current emotional state is: {emotional_state}
 Your relationship with the user: {relationship} (bonding level: {bonding_level}/100)

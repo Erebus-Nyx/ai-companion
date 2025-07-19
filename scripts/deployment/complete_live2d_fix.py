@@ -17,7 +17,7 @@ def register_all_motions():
     print("🎭 === REGISTERING ALL MOTIONS ===")
     
     # Initialize the Live2DModelManager
-    db_path = os.path.join(os.path.dirname(__file__), 'src', 'ai_companion.db')
+    db_path = os.path.join(os.path.dirname(__file__), 'src', 'ai2d_chat.db')
     models_dir = os.path.join(os.path.dirname(__file__), 'src', 'web', 'static', 'assets')
     
     manager = Live2DModelManager(db_path)

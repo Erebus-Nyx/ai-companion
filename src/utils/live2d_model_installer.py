@@ -22,7 +22,7 @@ class Live2DModelInstaller:
         # Paths
         self.project_root = Path(__file__).parent.parent.parent
         self.source_models_dir = self.project_root / "live2d_models"
-        self.user_data_dir = Path.home() / ".local" / "share" / "ai-companion"
+        self.user_data_dir = Path.home() / ".local" / "share" / "ai2d_chat"
         self.user_models_dir = self.user_data_dir / "live2d_models"
         self.model_registry_file = self.user_models_dir / "model_registry.json"
         

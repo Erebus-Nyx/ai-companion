@@ -13,10 +13,10 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-SERVICE_NAME="ai-companion"
-SERVICE_FILE="ai-companion.service"
-INSTALL_DIR="/home/nyx/ai-companion"
-VENV_PATH="/home/nyx/ai-companion/.venv"
+SERVICE_NAME="ai2d_chat"
+SERVICE_FILE="ai2d_chat.service"
+INSTALL_DIR="/home/nyx/ai2d_chat"
+VENV_PATH="/home/nyx/ai2d_chat/.venv"
 USER="nyx"
 GROUP="nyx"
 
@@ -43,9 +43,9 @@ if [[ ! -d "${VENV_PATH}" ]]; then
     exit 1
 fi
 
-# Check if ai-companion is installed
-if [[ ! -f "${VENV_PATH}/bin/ai-companion" ]]; then
-    echo -e "${RED}❌ ai-companion executable not found in virtual environment${NC}"
+# Check if ai2d_chat is installed
+if [[ ! -f "${VENV_PATH}/bin/ai2d_chat" ]]; then
+    echo -e "${RED}❌ ai2d_chat executable not found in virtual environment${NC}"
     echo "Please install the package first: pip install -e ."
     exit 1
 fi
@@ -63,7 +63,7 @@ echo -e "${YELLOW}📝 Installing service file...${NC}"
 cp "systemd/${SERVICE_FILE}" "$USER_SYSTEMD_DIR/"
 
 # Update service file with actual paths
-sed -i "s|/home/nyx/ai-companion|${INSTALL_DIR}|g" "$USER_SYSTEMD_DIR/${SERVICE_FILE}"
+sed -i "s|/home/nyx/ai2d_chat|${INSTALL_DIR}|g" "$USER_SYSTEMD_DIR/${SERVICE_FILE}"
 sed -i "s|User=nyx|User=${USER}|g" "$USER_SYSTEMD_DIR/${SERVICE_FILE}"
 sed -i "s|Group=nyx|Group=${GROUP}|g" "$USER_SYSTEMD_DIR/${SERVICE_FILE}"
 

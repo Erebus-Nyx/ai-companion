@@ -18,7 +18,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Mock LLM responses for testing
 mock_responses = [
-    "Hello! I'm Miku, your AI companion. How can I help you today?",
+    "Hello! I'm Miku, your AI live2d chat. How can I help you today?",
     "That's interesting! Tell me more about that.",
     "I understand. Is there anything specific you'd like to talk about?",
     "Great question! Let me think about that for a moment.",
@@ -66,6 +66,6 @@ def chat():
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 if __name__ == '__main__':
-    print("Starting minimal AI companion web interface...")
+    print("Starting minimal AI live2d chat web interface...")
     print("Visit http://localhost:5000 to test the chat functionality")
     app.run(host='0.0.0.0', port=5000, debug=True)

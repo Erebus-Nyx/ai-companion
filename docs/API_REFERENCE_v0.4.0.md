@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AI Companion API provides RESTful endpoints and WebSocket communication for interacting with an AI companion featuring Live2D visual avatars, voice processing, and advanced conversational AI.
+The AI Companion API provides RESTful endpoints and WebSocket communication for interacting with an AI live2d chat featuring Live2D visual avatars, voice processing, and advanced conversational AI.
 
 **Base URL**: `http://localhost:19443`  
 **API Version**: `1.0.0`  
@@ -12,16 +12,16 @@ The AI Companion API provides RESTful endpoints and WebSocket communication for 
 
 ```bash
 # Start the server
-ai-companion server
+ai2d_chat server
 
 # View API documentation
-ai-companion api
+ai2d_chat api
 
 # Check system status  
-ai-companion status
+ai2d_chat status
 
 # Get detailed version info
-ai-companion version
+ai2d_chat version
 ```
 
 ## Authentication
@@ -47,7 +47,7 @@ Get detailed version information.
   "version": "0.4.0",
   "api_version": "1.0.0", 
   "title": "AI Companion",
-  "description": "An interactive AI companion with Live2D visual avatar...",
+  "description": "An interactive AI live2d chat with Live2D visual avatar...",
   "components": {
     "live2d": "0.4.0",
     "vad": "0.4.0", 
@@ -73,7 +73,7 @@ Get system health and status information.
 ### Chat System
 
 #### POST /api/chat
-Send a message to the AI companion.
+Send a message to the AI live2d chat.
 
 **Request Body:**
 ```json
@@ -231,14 +231,14 @@ Common HTTP status codes:
 
 ```bash
 # Start server with custom options
-ai-companion server --port 8080 --dev
+ai2d_chat server --port 8080 --dev
 
 # View API documentation in different formats
-ai-companion api --format json
-ai-companion api --format yaml
+ai2d_chat api --format json
+ai2d_chat api --format yaml
 
 # Monitor system
-ai-companion status
+ai2d_chat status
 ```
 
 ## Version History
@@ -261,4 +261,4 @@ ai-companion status
 
 ## Support
 
-For issues and feature requests, visit: https://github.com/Erebus-Nyx/ai-companion/issues
+For issues and feature requests, visit: https://github.com/Erebus-Nyx/ai2d_chat/issues

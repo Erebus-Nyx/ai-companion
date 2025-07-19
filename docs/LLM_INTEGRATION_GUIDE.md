@@ -76,7 +76,7 @@ The database is automatically initialized:
 from database.db_manager import DBManager
 
 # Creates all necessary tables
-db_manager = DBManager("ai_companion.db")
+db_manager = DBManager("ai2d_chat.db")
 ```
 
 ## Usage

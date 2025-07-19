@@ -99,7 +99,7 @@ def populate_model_personalities():
                 model_config.get('avatar_name', model_name),
                 json.dumps(base_traits),
                 json.dumps(current_traits),
-                f"AI companion model {model_name}",
+                f"AI live2d chat model {model_name}",
                 "; ".join(appearance_notes),
                 "config.yaml"
             ))

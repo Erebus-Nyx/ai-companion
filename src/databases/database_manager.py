@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def get_user_data_dir() -> Path:
     """Get the user data directory for AI Companion"""
-    return Path.home() / ".local/share/ai-companion"
+    return Path.home() / ".local/share/ai2d_chat"
 
 def get_live2d_connection():
     """Get connection to the Live2D database"""

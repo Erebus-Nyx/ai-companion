@@ -6,7 +6,7 @@
 **Problem**: Using `User=nyx` and `Group=nyx` in a user systemd service
 ```bash
 # Error observed in logs:
-ai-companion.service: Failed to determine supplementary groups: Operation not permitted
+ai2d_chat.service: Failed to determine supplementary groups: Operation not permitted
 Main process exited, code=exited, status=216/GROUP
 ```
 
@@ -19,7 +19,7 @@ Main process exited, code=exited, status=216/GROUP
 ```ini
 ProtectSystem=strict
 ProtectHome=false
-ReadWritePaths=/home/nyx/ai-companion /home/nyx/.local/share/ai-companion /tmp
+ReadWritePaths=/home/nyx/ai2d_chat /home/nyx/.local/share/ai2d_chat /tmp
 PrivateTmp=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
@@ -34,9 +34,9 @@ RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 ### 3. **Complex Environment Configuration** ⚠️
 **Problem**: Multiple environment variables and advanced systemd features
 ```ini
-Environment=PYTHONPATH=/home/nyx/ai-companion/src
-Environment=AI_COMPANION_ENV=production
-Environment=AI_COMPANION_LOG_LEVEL=INFO
+Environment=PYTHONPATH=/home/nyx/ai2d_chat/src
+Environment=ai2d_chat_ENV=production
+Environment=ai2d_chat_LOG_LEVEL=INFO
 StartLimitIntervalSec=500
 StartLimitBurst=5
 ```
@@ -90,9 +90,9 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/nyx/ai-companion
-Environment=PATH=/home/nyx/ai-companion/.venv/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/home/nyx/ai-companion/.venv/bin/ai-companion server --port 19443 --host 0.0.0.0 --dev
+WorkingDirectory=/home/nyx/ai2d_chat
+Environment=PATH=/home/nyx/ai2d_chat/.venv/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/nyx/ai2d_chat/.venv/bin/ai2d_chat server --port 19443 --host 0.0.0.0 --dev
 Restart=always
 RestartSec=10
 

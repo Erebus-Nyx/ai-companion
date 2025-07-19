@@ -104,7 +104,7 @@ Third load:  ✅ Using cached Silero VAD model from memory
 
 The Enhanced VAD system with model caching is now complete and ready for:
 
-1. **Integration** into the main AI companion application
+1. **Integration** into the main AI live2d chat application
 2. **Production use** with proper model caching
 3. **Extension** with additional VAD engines or STT models
 4. **Performance monitoring** and optimization

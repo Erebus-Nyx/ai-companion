@@ -3,10 +3,10 @@ requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ai-companion"
+name = "ai2d_chat"
 version = "0.4.0"
-description = "An interactive AI companion with Live2D visual avatar, voice capabilities, and advanced AI integration featuring enhanced VAD, emotional TTS, and local LLM processing."
-authors = [{name = "AI Companion Team", email = "contact@ai-companion.com"}]
+description = "An interactive AI live2d chat with Live2D visual avatar, voice capabilities, and advanced AI integration featuring enhanced VAD, emotional TTS, and local LLM processing."
+authors = [{name = "AI2D Chat Team", email = "contact@ai2d_chat.com"}]
 license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.8"
@@ -92,14 +92,14 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Erebus-Nyx/ai-companion"
-Repository = "https://github.com/Erebus-Nyx/ai-companion"
-Issues = "https://github.com/Erebus-Nyx/ai-companion/issues"
-Documentation = "https://github.com/Erebus-Nyx/ai-companion/blob/main/README.md"
+Homepage = "https://github.com/Erebus-Nyx/ai2d_chat"
+Repository = "https://github.com/Erebus-Nyx/ai2d_chat"
+Issues = "https://github.com/Erebus-Nyx/ai2d_chat/issues"
+Documentation = "https://github.com/Erebus-Nyx/ai2d_chat/blob/main/README.md"
 
 [project.scripts]
-ai-companion = "cli:main"
-ai-companion-server = "main:main"
+ai2d_chat = "cli:main"
+ai2d_chat-server = "main:main"
 
 [project.optional-dependencies]
 dev = [

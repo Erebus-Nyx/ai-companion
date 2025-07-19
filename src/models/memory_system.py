@@ -43,7 +43,7 @@ class ConversationSummary:
 
 class MemorySystem:
     """
-    Advanced memory system for the AI companion
+    Advanced memory system for the AI live2d chat
     Handles memory storage, retrieval, clustering, and context generation
     """
     

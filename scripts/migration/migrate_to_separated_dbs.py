@@ -13,7 +13,7 @@ def migrate_and_clear_live2d():
     """Migrate existing data to separated databases and clear only Live2D data"""
     
     # Paths
-    old_db_path = '/home/nyx/ai-companion/src/ai_companion.db'
+    old_db_path = '/home/nyx/ai2d_chat/src/ai2d_chat.db'
     
     print("🔄 === MIGRATING TO SEPARATED DATABASES ===")
     
@@ -62,7 +62,7 @@ def migrate_and_clear_live2d():
             print(f"  {db_name}: {db_stats['total_rows']} rows, {db_stats['size_mb']} MB")
     
     print("\n✅ Database separation completed!")
-    print("📁 Database files located in: /home/nyx/ai-companion/databases/")
+    print("📁 Database files located in: /home/nyx/ai2d_chat/databases/")
     print("   - live2d.db (cleared and ready for import)")
     print("   - conversations.db (preserved)")
     print("   - personality.db (preserved)")

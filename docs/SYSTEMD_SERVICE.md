@@ -64,25 +64,25 @@ You can also use systemctl directly:
 
 ```bash
 # Start service
-systemctl --user start ai-companion
+systemctl --user start ai2d_chat
 
 # Stop service
-systemctl --user stop ai-companion
+systemctl --user stop ai2d_chat
 
 # Restart service
-systemctl --user restart ai-companion
+systemctl --user restart ai2d_chat
 
 # Check status
-systemctl --user status ai-companion
+systemctl --user status ai2d_chat
 
 # View logs
-journalctl --user -u ai-companion -f
+journalctl --user -u ai2d_chat -f
 
 # Enable auto-start
-systemctl --user enable ai-companion
+systemctl --user enable ai2d_chat
 
 # Disable auto-start
-systemctl --user disable ai-companion
+systemctl --user disable ai2d_chat
 ```
 
 ## Service Configuration
@@ -92,7 +92,7 @@ systemctl --user disable ai-companion
 - **Port:** 19443
 - **Host:** 0.0.0.0 (accessible from network)
 - **User:** nyx
-- **Working Directory:** /home/nyx/ai-companion
+- **Working Directory:** /home/nyx/ai2d_chat
 - **Auto-start:** Enabled on boot
 - **Restart Policy:** Always restart on failure
 
@@ -100,15 +100,15 @@ systemctl --user disable ai-companion
 
 The service file is installed at:
 ```
-~/.config/systemd/user/ai-companion.service
+~/.config/systemd/user/ai2d_chat.service
 ```
 
 ### Environment Variables
 
 The service sets these environment variables:
-- `AI_COMPANION_ENV=production`
-- `AI_COMPANION_LOG_LEVEL=INFO`
-- `PYTHONPATH=/home/nyx/ai-companion/src`
+- `ai2d_chat_ENV=production`
+- `ai2d_chat_LOG_LEVEL=INFO`
+- `PYTHONPATH=/home/nyx/ai2d_chat/src`
 
 ### Security Features
 
@@ -144,21 +144,21 @@ Replace `YOUR_IP` with your machine's IP address.
 ./scripts/service-manager.sh logs
 
 # Or with journalctl
-journalctl --user -u ai-companion -f
+journalctl --user -u ai2d_chat -f
 
 # View recent logs
-journalctl --user -u ai-companion -n 50
+journalctl --user -u ai2d_chat -n 50
 
 # View logs since yesterday
-journalctl --user -u ai-companion --since yesterday
+journalctl --user -u ai2d_chat --since yesterday
 ```
 
 ### Log Locations
 
 - **Systemd logs:** Available via `journalctl`
 - **Application logs:** Stored in systemd journal
-- **Model cache:** `~/.local/share/ai-companion/cache/`
-- **Model storage:** `~/.local/share/ai-companion/models/`
+- **Model cache:** `~/.local/share/ai2d_chat/cache/`
+- **Model storage:** `~/.local/share/ai2d_chat/models/`
 
 ## Troubleshooting
 
@@ -176,8 +176,8 @@ journalctl --user -u ai-companion --since yesterday
 
 3. **Test manual start:**
    ```bash
-   cd /home/nyx/ai-companion
-   .venv/bin/ai-companion server --port 19443
+   cd /home/nyx/ai2d_chat
+   .venv/bin/ai2d_chat server --port 19443
    ```
 
 ### Permission Issues
@@ -186,17 +186,17 @@ If you see permission errors:
 
 1. **Check file ownership:**
    ```bash
-   ls -la /home/nyx/ai-companion
+   ls -la /home/nyx/ai2d_chat
    ```
 
 2. **Fix ownership if needed:**
    ```bash
-   sudo chown -R nyx:nyx /home/nyx/ai-companion
+   sudo chown -R nyx:nyx /home/nyx/ai2d_chat
    ```
 
 3. **Check virtual environment:**
    ```bash
-   ls -la /home/nyx/ai-companion/.venv/bin/ai-companion
+   ls -la /home/nyx/ai2d_chat/.venv/bin/ai2d_chat
    ```
 
 ### Port Already in Use
@@ -210,12 +210,12 @@ If port 19443 is already in use:
 
 2. **Edit service file to use different port:**
    ```bash
-   nano ~/.config/systemd/user/ai-companion.service
+   nano ~/.config/systemd/user/ai2d_chat.service
    ```
    
    Change the ExecStart line:
    ```ini
-   ExecStart=/home/nyx/ai-companion/.venv/bin/ai-companion server --port 8080 --host 0.0.0.0
+   ExecStart=/home/nyx/ai2d_chat/.venv/bin/ai2d_chat server --port 8080 --host 0.0.0.0
    ```
 
 3. **Reload and restart:**
@@ -230,17 +230,17 @@ If models fail to load:
 
 1. **Check model status:**
    ```bash
-   .venv/bin/ai-companion models --list
+   .venv/bin/ai2d_chat models --list
    ```
 
 2. **Check disk space:**
    ```bash
-   df -h ~/.local/share/ai-companion
+   df -h ~/.local/share/ai2d_chat
    ```
 
 3. **Check model permissions:**
    ```bash
-   ls -la ~/.local/share/ai-companion/models/
+   ls -la ~/.local/share/ai2d_chat/models/
    ```
 
 ## Advanced Configuration
@@ -251,7 +251,7 @@ To modify the service configuration:
 
 1. **Edit the service file:**
    ```bash
-   nano ~/.config/systemd/user/ai-companion.service
+   nano ~/.config/systemd/user/ai2d_chat.service
    ```
 
 2. **Reload systemd:**
@@ -324,13 +324,13 @@ sudo loginctl disable-linger nyx
 
 - Default memory limit: 8GB
 - Adjust based on your models and system RAM
-- Monitor usage: `systemctl --user status ai-companion`
+- Monitor usage: `systemctl --user status ai2d_chat`
 
 ### CPU Usage
 
 - Default CPU quota: 400% (4 cores)
 - Adjust based on your system capabilities
-- Monitor usage with `htop` or `systemctl --user status ai-companion`
+- Monitor usage with `htop` or `systemctl --user status ai2d_chat`
 
 ### Model Optimization
 

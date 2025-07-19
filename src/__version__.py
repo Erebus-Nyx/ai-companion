@@ -2,11 +2,11 @@
 
 __version__ = "0.4.0"
 __title__ = "AI Companion"
-__description__ = "An interactive AI companion with Live2D visual avatar, voice capabilities, and advanced AI integration"
+__description__ = "An interactive AI live2d chat with Live2D visual avatar, voice capabilities, and advanced AI integration"
 __author__ = "AI Companion Team"
-__email__ = "contact@ai-companion.com"
+__email__ = "contact@ai2d_chat.com"
 __license__ = "MIT"
-__url__ = "https://github.com/Erebus-Nyx/ai-companion"
+__url__ = "https://github.com/Erebus-Nyx/ai2d_chat"
 
 # API Version for compatibility tracking
 API_VERSION = "v1"

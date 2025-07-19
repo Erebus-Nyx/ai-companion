@@ -100,7 +100,7 @@ The AI Companion is a production-ready local AI assistant featuring Live2D avata
 
 #### File Structure (July 18, 2025 Reorganization)
 ```
-ai-companion/
+ai2d_chat/
 ├── scripts/              # Organized standalone scripts
 │   ├── migration/        # Database management and migration
 │   ├── setup/           # Installation and data population
@@ -124,13 +124,13 @@ ai-companion/
 
 #### Production Packaging
 - **Format**: Modern Python wheel (lightweight, essential components only)
-- **Installation**: `pipx install dist/ai_companion-0.4.0-py3-none-any.whl`
-- **CLI**: Global `ai-companion` command with comprehensive subcommands
+- **Installation**: `pipx install dist/ai2d_chat-0.4.0-py3-none-any.whl`
+- **CLI**: Global `ai2d_chat` command with comprehensive subcommands
 - **Dependencies**: All included for offline operation
-- **Model Storage**: Large models stored in user's local directory (`~/.local/share/ai-companion/`)
+- **Model Storage**: Large models stored in user's local directory (`~/.local/share/ai2d_chat/`)
 
 #### CLI Interface
-- **Entry Point**: `ai-companion` command
+- **Entry Point**: `ai2d_chat` command
 - **Subcommands**: server, api, status, version, models
 - **API Documentation**: Generate docs in text, JSON, YAML formats
 - **System Management**: Health monitoring and status checks
@@ -201,7 +201,7 @@ ai-companion/
 ### Installation Process
 1. **Requirements**: Python 3.8+, basic system dependencies
 2. **Installation**: Single command pipx installation
-3. **Setup**: Automated configuration generation with `ai-companion setup`
+3. **Setup**: Automated configuration generation with `ai2d_chat setup`
 4. **Launch**: Single command server startup
 
 ### Maintenance
@@ -212,4 +212,4 @@ ai-companion/
 
 ---
 
-*This architecture represents a comprehensive AI companion system ready for production deployment with a solid foundation for advanced features.*
+*This architecture represents a comprehensive AI live2d chat system ready for production deployment with a solid foundation for advanced features.*

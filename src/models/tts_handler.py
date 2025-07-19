@@ -56,7 +56,7 @@ class EmotionalTTSHandler:
         # Model paths - use user data directory
         from pathlib import Path
         import os
-        user_data_dir = Path.home() / ".local" / "share" / "ai-companion"
+        user_data_dir = Path.home() / ".local" / "share" / "ai2d_chat"
         self.model_dir = user_data_dir / "models" / "tts" / "kokoro"
         self.model_path = self.model_dir / "onnx" / "model.onnx"
         self.config_path = self.model_dir / "config.json"

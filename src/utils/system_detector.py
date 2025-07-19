@@ -239,17 +239,17 @@ class SystemDetector:
                 "context_length": "2048"
             },
             "medium": {
-                "llm_model": "microsoft/DialoGPT-small",
-                "llm_file": "dialogpt-small.Q4_0.gguf",
+                "llm_model": "Drakldol/Llama-3.1-8B-Instruct-1.2-Uncensored",
+                "llm_file": "model.safetensors",
                 "tts_model": "kokoro-v0_19",
-                "tts_voice": "af_sarah",
+                "tts_voice": "af_heart",
                 "context_length": "4096"
             },
             "high": {
-                "llm_model": "microsoft/DialoGPT-medium",
-                "llm_file": "dialogpt-medium.Q5_1.gguf",
+                "llm_model": "TheBloke/Wizard-Vicuna-13B-Uncensored-GPTQ",
+                "llm_file": "model.safetensors",
                 "tts_model": "kokoro-v0_19",
-                "tts_voice": "af_sarah",
+                "tts_voice": "af_heart",
                 "context_length": "8192"
             }
         }

@@ -26,7 +26,7 @@ def test_avatar_emotions():
         print(f"Sending message: '{message}'")
         
         try:
-            # Send message to AI companion
+            # Send message to AI live2d chat
             response = requests.post(
                 f"{base_url}/api/chat",
                 json={"message": message},

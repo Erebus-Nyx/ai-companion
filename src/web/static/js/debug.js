@@ -265,7 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.debugDatabaseInfo = async function() {
         debugLog('💾 Loading database information...');
         try {
-            const apiBaseUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
             const response = await fetch(`${apiBaseUrl}/api/live2d/models`);
             if (response.ok) {
                 const models = await response.json();
@@ -284,7 +284,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!confirm('⚠️ WARNING: Delete ALL database content?')) return;
         debugLog('🗑 Clearing database...');
         try {
-            const apiBaseUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
             const response = await fetch(`${apiBaseUrl}/api/live2d/clear_database`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
@@ -302,7 +302,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!confirm('📥 Re-import all models and motions?')) return;
         debugLog('📥 Starting re-import...');
         try {
-            const apiBaseUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
             const response = await fetch(`${apiBaseUrl}/api/live2d/reimport_all`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
@@ -340,7 +340,7 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     async function testDatabaseConnection() {
         try {
-            const apiBaseUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
             const response = await fetch(`${apiBaseUrl}/api/live2d/models`);
             if (response.ok) {
                 debugLog('✅ Database: Connected');

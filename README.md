@@ -91,7 +91,7 @@ Develop an AI-powered virtual companion application that provides an immersive, 
 - ✅ **Visual Debugging**: Canvas frame, model frame, and hit area visualization
 - ✅ **Motion/Expression Loading**: Automated loading of all model animations
 - ✅ **UI Integration**: Comprehensive controls with zoom, toggles, and model selection
-- 🎯 **Next Steps**: Implement lipsync integration and emotion mapping for full AI companion experience
+- 🎯 **Next Steps**: Implement lipsync integration and emotion mapping for full AI live2d chat experience
 
 **Cross-Platform Deployment:**
 - Global installation via pipx package manager
@@ -144,7 +144,7 @@ To install the AI Companion application, follow these steps:
 
 ### Enhanced VAD Integration
 
-The AI companion now features advanced audio processing:
+The AI live2d chat now features advanced audio processing:
 
 ```python
 from src.audio import create_audio_pipeline_from_config

@@ -12,11 +12,11 @@ def copy_pyannote_models():
     """Copy PyAnnote models from git to user data directory."""
     
     # Source paths (in git repository)
-    repo_base = Path("/home/nyx/ai-companion")
+    repo_base = Path("/home/nyx/ai2d_chat")
     git_pyannote_base = repo_base / "src/models/pyannote"
     
     # Destination paths (user data directory) 
-    user_data_dir = Path.home() / ".local/share/ai-companion"
+    user_data_dir = Path.home() / ".local/share/ai2d_chat"
     user_pyannote_base = user_data_dir / "models/pyannote"
     
     # Models to copy

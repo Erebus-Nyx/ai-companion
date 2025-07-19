@@ -27,7 +27,7 @@ async function sendMessage() {
     
     try {
         // Use the same fetchWithFallback system as Live2D models
-        let apiBaseUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL;
+        let apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL;
         let response;
         
         // Try primary API URL first
@@ -49,7 +49,7 @@ async function sendMessage() {
         }
         
         // Try fallback URLs if primary failed
-        const fallbackUrls = window.AI_COMPANION_CONFIG?.FALLBACK_URLS || [];
+        const fallbackUrls = window.ai2d_chat_CONFIG?.FALLBACK_URLS || [];
         for (const fallbackUrl of fallbackUrls) {
             try {
                 console.log(`Trying chat API fallback URL: ${fallbackUrl}`);
@@ -61,7 +61,7 @@ async function sendMessage() {
                 if (response.ok) {
                     console.log(`Chat API successful with fallback URL: ${fallbackUrl}`);
                     // Update the working URL for future requests
-                    window.AI_COMPANION_CONFIG.API_BASE_URL = fallbackUrl;
+                    window.ai2d_chat_CONFIG.API_BASE_URL = fallbackUrl;
                     const data = await response.json();
                     addMessage('ai', data.reply || '[No reply]');
                     return;

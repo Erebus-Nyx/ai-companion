@@ -1,5 +1,5 @@
 """
-Audio processing module for AI companion.
+Audio processing module for AI live2d chat.
 
 This module provides comprehensive audio processing capabilities including:
 - Voice Activity Detection (VAD)

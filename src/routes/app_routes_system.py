@@ -22,7 +22,7 @@ except ImportError:
             "version": __version__,
             "api_version": API_VERSION_FULL,
             "title": "AI Companion",
-            "description": "An interactive AI companion with Live2D visual avatar"
+            "description": "An interactive AI live2d chat with Live2D visual avatar"
         }
     def get_version_string():
         return f"AI Companion v{__version__}"
@@ -152,7 +152,7 @@ def api_system_info():
             "name": "AI Companion",
             "version": __version__,
             "api_version": API_VERSION_FULL,
-            "description": "Interactive AI companion with Live2D visual avatar",
+            "description": "Interactive AI live2d chat with Live2D visual avatar",
             "features": [
                 "Live2D Visual Avatar",
                 "Voice Activity Detection",

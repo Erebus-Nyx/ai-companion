@@ -6,9 +6,9 @@ Handles configuration, secrets, and runtime data paths for both development
 and production (pipx) installations.
 
 For pipx installations, creates user-local directories:
-- ~/.config/ai-companion/       (configuration files)
-- ~/.local/share/ai-companion/   (databases, models, cache)
-- ~/.cache/ai-companion/         (temporary cache files)
+- ~/.config/ai2d_chat/       (configuration files)
+- ~/.local/share/ai2d_chat/   (databases, models, cache)
+- ~/.cache/ai2d_chat/         (temporary cache files)
 """
 
 import os
@@ -56,7 +56,7 @@ class ConfigManager:
         # Check if installed with pip -e
         try:
             import pkg_resources
-            dist = pkg_resources.get_distribution('ai-companion')
+            dist = pkg_resources.get_distribution('ai2d_chat')
             if dist.location and 'site-packages' not in dist.location:
                 logger.info("Development mode detected (editable install)")
                 return True
@@ -83,13 +83,13 @@ class ConfigManager:
             home = Path.home()
             
             # Configuration directory
-            self.config_dir = home / '.config' / 'ai-companion'
+            self.config_dir = home / '.config' / 'ai2d_chat'
             
             # Data directory  
-            self.data_dir = home / '.local' / 'share' / 'ai-companion'
+            self.data_dir = home / '.local' / 'share' / 'ai2d_chat'
             
             # Cache directory
-            self.cache_dir = home / '.cache' / 'ai-companion'
+            self.cache_dir = home / '.cache' / 'ai2d_chat'
             
             # Specific data subdirectories
             self.database_dir = self.data_dir / 'databases'
@@ -172,31 +172,31 @@ class ConfigManager:
             return self.cache_dir / cache_type
         return self.cache_dir
         
-    def _copy_default_config(self, config_path: Path):
-        """Copy default configuration from package resources."""
+    def _copy_default_config(self, destination: Path):
+        """Copy default configuration template to destination."""
         try:
-            # Try to find config template in package
+            # Try to get the template config from the package first
             import pkg_resources
-            template_content = pkg_resources.resource_string(
-                'ai_companion', 'config_template.yaml'
+            template_config = pkg_resources.resource_string(
+                'ai2d_chat', 'config/config.yaml'
             ).decode('utf-8')
             
-            with open(config_path, 'w') as f:
-                f.write(template_content)
+            with open(destination, 'w') as f:
+                f.write(template_config)
                 
-            logger.info(f"Created default config at: {config_path}")
+            logger.info(f"Created default config at: {destination}")
             
         except Exception as e:
-            logger.warning(f"Could not copy default config: {e}")
-            # Create minimal config
-            self._create_minimal_config(config_path)
+            logger.warning(f"Could not copy default config from package: {e}")
+            # Fall back to hardcoded full config
+            self._create_hardcoded_config(destination)
             
     def _copy_default_secrets(self, secrets_path: Path):
         """Copy default secrets template."""
         try:
             import pkg_resources
             template_content = pkg_resources.resource_string(
-                'ai_companion', '.secrets.template'
+                'ai2d_chat', 'config/.secrets.template'
             ).decode('utf-8')
             
             with open(secrets_path, 'w') as f:
@@ -265,7 +265,7 @@ class ConfigManager:
             # Update paths to use proper user directories instead of ~ placeholders
             path_mappings = {
                 # Database paths
-                'database.paths.ai_companion': str(self.database_dir / 'ai_companion.db'),
+                'database.paths.ai2d_chat': str(self.database_dir / 'ai2d_chat.db'),
                 'database.paths.conversations': str(self.database_dir / 'conversations.db'),
                 'database.paths.live2d_models': str(self.database_dir / 'live2d.db'),
                 'database.paths.personality': str(self.database_dir / 'personality.db'),
@@ -294,7 +294,7 @@ class ConfigManager:
                 'service.deployment_mode': 'pipx',
                 'service.working_directory': str(self.data_dir),
                 'service.environment_vars.PYTHONPATH': str(self.data_dir),
-                'service.environment_vars.AI_COMPANION_CONFIG': str(self.config_dir / 'config.yaml'),
+                'service.environment_vars.ai2d_chat_CONFIG': str(self.config_dir / 'config.yaml'),
                 
                 # Live2D model paths
                 'live2d_models.Epsilon.model_info.path': str(self.live2d_models_dir / 'epsilon'),
@@ -393,8 +393,8 @@ class ConfigManager:
                 'debug_mode': False,
                 'developer_mode': False,
                 'logging_level': 'INFO',
-                'logging_file': '~/.local/share/ai-companion/.cache/logs/app.log',
-                'secrets_file': '~/.config/ai-companion/.secrets'
+                'logging_file': '~/.local/share/ai2d_chat/.cache/logs/app.log',
+                'secrets_file': '~/.config/ai2d_chat/.secrets'
             },
             'server': {
                 'host': '0.0.0.0',
@@ -424,11 +424,11 @@ class ConfigManager:
                     'require_special_chars': False
                 },
                 'user_database': {
-                    'path': '~/.local/share/ai-companion/databases/users.db'
+                    'path': '~/.local/share/ai2d_chat/databases/users.db'
                 },
                 'session_storage': {
                     'type': 'file',
-                    'path': '~/.local/share/ai-companion/.cache/sessions/'
+                    'path': '~/.local/share/ai2d_chat/.cache/sessions/'
                 },
                 'registration': {
                     'enabled': True,
@@ -459,7 +459,7 @@ class ConfigManager:
                     'timeout': 30
                 },
                 'paths': {
-                    'ai_companion': str(self.database_dir / 'ai_companion.db'),
+                    'ai2d_chat': str(self.database_dir / 'ai2d_chat.db'),
                     'conversations': str(self.database_dir / 'conversations.db'),
                     'live2d_models': str(self.database_dir / 'live2d.db'),
                     'personality': str(self.database_dir / 'personality.db'),
@@ -543,7 +543,7 @@ class ConfigManager:
                 'vector_database': {
                     'type': 'chroma',
                     'path': str(self.database_dir / 'vector_db'),
-                    'collection_name': 'ai_companion_knowledge'
+                    'collection_name': 'ai2d_chat_knowledge'
                 },
                 'embedding': {
                     'model_name': 'sentence-transformers/all-MiniLM-L6-v2',
@@ -562,7 +562,7 @@ class ConfigManager:
                 'working_directory': str(self.data_dir),
                 'environment_vars': {
                     'PYTHONPATH': str(self.data_dir),
-                    'AI_COMPANION_CONFIG': str(self.config_dir / 'config.yaml')
+                    'ai2d_chat_CONFIG': str(self.config_dir / 'config.yaml')
                 }
             },
             'avatar_settings': {
@@ -661,7 +661,7 @@ ADMIN_EMAIL=admin@localhost
 REDIS_URL=redis://localhost:6379/0
 
 # PostgreSQL connection (if using PostgreSQL instead of SQLite)
-DATABASE_URL=postgresql://user:password@localhost/ai_companion
+DATABASE_URL=postgresql://user:password@localhost/ai2d_chat
 
 # Email service configuration (for user notifications)
 SMTP_HOST=smtp.gmail.com
@@ -689,7 +689,7 @@ VOICE_CLONING_API_KEY=your_voice_cloning_api_key_here
 # 2. Replace placeholder API keys with actual credentials as needed
 # 3. For HuggingFace: Visit https://huggingface.co/settings/tokens
 # 4. Keep this file secure and never commit it to version control
-# 5. Set proper file permissions: chmod 600 ~/.config/ai-companion/.secrets
+# 5. Set proper file permissions: chmod 600 ~/.config/ai2d_chat/.secrets
 """
         
         with open(secrets_path, 'w') as f:
@@ -712,7 +712,7 @@ VOICE_CLONING_API_KEY=your_voice_cloning_api_key_here
             
         # List of database files to clean
         db_files = [
-            'ai_companion.db',
+            'ai2d_chat.db',
             'conversations.db', 
             'live2d.db',
             'personality.db',
@@ -883,8 +883,8 @@ VOICE_CLONING_API_KEY=your_voice_cloning_api_key_here
             if 'working_directory' in config['service']:
                 config['service']['working_directory'] = str(self.data_dir)
             if 'environment_vars' in config['service']:
-                if 'AI_COMPANION_CONFIG' in config['service']['environment_vars']:
-                    config['service']['environment_vars']['AI_COMPANION_CONFIG'] = str(self.config_dir / 'config.yaml')
+                if 'ai2d_chat_CONFIG' in config['service']['environment_vars']:
+                    config['service']['environment_vars']['ai2d_chat_CONFIG'] = str(self.config_dir / 'config.yaml')
                     
         # Update authentication paths
         if 'authentication' in config:

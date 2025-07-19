@@ -11,10 +11,10 @@ def install_live2d_models():
     """Copy Live2D models from git repository to user data directory."""
     
     # Source: git repository
-    repo_models_dir = Path("/home/nyx/ai-companion/src/live2d_models")
+    repo_models_dir = Path("/home/nyx/ai2d_chat/src/live2d_models")
     
     # Destination: user data directory
-    user_data_dir = Path.home() / ".local/share/ai-companion"
+    user_data_dir = Path.home() / ".local/share/ai2d_chat"
     user_models_dir = user_data_dir / "live2d_models"
     
     print("🎭 Installing Live2D models...")

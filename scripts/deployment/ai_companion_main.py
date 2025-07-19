@@ -101,10 +101,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=ai-companion
-WorkingDirectory=/opt/ai-companion
-Environment=PATH=/home/ai-companion/.local/bin
-ExecStart=/home/ai-companion/.local/bin/ai-companion-main --config production
+User=ai2d_chat
+WorkingDirectory=/opt/ai2d_chat
+Environment=PATH=/home/ai2d_chat/.local/bin
+ExecStart=/home/ai2d_chat/.local/bin/ai2d_chat-main --config production
 Restart=always
 RestartSec=10
 
@@ -112,15 +112,15 @@ RestartSec=10
 WantedBy=multi-user.target
 """
     
-    with open('ai-companion.service', 'w') as f:
+    with open('ai2d_chat.service', 'w') as f:
         f.write(service_content)
     
-    print("📄 Created ai-companion.service file")
+    print("📄 Created ai2d_chat.service file")
     print("🔧 To install:")
-    print("   sudo cp ai-companion.service /etc/systemd/system/")
+    print("   sudo cp ai2d_chat.service /etc/systemd/system/")
     print("   sudo systemctl daemon-reload")
-    print("   sudo systemctl enable ai-companion")
-    print("   sudo systemctl start ai-companion")
+    print("   sudo systemctl enable ai2d_chat")
+    print("   sudo systemctl start ai2d_chat")
 
 def show_deployment_info():
     """Show deployment information"""
@@ -138,11 +138,11 @@ def show_deployment_info():
     
     print("\n🌐 3. Run in different modes:")
     print("   # Development:")
-    print("   ai-companion-main --config development --debug")
+    print("   ai2d_chat-main --config development --debug")
     print("   # Production:")
-    print("   ai-companion-main --config production")
+    print("   ai2d_chat-main --config production")
     print("   # Cloudflare-ready:")
-    print("   ai-companion-main --config cloudflare --port 8080")
+    print("   ai2d_chat-main --config cloudflare --port 8080")
     
     print("\n☁️  4. Cloudflare Setup:")
     print("   # Install cloudflared tunnel")

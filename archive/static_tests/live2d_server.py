@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 class Live2DHTTPRequestHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory="/home/nyx/ai-companion/src/web/static", **kwargs)
+        super().__init__(*args, directory="/home/nyx/ai2d_chat/src/web/static", **kwargs)
     
     def end_headers(self):
         # Add CORS headers for local development
@@ -48,7 +48,7 @@ def main():
     print(f"Starting Live2D development server...")
     print(f"Server running at: http://localhost:{port}")
     print(f"Live2D viewer URL: http://localhost:{port}/index.html")
-    print(f"Serving from: /home/nyx/ai-companion/src/web/static")
+    print(f"Serving from: /home/nyx/ai2d_chat/src/web/static")
     print("Press Ctrl+C to stop the server")
     
     with socketserver.TCPServer(("", port), Live2DHTTPRequestHandler) as httpd:

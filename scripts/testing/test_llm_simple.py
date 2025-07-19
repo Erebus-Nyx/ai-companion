@@ -38,7 +38,7 @@ def test_llm():
         
         # Check what models are available
         print("Available model files:")
-        model_dir = "/home/nyx/ai-companion/models/llm"
+        model_dir = "/home/nyx/ai2d_chat/models/llm"
         if os.path.exists(model_dir):
             for file in os.listdir(model_dir):
                 print(f"  - {file}")

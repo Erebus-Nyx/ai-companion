@@ -13,7 +13,7 @@ def get_openapi_spec():
             "version": "2.1.0",
             "contact": {
                 "name": "AI Companion Support",
-                "url": "https://github.com/ai-companion/api"
+                "url": "https://github.com/ai2d_chat/api"
             }
         },
         "servers": [
@@ -44,7 +44,7 @@ def get_openapi_spec():
                     "properties": {
                         "message": {
                             "type": "string",
-                            "description": "User message to send to the AI companion"
+                            "description": "User message to send to the AI live2d chat"
                         },
                         "user_id": {
                             "type": "string",
@@ -58,7 +58,7 @@ def get_openapi_spec():
                     "properties": {
                         "response": {
                             "type": "string",
-                            "description": "AI companion response"
+                            "description": "AI live2d chat response"
                         },
                         "personality_state": {
                             "$ref": "#/components/schemas/PersonalityState"
@@ -206,7 +206,7 @@ def get_openapi_spec():
                 "get": {
                     "tags": ["system"],
                     "summary": "Main application interface",
-                    "description": "Serves the main AI companion web interface",
+                    "description": "Serves the main AI live2d chat web interface",
                     "responses": {
                         "200": {
                             "description": "Main application HTML page",
@@ -239,8 +239,8 @@ def get_openapi_spec():
             "/api/chat": {
                 "post": {
                     "tags": ["llm"],
-                    "summary": "Send message to AI companion",
-                    "description": "Send a message to the AI companion and receive a response with personality state and animation triggers",
+                    "summary": "Send message to AI live2d chat",
+                    "description": "Send a message to the AI live2d chat and receive a response with personality state and animation triggers",
                     "requestBody": {
                         "required": True,
                         "content": {
@@ -251,7 +251,7 @@ def get_openapi_spec():
                     },
                     "responses": {
                         "200": {
-                            "description": "AI companion response",
+                            "description": "AI live2d chat response",
                             "content": {
                                 "application/json": {
                                     "schema": {"$ref": "#/components/schemas/ChatResponse"}
@@ -292,7 +292,7 @@ def get_openapi_spec():
                     },
                     "responses": {
                         "200": {
-                            "description": "AI companion response",
+                            "description": "AI live2d chat response",
                             "content": {
                                 "application/json": {
                                     "schema": {"$ref": "#/components/schemas/ChatResponse"}

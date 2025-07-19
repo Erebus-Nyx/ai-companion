@@ -12,8 +12,8 @@
 
 2. **✅ Production Packaging for pipx**
    - **Status**: ✅ **PRODUCTION READY** - 18MB wheel package
-   - **Installation**: `pipx install dist/ai_companion-0.4.0-py3-none-any.whl`
-   - **Global Access**: `ai-companion` command available system-wide
+   - **Installation**: `pipx install dist/ai2d_chat-0.4.0-py3-none-any.whl`
+   - **Global Access**: `ai2d_chat` command available system-wide
 
 3. **✅ Port Migration to 19443**
    - **Status**: ✅ **COMPLETED** across all files
@@ -27,11 +27,11 @@
 5. **✅ Comprehensive CLI Interface**
    - **Status**: ✅ **FULLY FUNCTIONAL** with clean entry point
    - **Commands**: server, api, status, version, models
-   - **Entry Point**: Single `ai-companion` command with subcommands
+   - **Entry Point**: Single `ai2d_chat` command with subcommands
 
 6. **✅ Enhanced Model Management**
    - **Status**: ✅ **CROSS-PLATFORM** user data directory system
-   - **Storage**: `~/.local/share/ai-companion` (XDG compliant)
+   - **Storage**: `~/.local/share/ai2d_chat` (XDG compliant)
    - **Independence**: Models stored outside git repository
 
 ---
@@ -47,12 +47,12 @@
 ### **Python Package Configuration**
 - **Build System**: Modern setuptools with pyproject.toml
 - **Package Size**: ~18MB (includes Live2D dependencies)
-- **Entry Points**: Clean single entry `ai-companion = cli:main`
+- **Entry Points**: Clean single entry `ai2d_chat = cli:main`
 - **Modules**: Proper py-modules configuration for CLI inclusion
 
 ### **Model Management Architecture**
 ```
-~/.local/share/ai-companion/
+~/.local/share/ai2d_chat/
 ├── models/           # AI models (TTS, LLM, VAD, etc.)
 ├── cache/           # Model cache and temporary files
 └── config/          # User configuration files
@@ -60,17 +60,17 @@
 
 ### **CLI Interface**
 ```bash
-ai-companion --help                    # Main help
-ai-companion server                    # Start server (port 19443)
-ai-companion server --port 8080       # Custom port
-ai-companion server --dev             # Development mode
-ai-companion api                       # API documentation
-ai-companion api --format json        # JSON format docs
-ai-companion status                    # System status
-ai-companion version                   # Version details
-ai-companion models                    # Model information
-ai-companion models --list             # List models
-ai-companion models --paths            # Storage paths
+ai2d_chat --help                    # Main help
+ai2d_chat server                    # Start server (port 19443)
+ai2d_chat server --port 8080       # Custom port
+ai2d_chat server --dev             # Development mode
+ai2d_chat api                       # API documentation
+ai2d_chat api --format json        # JSON format docs
+ai2d_chat status                    # System status
+ai2d_chat version                   # Version details
+ai2d_chat models                    # Model information
+ai2d_chat models --list             # List models
+ai2d_chat models --paths            # Storage paths
 ```
 
 ---
@@ -83,14 +83,14 @@ ai-companion models --paths            # Storage paths
 - **Result**: CLI functionality now works after pipx installation
 
 ### **2. Entry Point Confusion** ✅ RESOLVED  
-- **Problem**: Dual entry points (ai-companion + ai-companion-server)
+- **Problem**: Dual entry points (ai2d_chat + ai2d_chat-server)
 - **Solution**: Single clean entry point with subcommands
-- **Result**: User-friendly `ai-companion server` instead of separate binaries
+- **Result**: User-friendly `ai2d_chat server` instead of separate binaries
 
 ### **3. Model Storage Location** ✅ RESOLVED
 - **Problem**: Models downloading to relative paths in git repo
 - **Solution**: Cross-platform user data directory system
-- **Result**: Models persist in `~/.local/share/ai-companion` independent of repo
+- **Result**: Models persist in `~/.local/share/ai2d_chat` independent of repo
 
 ### **4. Cross-Platform Compatibility** ✅ RESOLVED
 - **Problem**: Hard-coded paths not following platform conventions
@@ -103,26 +103,26 @@ ai-companion models --paths            # Storage paths
 
 ### **CLI Functionality** ✅ VERIFIED
 ```bash
-$ ai-companion --help
-usage: ai-companion [-h] [--version] {server,api,status,version,models} ...
+$ ai2d_chat --help
+usage: ai2d_chat [-h] [--version] {server,api,status,version,models} ...
 AI Companion - Interactive AI with Live2D Avatar
 ```
 
 ### **Model Management** ✅ VERIFIED
 ```bash
-$ ai-companion models --paths
+$ ai2d_chat models --paths
 📁 Model Storage Locations:
-  • User Data Directory: /home/nyx/.local/share/ai-companion
-  • Models Directory: /home/nyx/.local/share/ai-companion/models
-  • Cache Directory: /home/nyx/.local/share/ai-companion/cache
+  • User Data Directory: /home/nyx/.local/share/ai2d_chat
+  • Models Directory: /home/nyx/.local/share/ai2d_chat/models
+  • Cache Directory: /home/nyx/.local/share/ai2d_chat/cache
 ```
 
 ### **Package Installation** ✅ VERIFIED
 ```bash
-$ pipx install dist/ai_companion-0.4.0-py3-none-any.whl
-✅ installed package ai-companion 0.4.0, installed using Python 3.12.3
+$ pipx install dist/ai2d_chat-0.4.0-py3-none-any.whl
+✅ installed package ai2d_chat 0.4.0, installed using Python 3.12.3
   These apps are now globally available
-    - ai-companion
+    - ai2d_chat
 ```
 
 ---
@@ -130,13 +130,13 @@ $ pipx install dist/ai_companion-0.4.0-py3-none-any.whl
 ## 📦 **FINAL DELIVERABLES**
 
 ### **Production Package**
-- **File**: `dist/ai_companion-0.4.0-py3-none-any.whl`
+- **File**: `dist/ai2d_chat-0.4.0-py3-none-any.whl`
 - **Size**: ~18MB (includes Live2D dependencies)
-- **Installation**: `pipx install dist/ai_companion-0.4.0-py3-none-any.whl`
+- **Installation**: `pipx install dist/ai2d_chat-0.4.0-py3-none-any.whl`
 
 ### **Live2D Interface**
 - **File**: `src/web/templates/live2d_pixi.html`
-- **Features**: Complete AI companion with visual avatar
+- **Features**: Complete AI live2d chat with visual avatar
 - **Dependencies**: Local libraries for offline functionality
 
 ### **CLI System**
@@ -146,7 +146,7 @@ $ pipx install dist/ai_companion-0.4.0-py3-none-any.whl
 
 ### **Documentation**
 - **Build Guide**: `BUILD_COMPLETE_v0.4.0.md`
-- **API Reference**: Generated via `ai-companion api`
+- **API Reference**: Generated via `ai2d_chat api`
 - **Usage Examples**: Built into CLI help system
 
 ---
@@ -161,10 +161,10 @@ $ pipx install dist/ai_companion-0.4.0-py3-none-any.whl
 5. **Clean Installation**: Single pipx command deployment
 
 ### **✅ User Experience**
-1. **Simple Installation**: `pipx install ai_companion-0.4.0-py3-none-any.whl`
-2. **Intuitive CLI**: `ai-companion server` starts the system
+1. **Simple Installation**: `pipx install ai2d_chat-0.4.0-py3-none-any.whl`
+2. **Intuitive CLI**: `ai2d_chat server` starts the system
 3. **Automatic Setup**: Models download on first use
-4. **Live2D Interface**: Full visual AI companion experience
+4. **Live2D Interface**: Full visual AI live2d chat experience
 
 ---
 
@@ -178,6 +178,6 @@ $ pipx install dist/ai_companion-0.4.0-py3-none-any.whl
 - **✅ Model Management**: Cross-platform user data storage
 - **✅ Production Configuration**: Ready for Cloudflare deployment
 
-The system provides an interactive AI companion with Live2D visual avatars, complete with voice recording, real-time chat, emotional TTS, and comprehensive model management - all packaged in a clean, professional distribution ready for production deployment.
+The system provides an interactive AI live2d chat with Live2D visual avatars, complete with voice recording, real-time chat, emotional TTS, and comprehensive model management - all packaged in a clean, professional distribution ready for production deployment.
 
 **🎉 ALL OBJECTIVES ACHIEVED - PROJECT COMPLETE! 🎉**

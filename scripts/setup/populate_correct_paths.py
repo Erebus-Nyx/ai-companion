@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 # Set the correct working directory for user data
-user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
+user_data_dir = os.path.expanduser("~/.local/share/ai2d_chat")
 databases_dir = os.path.join(user_data_dir, "databases")
 
 # Import and configure the database manager to use user data directory

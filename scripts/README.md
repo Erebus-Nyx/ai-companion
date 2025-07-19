@@ -8,7 +8,7 @@ This directory contains all standalone scripts for the AI Companion project, org
 Scripts for database management, migration, and cleanup:
 - `check_and_clean_db.py` - Database integrity checks and cleanup
 - `check_motions.py` - Motion data validation
-- `clean_ai_companion_db.py` - Clean AI companion database
+- `clean_ai2d_chat_db.py` - Clean AI live2d chat database
 - `clear_database.py` - Clear database contents
 - `migrate_config.py` - Configuration migration
 - `migrate_preview_column.py` - Preview column migration
@@ -53,7 +53,7 @@ Test scripts and validation utilities:
 
 ### `/deployment/`
 Scripts for running the application and deployment:
-- `ai_companion_main.py` - Main application entry point
+- `ai2d_chat_main.py` - Main application entry point
 - `cloudflare-setup.sh` - Cloudflare setup script
 - `complete_live2d_fix.py` - Complete Live2D fixes
 - `deploy.sh` - Main deployment script

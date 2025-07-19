@@ -42,7 +42,7 @@
 #### 1. Enhanced System Prompt (`_build_enhanced_prompt`)
 ```python
 # New personality-focused system prompt
-system_prompt = f"""You are an AI companion with a unique personality and emotional intelligence.
+system_prompt = f"""You are an AI live2d chat with a unique personality and emotional intelligence.
 
 PERSONALITY GUIDELINES:
 - BE EMOTIONALLY EXPRESSIVE: Use emotion tags like *excited*, *curious*, *empathetic*
@@ -269,7 +269,7 @@ The AI Companion now provides a significantly more engaging, emotional, and pers
 - **Relationship Building**: Developing deeper connections over time
 - **Personal Investment**: Showing genuine care and interest in users
 
-**Next Phase**: Ready for Live2D avatar integration and TTS emotional expression to create a fully immersive AI companion experience.
+**Next Phase**: Ready for Live2D avatar integration and TTS emotional expression to create a fully immersive AI live2d chat experience.
 
 ---
 

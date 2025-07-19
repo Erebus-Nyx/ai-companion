@@ -41,7 +41,7 @@ echo "1. First, authenticate with Cloudflare:"
 echo "   cloudflared tunnel login"
 echo ""
 echo "2. Create a tunnel:"
-echo "   cloudflared tunnel create ai-companion"
+echo "   cloudflared tunnel create ai2d_chat"
 echo ""
 echo "3. Configure the tunnel (replace YOUR_TUNNEL_ID):"
 echo "   Create ~/.cloudflared/config.yml with:"
@@ -51,17 +51,17 @@ tunnel: YOUR_TUNNEL_ID
 credentials-file: /home/user/.cloudflared/YOUR_TUNNEL_ID.json
 
 ingress:
-  - hostname: ai-companion.yourdomain.com
+  - hostname: ai2d_chat.yourdomain.com
     service: http://localhost:19443
   - service: http_status:404
 EOF
 echo ""
 echo "4. Route traffic through the tunnel:"
-echo "   cloudflared tunnel route dns ai-companion ai-companion.yourdomain.com"
+echo "   cloudflared tunnel route dns ai2d_chat ai2d_chat.yourdomain.com"
 echo ""
 echo "5. Run the tunnel:"
-echo "   cloudflared tunnel run ai-companion"
+echo "   cloudflared tunnel run ai2d_chat"
 echo ""
-echo -e "${GREEN}🎉 Your AI Companion will be available at: https://ai-companion.yourdomain.com${NC}"
+echo -e "${GREEN}🎉 Your AI Companion will be available at: https://ai2d_chat.yourdomain.com${NC}"
 echo ""
 echo -e "${BLUE}💡 Pro tip: Set up a systemd service for automatic startup${NC}"

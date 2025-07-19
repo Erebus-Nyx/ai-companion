@@ -11,7 +11,7 @@ print("🔍 === CHECKING MOTION DATABASE STATE ===")
 # Check database directly
 print("\n📊 Database Check:")
 try:
-    conn = sqlite3.connect('src/ai_companion.db')
+    conn = sqlite3.connect('src/ai2d_chat.db')
     cursor = conn.cursor()
     
     # Count motions

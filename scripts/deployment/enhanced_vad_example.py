@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Enhanced VAD Integration Example
-Shows how to integrate enhanced VAD with your AI companion
+Shows how to integrate enhanced VAD with your AI live2d chat
 """
 
 import asyncio
@@ -21,7 +21,7 @@ class EnhancedAICompanion:
     AI Companion with Enhanced VAD Integration
     
     This example shows how to integrate the enhanced VAD pipeline
-    with your existing AI companion system.
+    with your existing AI live2d chat system.
     """
     
     def __init__(self, config_path: str = "config.yaml"):
@@ -78,21 +78,21 @@ class EnhancedAICompanion:
         wake_word = event.data.get('wake_word', 'unknown')
         logger.info(f"👂 Wake word detected: '{wake_word}'")
         
-        # Your AI companion logic here
+        # Your AI live2d chat logic here
         # For example: activate conversation mode, play acknowledgment sound, etc.
     
     def _on_speech_start(self, event):
         """Handle speech start"""
         logger.info("🎤 Speech recording started")
         
-        # Your AI companion logic here
+        # Your AI live2d chat logic here
         # For example: show listening indicator, pause other audio, etc.
     
     def _on_speech_end(self, event):
         """Handle speech end"""
         logger.info("⏹️  Speech recording ended")
         
-        # Your AI companion logic here
+        # Your AI live2d chat logic here
         # For example: show processing indicator
     
     def _on_transcription(self, event):
@@ -103,7 +103,7 @@ class EnhancedAICompanion:
             confidence = result.confidence
             logger.info(f"📝 Transcription: '{text}' (confidence: {confidence:.2f})")
             
-            # Process the transcribed text with your AI companion
+            # Process the transcribed text with your AI live2d chat
             self._process_user_input(text, confidence)
     
     def _on_audio_error(self, event):
@@ -131,10 +131,10 @@ class EnhancedAICompanion:
         logger.info(f"🚀 Enhanced VAD ready in {mode} mode")
     
     def _process_user_input(self, text: str, confidence: float):
-        """Process user input with AI companion logic"""
+        """Process user input with AI live2d chat logic"""
         logger.info(f"🤖 Processing user input: '{text}'")
         
-        # Your AI companion processing logic here
+        # Your AI live2d chat processing logic here
         # For example:
         # - Intent recognition
         # - Conversation context
@@ -150,7 +150,7 @@ class EnhancedAICompanion:
         responses = {
             "hello": "Hello! How can I help you today?",
             "help": "I'm here to assist you. What do you need help with?",
-            "avatar": "I'm your AI companion avatar. What would you like to know?",
+            "avatar": "I'm your AI live2d chat avatar. What would you like to know?",
         }
         
         # Simple keyword matching for demonstration
@@ -161,7 +161,7 @@ class EnhancedAICompanion:
         return "That's interesting! Tell me more about that."
     
     async def start(self):
-        """Start the AI companion"""
+        """Start the AI live2d chat"""
         if self.is_running:
             return
         
@@ -183,11 +183,11 @@ class EnhancedAICompanion:
                     logger.info(f"Enhanced mode: {stats.get('enhanced_mode', 'unknown')}")
             
         except Exception as e:
-            logger.error(f"Failed to start AI companion: {e}")
+            logger.error(f"Failed to start AI live2d chat: {e}")
             raise
     
     async def stop(self):
-        """Stop the AI companion"""
+        """Stop the AI live2d chat"""
         if not self.is_running:
             return
         
@@ -201,7 +201,7 @@ class EnhancedAICompanion:
             logger.info("✅ Enhanced AI Companion stopped")
             
         except Exception as e:
-            logger.error(f"Error stopping AI companion: {e}")
+            logger.error(f"Error stopping AI live2d chat: {e}")
     
     def get_status(self) -> dict:
         """Get current status"""
@@ -242,7 +242,7 @@ async def main():
     logger.info("Enhanced VAD AI Companion Integration Demo")  
     logger.info("=" * 60)
     
-    # Create AI companion
+    # Create AI live2d chat
     companion = EnhancedAICompanion()
     
     try:

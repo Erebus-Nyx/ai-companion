@@ -25,9 +25,9 @@ def get_user_data_dir() -> Path:
         # Use XDG_DATA_HOME or fallback to ~/.local/share
         data_dir = Path(os.environ.get('XDG_DATA_HOME', Path.home() / '.local' / 'share'))
     else:
-        data_dir = Path.home() / '.ai-companion'
+        data_dir = Path.home() / '.ai2d_chat'
     
-    return data_dir / 'ai-companion'
+    return data_dir / 'ai2d_chat'
 
 
 class ModelDownloader:
@@ -80,17 +80,19 @@ class ModelDownloader:
                 },
                 "small": {
                     "source_type": "huggingface",
-                    "repo_id": "TheBloke/Llama-2-7B-Chat-GGUF", 
-                    "filename": "llama-2-7b-chat.Q4_0.gguf",
-                    "size_mb": 4000,
-                    "min_ram_gb": 6
+                    "repo_id": "Drakldol/Llama-3.1-8B-Instruct-1.2-Uncensored",
+                    "filename": "model.safetensors",
+                    "size_mb": 8000,
+                    "min_ram_gb": 12,
+                    "model_format": "safetensors"
                 },
                 "medium": {
                     "source_type": "huggingface",
-                    "repo_id": "TheBloke/Llama-2-13B-Chat-GGUF",
-                    "filename": "llama-2-13b-chat.Q4_0.gguf", 
-                    "size_mb": 7000,
-                    "min_ram_gb": 10
+                    "repo_id": "TheBloke/Wizard-Vicuna-13B-Uncensored-GPTQ",
+                    "filename": "model.safetensors",
+                    "size_mb": 13000,
+                    "min_ram_gb": 16,
+                    "model_format": "safetensors"
                 }
             },
             "tts": {
@@ -159,7 +161,7 @@ class ModelDownloader:
             "pyannote_vad": {
                 "segmentation": {
                     "source_type": "local_git",
-                    "local_path": "/home/nyx/.local/share/ai-companion/models/pyannote/segmentation-3.0",
+                    "local_path": "/home/nyx/.local/share/ai2d_chat/models/pyannote/segmentation-3.0",
                     "files": [
                         "config.yaml"
                     ],
@@ -170,7 +172,7 @@ class ModelDownloader:
             "pyannote_diarization": {
                 "speaker_diarization": {
                     "source_type": "local_git",
-                    "local_path": "/home/nyx/.local/share/ai-companion/models/pyannote/speaker-diarization-3.1", 
+                    "local_path": "/home/nyx/.local/share/ai2d_chat/models/pyannote/speaker-diarization-3.1", 
                     "files": [
                         "config.yaml"
                     ],

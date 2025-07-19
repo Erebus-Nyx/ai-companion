@@ -54,38 +54,38 @@ Successfully updated AI Companion to version **0.4.0** with comprehensive CLI in
 pipx install .
 
 # From wheel file  
-pipx install dist/ai_companion-0.4.0-py3-none-any.whl
+pipx install dist/ai2d_chat-0.4.0-py3-none-any.whl
 ```
 
 ### Command Line Interface
 ```bash
 # Start the server
-ai-companion server
+ai2d_chat server
 
 # Start on custom port in development mode
-ai-companion server --port 8080 --dev
+ai2d_chat server --port 8080 --dev
 
 # View API documentation
-ai-companion api
+ai2d_chat api
 
 # View API docs in JSON format
-ai-companion api --format json
+ai2d_chat api --format json
 
 # Check system status
-ai-companion status
+ai2d_chat status
 
 # Show version information
-ai-companion version
+ai2d_chat version
 
 # Show help
-ai-companion --help
+ai2d_chat --help
 ```
 
 ### Quick Start
 1. Install: `pipx install .`
-2. Start server: `ai-companion server`  
+2. Start server: `ai2d_chat server`  
 3. Open browser: `http://localhost:19443/`
-4. View API docs: `ai-companion api`
+4. View API docs: `ai2d_chat api`
 
 ## 📋 API Endpoints (v0.4.0)
 
@@ -98,7 +98,7 @@ ai-companion --help
 - `GET /api/system/info` - General system information
 
 ### Chat
-- `POST /api/chat` - Send messages to AI companion
+- `POST /api/chat` - Send messages to AI live2d chat
 - `POST /api/v1/chat` - Alternative v1 chat endpoint
 
 ### TTS  
@@ -139,7 +139,7 @@ ai-companion --help
 
 ## 📁 Package Structure
 ```
-ai-companion-0.4.0/
+ai2d_chat-0.4.0/
 ├── src/
 │   ├── __version__.py          # Version management
 │   ├── cli.py                  # Command-line interface  
@@ -185,4 +185,4 @@ pipx install dist/*.whl
 
 **AI Companion v0.4.0 is ready for production deployment! 🚀**
 
-The complete Live2D AI companion system with CLI interface, comprehensive API documentation, and pipx packaging is now available for installation and deployment through Cloudflare/DNS.
+The complete Live2D AI live2d chat system with CLI interface, comprehensive API documentation, and pipx packaging is now available for installation and deployment through Cloudflare/DNS.

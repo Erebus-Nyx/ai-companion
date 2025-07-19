@@ -1,11 +1,11 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='ai-companion',
+    name='ai2d_chat',
     version='0.4.0',
     description='AI Companion with Live2D Visual Avatar',
     author='AI Companion Team',
-    author_email='contact@ai-companion.com',
+    author_email='contact@ai2d_chat.com',
     packages=find_packages(where='src'),
     package_dir={'': 'src'},
     include_package_data=True,
@@ -72,8 +72,8 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'ai-companion=cli:main',
-            'ai-companion-server=app:run_server',
+            'ai2d_chat=cli:main',
+            'ai2d_chat-server=app:run_server',
         ],
     },
     classifiers=[

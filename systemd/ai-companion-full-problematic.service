@@ -1,6 +1,6 @@
 [Unit]
 Description=AI Companion Server with Live2D Avatar
-Documentation=https://github.com/Erebus-Nyx/ai-companion
+Documentation=https://github.com/Erebus-Nyx/ai2d_chat
 After=network.target network-online.target
 Wants=network-online.target
 StartLimitIntervalSec=500
@@ -10,24 +10,24 @@ StartLimitBurst=5
 Type=simple
 User=nyx
 Group=nyx
-WorkingDirectory=/home/nyx/ai-companion
-Environment=PATH=/home/nyx/ai-companion/.venv/bin:/usr/local/bin:/usr/bin:/bin
-Environment=PYTHONPATH=/home/nyx/ai-companion/src
-Environment=AI_COMPANION_ENV=production
-Environment=AI_COMPANION_LOG_LEVEL=INFO
-ExecStart=/home/nyx/ai-companion/.venv/bin/ai-companion server --port 19443 --host 0.0.0.0
+WorkingDirectory=/home/nyx/ai2d_chat
+Environment=PATH=/home/nyx/ai2d_chat/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/home/nyx/ai2d_chat/src
+Environment=ai2d_chat_ENV=production
+Environment=ai2d_chat_LOG_LEVEL=INFO
+ExecStart=/home/nyx/ai2d_chat/.venv/bin/ai2d_chat server --port 19443 --host 0.0.0.0
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=ai-companion
+SyslogIdentifier=ai2d_chat
 
 # Security settings
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=false
-ReadWritePaths=/home/nyx/ai-companion /home/nyx/.local/share/ai-companion /tmp
+ReadWritePaths=/home/nyx/ai2d_chat /home/nyx/.local/share/ai2d_chat /tmp
 PrivateTmp=true
 ProtectKernelTunables=true
 ProtectKernelModules=true

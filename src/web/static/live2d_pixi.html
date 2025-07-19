@@ -353,7 +353,7 @@ console.log('=== End Verification ===');
 <!-- Step 5: Verify Live2D plugin initialization -->
 <script>
 // AI Companion API Configuration - Auto-detect protocol and server
-window.AI_COMPANION_CONFIG = {
+window.ai2d_chat_CONFIG = {
     // Automatically detect the current protocol and server
     API_BASE_URL: (() => {
         const protocol = window.location.protocol; // 'http:' or 'https:'
@@ -396,9 +396,9 @@ window.AI_COMPANION_CONFIG = {
     })()
 };
 
-console.log('AI Companion API Config:', window.AI_COMPANION_CONFIG.API_BASE_URL);
+console.log('AI Companion API Config:', window.ai2d_chat_CONFIG.API_BASE_URL);
 console.log('Protocol detected:', window.location.protocol);
-console.log('Fallback URLs:', window.AI_COMPANION_CONFIG.FALLBACK_URLS);
+console.log('Fallback URLs:', window.ai2d_chat_CONFIG.FALLBACK_URLS);
 </script>
 
 <script>
@@ -728,7 +728,7 @@ let currentDragElement = null;
 let dragOffset = { x: 0, y: 0 };
 
 // Window Layout Persistence System
-const LAYOUT_STORAGE_KEY = 'ai-companion-window-layout';
+const LAYOUT_STORAGE_KEY = 'ai2d_chat-window-layout';
 
 // Default window layouts
 const DEFAULT_LAYOUTS = {
@@ -1790,7 +1790,7 @@ async function sendAudioToServer(audioBlob) {
         formData.append('audio', audioBlob, 'recording.wav');
         
         // Use the same fallback system as other API calls
-        let apiBaseUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL;
+        let apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL;
         let response;
         
         // Try primary API URL first
@@ -1814,7 +1814,7 @@ async function sendAudioToServer(audioBlob) {
         }
         
         // Try fallback URLs if primary failed
-        const fallbackUrls = window.AI_COMPANION_CONFIG?.FALLBACK_URLS || [];
+        const fallbackUrls = window.ai2d_chat_CONFIG?.FALLBACK_URLS || [];
         for (const fallbackUrl of fallbackUrls) {
             try {
                 console.log(`Trying speech-to-text API fallback URL: ${fallbackUrl}`);
@@ -1825,7 +1825,7 @@ async function sendAudioToServer(audioBlob) {
                 if (response.ok) {
                     console.log(`Speech-to-text API successful with fallback URL: ${fallbackUrl}`);
                     // Update the working URL for future requests
-                    window.AI_COMPANION_CONFIG.API_BASE_URL = fallbackUrl;
+                    window.ai2d_chat_CONFIG.API_BASE_URL = fallbackUrl;
                     const data = await response.json();
                     if (data.text) {
                         document.getElementById('chatInput').value = data.text;
@@ -1867,7 +1867,7 @@ async function sendMessage() {
     
     try {
         // Use the same fetchWithFallback system as Live2D models
-        let apiBaseUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL;
+        let apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL;
         let response;
         
         // Try primary API URL first
@@ -1901,7 +1901,7 @@ async function sendMessage() {
         }
         
         // Try fallback URLs if primary failed
-        const fallbackUrls = window.AI_COMPANION_CONFIG?.FALLBACK_URLS || [];
+        const fallbackUrls = window.ai2d_chat_CONFIG?.FALLBACK_URLS || [];
         for (const fallbackUrl of fallbackUrls) {
             try {
                 console.log(`Trying enhanced chat API fallback URL: ${fallbackUrl}`);
@@ -1913,7 +1913,7 @@ async function sendMessage() {
                 if (response.ok) {
                     console.log(`Enhanced chat API successful with fallback URL: ${fallbackUrl}`);
                     // Update the working URL for future requests
-                    window.AI_COMPANION_CONFIG.API_BASE_URL = fallbackUrl;
+                    window.ai2d_chat_CONFIG.API_BASE_URL = fallbackUrl;
                     const data = await response.json();
                     
                     // Add AI response to chat
@@ -2013,7 +2013,7 @@ function initializeSocketIO() {
         
         socket.on('connect', function() {
             console.log('🔌 Connected to server via SocketIO');
-            addSystemMessage('Connected to AI companion server', 'success');
+            addSystemMessage('Connected to AI live2d chat server', 'success');
         });
         
         socket.on('disconnect', function() {

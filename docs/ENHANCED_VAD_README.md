@@ -352,7 +352,7 @@ Based on the analysis of your Intv_App implementation, this enhanced VAD integra
 - ✅ Configuration-driven setup
 - ✅ Multiple performance modes
 - ✅ Comprehensive event system
-- ✅ Integration with existing AI companion architecture
+- ✅ Integration with existing AI live2d chat architecture
 - ✅ Performance monitoring and statistics
 
 ### Key Differences

@@ -17,7 +17,7 @@ class ProductionConfig:
     PORT = int(os.environ.get('PORT', 19443))
     
     # Database Configuration
-    DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///ai_companion.db')
+    DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///ai2d_chat.db')
     
     # AI Model Configuration
     LLM_MODEL_PATH = os.environ.get('LLM_MODEL_PATH', 'models/llm/')
@@ -47,7 +47,7 @@ class ProductionConfig:
     
     # Logging Configuration
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
-    LOG_FILE = os.environ.get('LOG_FILE', 'ai_companion.log')
+    LOG_FILE = os.environ.get('LOG_FILE', 'ai2d_chat.log')
     
     @classmethod
     def get_config_dict(cls) -> Dict[str, Any]:
@@ -117,7 +117,7 @@ PORT=19443
 SECRET_KEY=your-super-secret-key-change-this-immediately
 
 # Database
-DATABASE_URL=sqlite:///ai_companion_production.db
+DATABASE_URL=sqlite:///ai2d_chat_production.db
 
 # Model Paths
 LLM_MODEL_PATH=models/llm/
@@ -129,7 +129,7 @@ CORS_ORIGINS=https://your-domain.com,https://www.your-domain.com
 
 # Logging
 LOG_LEVEL=INFO
-LOG_FILE=ai_companion.log
+LOG_FILE=ai2d_chat.log
 
 # Optional: For Cloudflare deployment
 # PORT=8080

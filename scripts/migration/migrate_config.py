@@ -25,11 +25,11 @@ class ConfigMigration:
         
         # Paths
         self.project_root = Path(__file__).parent.parent
-        self.user_data_dir = Path.home() / ".local" / "share" / "ai-companion"
+        self.user_data_dir = Path.home() / ".local" / "share" / "ai2d_chat"
         
         # Old database locations (scattered)
         self.old_db_paths = {
-            "ai_companion": self.project_root / "databases" / "ai_companion.db",
+            "ai2d_chat": self.project_root / "databases" / "ai2d_chat.db",
             "conversations": self.project_root / "databases" / "conversations.db",
             "live2d": self.project_root / "databases" / "live2d.db",
             "personality": self.project_root / "databases" / "personality.db",
@@ -38,7 +38,7 @@ class ConfigMigration:
         
         # New database locations (consolidated)
         self.new_db_paths = {
-            "ai_companion": self.user_data_dir / "databases" / "ai_companion.db",
+            "ai2d_chat": self.user_data_dir / "databases" / "ai2d_chat.db",
             "conversations": self.user_data_dir / "databases" / "conversations.db", 
             "live2d_models": self.user_data_dir / "databases" / "live2d_models.db",
             "personality": self.user_data_dir / "databases" / "personality.db",
@@ -115,18 +115,18 @@ class ConfigMigration:
             # Replace hardcoded paths with user data directory paths
             replacements = {
                 # Database paths
-                'databases/conversations.db': '~/.local/share/ai-companion/databases/conversations.db',
-                'databases/live2d.db': '~/.local/share/ai-companion/databases/live2d_models.db',
-                'databases/personality.db': '~/.local/share/ai-companion/databases/personality.db',
-                'databases/system.db': '~/.local/share/ai-companion/databases/system.db',
+                'databases/conversations.db': '~/.local/share/ai2d_chat/databases/conversations.db',
+                'databases/live2d.db': '~/.local/share/ai2d_chat/databases/live2d_models.db',
+                'databases/personality.db': '~/.local/share/ai2d_chat/databases/personality.db',
+                'databases/system.db': '~/.local/share/ai2d_chat/databases/system.db',
                 
                 # Model paths
-                'models/tts/kokoro': '~/.local/share/ai-companion/models/tts/kokoro',
-                'models/llm/': '~/.local/share/ai-companion/models/llm/',
-                '/models/faster_whisper': '~/.local/share/ai-companion/models/faster_whisper',
+                'models/tts/kokoro': '~/.local/share/ai2d_chat/models/tts/kokoro',
+                'models/llm/': '~/.local/share/ai2d_chat/models/llm/',
+                '/models/faster_whisper': '~/.local/share/ai2d_chat/models/faster_whisper',
                 
                 # Voice paths
-                'models/voices/': '~/.local/share/ai-companion/models/tts/voices/',
+                'models/voices/': '~/.local/share/ai2d_chat/models/tts/voices/',
             }
             
             for old_path, new_path in replacements.items():

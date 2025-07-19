@@ -73,7 +73,7 @@ class Live2DModelManager:
         This also removes models that no longer exist in the filesystem.
         """
         if models_base_path is None:
-            models_base_path = os.path.expanduser("~/.local/share/ai-companion/live2d_models")
+            models_base_path = os.path.expanduser("~/.local/share/ai2d_chat/live2d_models")
         models_path = Path(models_base_path)
         if not models_path.exists():
             self.logger.warning(f"Models directory not found: {models_path}")

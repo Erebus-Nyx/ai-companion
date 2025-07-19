@@ -30,8 +30,8 @@ class Live2DMultiModelManager {
 
     // Helper function for API calls with automatic fallback
     async fetchWithFallback(endpoint) {
-        const primaryUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL || 'http://localhost:19443';
-        const fallbackUrls = window.AI_COMPANION_CONFIG?.FALLBACK_URLS || [];
+        const primaryUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+        const fallbackUrls = window.ai2d_chat_CONFIG?.FALLBACK_URLS || [];
         const urlsToTry = [primaryUrl, ...fallbackUrls];
         
         let lastError = null;
@@ -44,8 +44,8 @@ class Live2DMultiModelManager {
                 
                 if (response.ok) {
                     // Update global config with working URL
-                    if (window.AI_COMPANION_CONFIG) {
-                        window.AI_COMPANION_CONFIG.API_BASE_URL = apiBaseUrl;
+                    if (window.ai2d_chat_CONFIG) {
+                        window.ai2d_chat_CONFIG.API_BASE_URL = apiBaseUrl;
                     }
                     return response;
                 }
@@ -174,8 +174,8 @@ class Live2DMultiModelManager {
 
     async loadAvailableModels() {
         // Get primary URL and fallback URLs
-        const primaryUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL || 'http://localhost:19443';
-        const fallbackUrls = window.AI_COMPANION_CONFIG?.FALLBACK_URLS || [];
+        const primaryUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+        const fallbackUrls = window.ai2d_chat_CONFIG?.FALLBACK_URLS || [];
         const urlsToTry = [primaryUrl, ...fallbackUrls];
         
         let lastError = null;
@@ -196,8 +196,8 @@ class Live2DMultiModelManager {
                 }
                 
                 // Update global config with working URL
-                if (window.AI_COMPANION_CONFIG) {
-                    window.AI_COMPANION_CONFIG.API_BASE_URL = apiBaseUrl;
+                if (window.ai2d_chat_CONFIG) {
+                    window.ai2d_chat_CONFIG.API_BASE_URL = apiBaseUrl;
                 }
                 
                 this.modelList = models.map(model => ({
@@ -635,7 +635,7 @@ class Live2DMultiModelManager {
         try {
             // First, try to get texture info from the API
             // Use dynamic API base URL from global config
-            const apiBaseUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
             const textureResponse = await fetch(`${apiBaseUrl}/api/live2d/textures/${modelData.name}`);
             if (textureResponse.ok) {
                 const textureInfo = await textureResponse.json();
@@ -972,7 +972,7 @@ class Live2DMultiModelManager {
     async getCachedPreview(modelName) {
         try {
             // Use dynamic API base URL from global config
-            const apiBaseUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
             const response = await fetch(`${apiBaseUrl}/api/live2d/preview/${encodeURIComponent(modelName)}`);
             
             if (response.ok) {
@@ -998,7 +998,7 @@ class Live2DMultiModelManager {
     async saveCachedPreview(modelName, previewData) {
         try {
             // Use dynamic API base URL from global config
-            const apiBaseUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
             const response = await fetch(`${apiBaseUrl}/api/live2d/preview/${encodeURIComponent(modelName)}`, {
                 method: 'POST',
                 headers: {
@@ -1031,7 +1031,7 @@ class Live2DMultiModelManager {
     async hasCachedPreview(modelName) {
         try {
             // Use dynamic API base URL from global config
-            const apiBaseUrl = window.AI_COMPANION_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
             const response = await fetch(`${apiBaseUrl}/api/live2d/preview/${encodeURIComponent(modelName)}/check`);
             
             if (response.ok) {

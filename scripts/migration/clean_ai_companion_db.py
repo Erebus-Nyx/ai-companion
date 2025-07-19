@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to clean phantom models from ai_companion.db
+Script to clean phantom models from ai2d_chat.db
 """
 
 import os
@@ -11,11 +11,11 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def clean_ai_companion_db():
-    """Clean phantom models from ai_companion.db"""
+def clean_ai2d_chat_db():
+    """Clean phantom models from ai2d_chat.db"""
     
-    user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
-    db_path = os.path.join(user_data_dir, "databases", "ai_companion.db")
+    user_data_dir = os.path.expanduser("~/.local/share/ai2d_chat")
+    db_path = os.path.join(user_data_dir, "databases", "ai2d_chat.db")
     
     if not os.path.exists(db_path):
         logger.error(f"Database not found: {db_path}")
@@ -60,12 +60,12 @@ def clean_ai_companion_db():
         conn.commit()
         conn.close()
         
-        logger.info(f"✅ Cleaned {removed_count} phantom models from ai_companion.db")
+        logger.info(f"✅ Cleaned {removed_count} phantom models from ai2d_chat.db")
         return True
         
     except Exception as e:
-        logger.error(f"Error cleaning ai_companion.db: {e}")
+        logger.error(f"Error cleaning ai2d_chat.db: {e}")
         return False
 
 if __name__ == "__main__":
-    clean_ai_companion_db()
+    clean_ai2d_chat_db()

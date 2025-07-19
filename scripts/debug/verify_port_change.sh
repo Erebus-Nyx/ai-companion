@@ -15,7 +15,7 @@ else
 fi
 
 # Check main entry point
-if grep -q "19443" ai_companion_main.py; then
+if grep -q "19443" ai2d_chat_main.py; then
     echo "✅ Main entry point: Port 19443 configured"
 else
     echo "❌ Main entry point: Port not updated"

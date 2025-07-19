@@ -20,7 +20,7 @@ def test_service_restart():
         # Stop current service
         result = subprocess.run(
             ["./scripts/service-manager.sh", "stop"],
-            capture_output=True, text=True, cwd="/home/nyx/ai-companion"
+            capture_output=True, text=True, cwd="/home/nyx/ai2d_chat"
         )
         print(f"Service stop: {result.returncode}")
         
@@ -34,7 +34,7 @@ def test_service_restart():
         # Start service
         result = subprocess.run(
             ["./scripts/service-manager.sh", "start"],
-            capture_output=True, text=True, cwd="/home/nyx/ai-companion"
+            capture_output=True, text=True, cwd="/home/nyx/ai2d_chat"
         )
         print(f"Service start: {result.returncode}")
         print(f"Output: {result.stdout}")
@@ -57,7 +57,7 @@ def check_service_health():
     try:
         # Check systemd status
         result = subprocess.run(
-            ["systemctl", "--user", "is-active", "ai-companion.service"],
+            ["systemctl", "--user", "is-active", "ai2d_chat.service"],
             capture_output=True, text=True
         )
         print(f"Service status: {result.stdout.strip()}")
@@ -79,7 +79,7 @@ def check_model_paths():
     """Verify that all model files exist in expected locations."""
     print("📂 Checking model file existence...")
     
-    user_data_dir = Path.home() / ".local" / "share" / "ai-companion"
+    user_data_dir = Path.home() / ".local" / "share" / "ai2d_chat"
     
     expected_files = [
         "models/tts/kokoro/onnx/model.onnx",
@@ -151,7 +151,7 @@ def main():
         try:
             result = subprocess.run(
                 ["./scripts/service-manager.sh", "logs"],
-                capture_output=True, text=True, cwd="/home/nyx/ai-companion"
+                capture_output=True, text=True, cwd="/home/nyx/ai2d_chat"
             )
             print("Recent logs:")
             print(result.stdout[-1000:])  # Last 1000 chars

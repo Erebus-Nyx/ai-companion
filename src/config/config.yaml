@@ -6,18 +6,18 @@ config_version: "1.0"
 
 # General settings
 general:
-  app_name: "AI Companion"
+  app_name: "AI 2D Chat"
   app_version: "0.4.0"
   debug_mode: false
   developer_mode: false
   logging_level: "INFO"
-  logging_file: "~/.local/share/ai-companion/.cache/logs/app.log"
-  secrets_file: "~/.config/ai-companion/.secrets"
+  logging_file: "~/.local/share/ai2d_chat/.cache/logs/app.log"
+  secrets_file: "~/.config/ai2d_chat/.secrets"
 
 # Server settings
 server:
   host: "0.0.0.0"
-  port: 4011
+  port: 19080
   enable_ssl: false
   ssl_cert: ""
   ssl_key: ""
@@ -47,10 +47,10 @@ authentication:
     require_numbers: true
     require_special_chars: false
   user_database:
-    path: "~/.local/share/ai-companion/databases/users.db"
+    path: "~/.local/share/ai2d_chat/databases/users.db"
   session_storage:
     type: "file"  # file, redis, memory
-    path: "~/.local/share/ai-companion/.cache/sessions/"
+    path: "~/.local/share/ai2d_chat/.cache/sessions/"
   registration:
     enabled: true  # Allow new user registration
     require_admin_approval: false  # Require admin approval for new users
@@ -79,21 +79,21 @@ database:
     timeout: 30
   paths:
     # NOTE: Databases will be created in user data directory for deployment isolation
-    ai_companion: "~/.local/share/ai-companion/databases/ai_companion.db"
-    conversations: "~/.local/share/ai-companion/databases/conversations.db"
-    live2d_models: "~/.local/share/ai-companion/databases/live2d.db"
-    personality: "~/.local/share/ai-companion/databases/personality.db"
-    system: "~/.local/share/ai-companion/databases/system.db"
-    users: "~/.local/share/ai-companion/databases/users.db"
-    user_profiles: "~/.local/share/ai-companion/databases/user_profiles.db"
-    user_sessions: "~/.local/share/ai-companion/databases/user_sessions.db"
+    ai2d_chat: "~/.local/share/ai2d_chat/databases/ai2d_chat.db"
+    conversations: "~/.local/share/ai2d_chat/databases/conversations.db"
+    live2d_models: "~/.local/share/ai2d_chat/databases/live2d.db"
+    personality: "~/.local/share/ai2d_chat/databases/personality.db"
+    system: "~/.local/share/ai2d_chat/databases/system.db"
+    users: "~/.local/share/ai2d_chat/databases/users.db"
+    user_profiles: "~/.local/share/ai2d_chat/databases/user_profiles.db"
+    user_sessions: "~/.local/share/ai2d_chat/databases/user_sessions.db"
   
 # Model settings
 integrated_models:
   llm:
     # Primary SafeTensor model
     model_name: "TheBloke/Wizard-Vicuna-13B-Uncensored-GPTQ"
-    model_path: "~/.local/share/ai-companion/models/llm/Wizard-Vicuna-13B-Uncensored-GPTQ"
+    model_path: "~/.local/share/ai2d_chat/models/llm/Wizard-Vicuna-13B-Uncensored-GPTQ"
     model_format: "safetensors"
     max_tokens: 4096
     temperature: 0.7
@@ -101,18 +101,18 @@ integrated_models:
     # Alternative SafeTensor model if GPTQ causes llama.cpp integration issues
     fallback_model:
       model_name: "Drakldol/Llama-3.1-8B-Instruct-1.2-Uncensored"
-      model_path: "~/.local/share/ai-companion/models/llm/Llama-3.1-8B-Instruct-1.2-Uncensored"
+      model_path: "~/.local/share/ai2d_chat/models/llm/Llama-3.1-8B-Instruct-1.2-Uncensored"
       model_format: "safetensors"
   tts:
     # NOTE: Updated Kokoro paths with separate voice directory
     model_name: "onnx-community/Kokoro-82M-ONNX"  # Updated model name
-    model_path: "~/.local/share/ai-companion/models/tts/kokoro"  # Updated path structure
-    voice_path: "~/.local/share/ai-companion/models/tts/voices"  # New: dedicated voice directory
+    model_path: "~/.local/share/ai2d_chat/models/tts/kokoro"  # Updated path structure
+    voice_path: "~/.local/share/ai2d_chat/models/tts/voices"  # New: dedicated voice directory
     voice: "af_heart"  # Updated default voice
     language: "en-US"
   stt:
     model_name: "faster-whisper"
-    model_path: "~/.local/share/ai-companion/models/faster-whisper"
+    model_path: "~/.local/share/ai2d_chat/models/faster-whisper"
     stt_model: "large-v3"  # tiny, base, small, medium, large
     stt_language: "en"
     stt_device: "auto"  # auto, cpu, cuda
@@ -120,7 +120,7 @@ integrated_models:
     stt_cpu_threads: 0
   vad:
     model_name: "silero_vad"
-    model_path: "~/.local/share/ai-companion/models/silero_vad"
+    model_path: "~/.local/share/ai2d_chat/models/silero_vad"
     threshold: 0.5
     silero_threshold: 0.5
     silero_min_speech_duration_ms: 250
@@ -129,14 +129,14 @@ integrated_models:
     silero_window_size_samples: 1536
   pyannote_segmentation:
     model_name: "pyannote/segmentation-3.0"
-    model_path: "~/.local/share/ai-companion/models/pyannote/segmentation-3.0"
+    model_path: "~/.local/share/ai2d_chat/models/pyannote/segmentation-3.0"
     vad_onset_threshold: 0.5
     vad_offset_threshold: 0.5
     vad_min_duration_on: 0.1
     vad_min_duration_off: 0.1
   pyannote_diarization:
     model_name: "pyannote/speaker-diarization-3.1"
-    model_path: "~/.local/share/ai-companion/models/pyannote/speaker-diarization-3.1"
+    model_path: "~/.local/share/ai2d_chat/models/pyannote/speaker-diarization-3.1"
     min_speakers: 1
     max_speakers: 2
     speaker_verification_enabled: true
@@ -154,8 +154,8 @@ audio_processing:
   min_speech_duration: 0.5
   max_speech_duration: 30.0
   audio_format: "wav"  # wav, mp3, flac
-  audio_output_path: "~/.local/share/ai-companion/.cache/audio_output/"
-  audio_input_path: "~/.local/share/ai-companion/.cache/audio_input/"
+  audio_output_path: "~/.local/share/ai2d_chat/.cache/audio_output/"
+  audio_input_path: "~/.local/share/ai2d_chat/.cache/audio_input/"
   voice_detection:
     cue_words:
       - "hello"
@@ -167,7 +167,7 @@ audio_processing:
 
 logging:
   enable_file_logging: true
-  file_log_path: "~/.local/share/ai-companion/.cache/logs/app.log"
+  file_log_path: "~/.local/share/ai2d_chat/.cache/logs/app.log"
   file_log_level: "DEBUG"
   enable_console_logging: true
   console_log_level: "INFO"
@@ -182,11 +182,11 @@ rag:
   enabled: false  # Set to true when RAG implementation is complete
   vector_database:
     type: "chroma"  # chroma, faiss, pinecone
-    path: "~/.local/share/ai-companion/databases/vector_db"
-    collection_name: "ai_companion_knowledge"
+    path: "~/.local/share/ai2d_chat/databases/vector_db"
+    collection_name: "ai2d_chat_knowledge"
   embedding:
     model_name: "sentence-transformers/all-MiniLM-L6-v2"
-    model_path: "~/.local/share/ai-companion/models/embeddings/all-MiniLM-L6-v2"
+    model_path: "~/.local/share/ai2d_chat/models/embeddings/all-MiniLM-L6-v2"
     embedding_dim: 384
     batch_size: 32
   retrieval:
@@ -224,11 +224,11 @@ service:
   deployment_mode: "pipx"  # pipx, systemd, docker
   auto_start: false
   restart_policy: "on-failure"
-  user: "ai-companion"  # Service user for systemd
-  working_directory: "~/.local/share/ai-companion"
+  user: "ai2d_chat"  # Service user for systemd
+  working_directory: "~/.local/share/ai2d_chat"
   environment_vars:
-    PYTHONPATH: "~/.local/share/ai-companion"
-    AI_COMPANION_CONFIG: "~/.config/ai-companion/config.yaml"
+    PYTHONPATH: "~/.local/share/ai2d_chat"
+    AI2D_CHAT_CONFIG: "~/.config/ai2d_chat/config.yaml"
   resource_limits:
     memory_limit: "8G"
     cpu_limit: "4"
@@ -279,7 +279,7 @@ live2d_models:
     active: true
     nsfw: false
     model_info:
-      path: "~/.local/share/ai-companion/live2d_models/epsilon"    
+      path: "~/.local/share/ai2d_chat/live2d_models/epsilon"    
       model_version: "4.0"
       model_type: "Cubism" 
       expression_method: "seperated"
@@ -315,7 +315,7 @@ live2d_models:
     active: true
     nsfw: true
     model_info:
-      path: "~/.local/share/ai-companion/live2d_models/iori"
+      path: "~/.local/share/ai2d_chat/live2d_models/iori"
       model_version: "3.2"
       model_type: "Cubism"
       expression_method: "none"
@@ -349,7 +349,7 @@ live2d_models:
     active: true
     nsfw: true
     model_info:
-      path: "~/.local/share/ai-companion/live2d_models/nodoka"
+      path: "~/.local/share/ai2d_chat/live2d_models/nodoka"
       model_version: "3.2"
       model_type: "Cubism"
       expression_method: "none"
@@ -382,7 +382,7 @@ live2d_models:
     active: true
     nsfw: false
     model_info:
-      path: "~/.local/share/ai-companion/live2d_models/haru"
+      path: "~/.local/share/ai2d_chat/live2d_models/haru"
       model_version: "4.0"
       model_type: "Cubism" 
       expression_method: "seperated"
@@ -415,7 +415,7 @@ live2d_models:
     active: true
     nsfw: false
     model_info:
-      path: "~/.local/share/ai-companion/live2d_models/haruka"
+      path: "~/.local/share/ai2d_chat/live2d_models/haruka"
       model_version: "3.3"
       model_type: "Cubism"
       expression_method: "merged"  # Fixed: was missing
@@ -449,7 +449,7 @@ live2d_models:
     active: true
     nsfw: false
     model_info:
-      path: "~/.local/share/ai-companion/live2d_models/mori"
+      path: "~/.local/share/ai2d_chat/live2d_models/mori"
       model_version: "3.2"
       model_type: "Cubism"
       expression_method: "merged"
@@ -485,7 +485,7 @@ live2d_models:
     active: true
     nsfw: false
     model_info:
-      path: "~/.local/share/ai-companion/live2d_models/hiyori"
+      path: "~/.local/share/ai2d_chat/live2d_models/hiyori"
       model_version: "4.0"
       default_model: "hiyori"
       model_type: "Cubism"
@@ -521,7 +521,7 @@ live2d_models:
     active: true
     nsfw: false
     model_info:
-      path: "~/.local/share/ai-companion/live2d_models/kanade"
+      path: "~/.local/share/ai2d_chat/live2d_models/kanade"
       model_version: "4.0"
       model_type: "Cubism" 
       expression_method: "seperated"
@@ -554,7 +554,7 @@ live2d_models:
     active: true
     nsfw: false
     model_info:
-      path: "~/.local/share/ai-companion/live2d_models/tsumiki"
+      path: "~/.local/share/ai2d_chat/live2d_models/tsumiki"
       model_version: "4.0"
       model_type: "Cubism" 
       expression_method: "seperated"

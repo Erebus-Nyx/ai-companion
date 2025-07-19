@@ -213,7 +213,7 @@ logging.getLogger('urllib3').setLevel(logging.WARNING)  # Reduce HTTP logs
 app = Flask(__name__, 
            template_folder='web/templates',
            static_folder='web/static')
-app.config['SECRET_KEY'] = 'ai-companion-secret-key-change-in-production'
+app.config['SECRET_KEY'] = 'ai2d_chat-secret-key-change-in-production'
 CORS(app, resources={r"/*": {"origins": "*"}})
 socketio = SocketIO(app, cors_allowed_origins="*", 
                    async_mode='threading',
@@ -269,7 +269,7 @@ def live2d_interface():
 @app.route('/live2d_models/<path:filename>')
 def serve_live2d_models(filename):
     """Serve Live2D models from user data directory"""
-    user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
+    user_data_dir = os.path.expanduser("~/.local/share/ai2d_chat")
     live2d_models_path = os.path.join(user_data_dir, "live2d_models")
     return send_from_directory(live2d_models_path, filename)
 
@@ -361,7 +361,7 @@ class AICompanionApp:
         self.is_running = False
         
     async def initialize_components(self):
-        """Initialize all AI companion components"""
+        """Initialize all AI live2d chat components"""
         global db_manager, llm_handler, tts_handler, personality_system
         global audio_pipeline, system_detector, model_downloader, app_state, live2d_manager
         
@@ -395,7 +395,7 @@ class AICompanionApp:
             live2d_manager = Live2DModelManager()
             app_globals.live2d_manager = live2d_manager
             # Use user data directory for Live2D models
-            user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
+            user_data_dir = os.path.expanduser("~/.local/share/ai2d_chat")
             live2d_models_path = os.path.join(user_data_dir, "live2d_models")
             live2d_manager.scan_models_directory(live2d_models_path)
             logger.info(f"Live2D model manager initialized with separated databases and models scanned from: {live2d_models_path}")

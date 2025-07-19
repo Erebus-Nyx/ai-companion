@@ -110,13 +110,13 @@ def check_entry_points():
         with open("pyproject.toml", 'r') as f:
             content = f.read()
             
-        if 'ai-companion = "cli:main"' in content:
+        if 'ai2d_chat = "cli:main"' in content:
             print("   ✅ Main CLI entry point configured")
         else:
             print("   ❌ Main CLI entry point not found")
             return False
             
-        if 'ai-companion-server = "main:main"' in content:
+        if 'ai2d_chat-server = "main:main"' in content:
             print("   ✅ Server entry point configured")
         else:
             print("   ❌ Server entry point not found")
@@ -269,10 +269,10 @@ def main():
         print("\n📋 Next steps:")
         print("   ./build_pipx.sh                    # Build package")
         print("   pipx install .                     # Install locally")
-        print("   ai-companion server                # Test installation")
+        print("   ai2d_chat server                # Test installation")
         print("\n🌐 After installation:")
         print("   http://localhost:19443/live2d      # Live2D interface")
-        print("   ai-companion api                   # View API docs")
+        print("   ai2d_chat api                   # View API docs")
         return 0
     else:
         print("❌ Some checks failed. Please fix issues before building.")

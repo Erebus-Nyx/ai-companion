@@ -61,15 +61,15 @@ pip install dist/*.whl
 # Test CLI functionality
 echo "🔍 Testing CLI functionality..."
 echo "Testing version command:"
-ai-companion --version
+ai2d_chat --version
 
 echo ""
 echo "Testing API documentation:"
-ai-companion api --format json | head -10
+ai2d_chat api --format json | head -10
 
 echo ""
 echo "Testing help command:"
-ai-companion --help
+ai2d_chat --help
 
 # Cleanup
 deactivate
@@ -85,9 +85,9 @@ echo "   Local install:  pipx install ."
 echo "   From wheel:     pipx install dist/*.whl"
 echo ""
 echo "🚀 Quick Start Commands:"
-echo "   ai-companion server          # Start the server"
-echo "   ai-companion api             # View API docs"
-echo "   ai-companion status          # Check status"
-echo "   ai-companion --help          # Show help"
+echo "   ai2d_chat server          # Start the server"
+echo "   ai2d_chat api             # View API docs"
+echo "   ai2d_chat status          # Check status"
+echo "   ai2d_chat --help          # Show help"
 echo ""
 echo "🌐 After installation, visit: http://localhost:19443/live2d"

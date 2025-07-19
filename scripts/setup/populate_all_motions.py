@@ -47,7 +47,7 @@ def populate_motions():
     print("🔄 === POPULATING ALL LIVE2D MOTIONS ===")
     
     # Use user data directory for database
-    user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
+    user_data_dir = os.path.expanduser("~/.local/share/ai2d_chat")
     db_path = os.path.join(user_data_dir, "databases", "live2d.db")
     print(f"📂 Database path: {db_path}")
     
@@ -59,7 +59,7 @@ def populate_motions():
         return False
     
     # Use user data directory for Live2D models  
-    user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
+    user_data_dir = os.path.expanduser("~/.local/share/ai2d_chat")
     assets_dir = os.path.join(user_data_dir, "live2d_models")
     print(f"📂 Live2D models directory: {assets_dir}")
     

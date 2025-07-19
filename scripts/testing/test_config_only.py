@@ -218,7 +218,7 @@ def main():
         logger.info("\nNext steps:")
         logger.info("1. Install dependencies: pip install -r requirements.txt")
         logger.info("2. Test the enhanced VAD pipeline")
-        logger.info("3. Integrate with your existing AI companion")
+        logger.info("3. Integrate with your existing AI live2d chat")
         return 0
     else:
         logger.warning("⚠️  Some tests failed")

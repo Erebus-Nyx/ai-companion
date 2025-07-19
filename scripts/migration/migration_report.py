@@ -10,8 +10,8 @@ print("""
    migrated from the repository static assets to the user data directory.
 
 📁 NEW STRUCTURE:
-   • Models Location: ~/.local/share/ai-companion/live2d_models/
-   • Database: ~/.local/share/ai-companion/databases/live2d.db
+   • Models Location: ~/.local/share/ai2d_chat/live2d_models/
+   • Database: ~/.local/share/ai2d_chat/databases/live2d.db
    • Static Route: /live2d_models/ (served by Flask)
 
 🎭 AVAILABLE MODELS (7 total):
@@ -31,7 +31,7 @@ print("""
 
 🔧 CHANGES MADE:
    1. ✅ Updated database model paths from 'static/assets/' to 'live2d_models/'
-   2. ✅ Fixed Live2D model scanner to use ~/.local/share/ai-companion/live2d_models
+   2. ✅ Fixed Live2D model scanner to use ~/.local/share/ai2d_chat/live2d_models
    3. ✅ Added Flask route '/live2d_models/' to serve models from user directory
    4. ✅ Updated JavaScript config to use '/live2d_models' URL
    5. ✅ Fixed motion file paths in app_routes_live2d.py
@@ -56,7 +56,7 @@ print("""
 💡 TECHNICAL DETAILS:
    • Database Manager: Uses separated databases pattern
    • Model Paths: Relative paths 'live2d_models/{model_name}'
-   • Web Serving: Flask route serves from ~/.local/share/ai-companion/live2d_models
+   • Web Serving: Flask route serves from ~/.local/share/ai2d_chat/live2d_models
    • URL Format: /live2d_models/{model_name}/{file_path}
 
 🎉 The migration is complete and the AI Companion should now properly discover 

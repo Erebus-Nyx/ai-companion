@@ -34,7 +34,7 @@ if __name__ == "__main__":
             import os
             from pathlib import Path
             
-            user_data_dir = Path.home() / '.local/share/ai-companion'
+            user_data_dir = Path.home() / '.local/share/ai2d_chat'
             db_dir = user_data_dir / 'databases'
             
             print(f"✓ User data directory: {user_data_dir}")

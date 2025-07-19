@@ -16,7 +16,7 @@ def get_openapi_spec() -> Dict[str, Any]:
             "version": "2.1.0",
             "contact": {
                 "name": "AI Companion Support",
-                "url": "https://github.com/ai-companion/api"
+                "url": "https://github.com/ai2d_chat/api"
             },
             "license": {
                 "name": "MIT",
@@ -55,7 +55,7 @@ def get_openapi_spec() -> Dict[str, Any]:
                     "properties": {
                         "message": {
                             "type": "string",
-                            "description": "User message to send to the AI companion",
+                            "description": "User message to send to the AI live2d chat",
                             "example": "Hello, how are you feeling today?"
                         },
                         "user_id": {
@@ -71,7 +71,7 @@ def get_openapi_spec() -> Dict[str, Any]:
                     "properties": {
                         "response": {
                             "type": "string",
-                            "description": "AI companion response text",
+                            "description": "AI live2d chat response text",
                             "example": "Hello! I'm feeling quite cheerful today. How can I help you?"
                         },
                         "personality_state": {
@@ -333,7 +333,7 @@ def get_openapi_spec() -> Dict[str, Any]:
                 "get": {
                     "tags": ["system"],
                     "summary": "Main application interface",
-                    "description": "Serves the main AI companion web interface with Live2D viewer and chat functionality",
+                    "description": "Serves the main AI live2d chat web interface with Live2D viewer and chat functionality",
                     "responses": {
                         "200": {
                             "description": "Main application HTML page",
@@ -366,8 +366,8 @@ def get_openapi_spec() -> Dict[str, Any]:
             "/api/chat": {
                 "post": {
                     "tags": ["llm"],
-                    "summary": "Send message to AI companion",
-                    "description": "Send a message to the AI companion and receive a response with personality state, animation triggers, and optional TTS audio",
+                    "summary": "Send message to AI live2d chat",
+                    "description": "Send a message to the AI live2d chat and receive a response with personality state, animation triggers, and optional TTS audio",
                     "requestBody": {
                         "required": true,
                         "content": {
@@ -378,7 +378,7 @@ def get_openapi_spec() -> Dict[str, Any]:
                     },
                     "responses": {
                         "200": {
-                            "description": "AI companion response with animation and audio data",
+                            "description": "AI live2d chat response with animation and audio data",
                             "content": {
                                 "application/json": {
                                     "schema": {"$ref": "#/components/schemas/ChatResponse"}
@@ -419,7 +419,7 @@ def get_openapi_spec() -> Dict[str, Any]:
                     },
                     "responses": {
                         "200": {
-                            "description": "Enhanced AI companion response",
+                            "description": "Enhanced AI live2d chat response",
                             "content": {
                                 "application/json": {
                                     "schema": {"$ref": "#/components/schemas/ChatResponse"}

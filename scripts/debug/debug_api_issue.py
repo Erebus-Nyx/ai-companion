@@ -19,7 +19,7 @@ def debug_api_issue():
     # Step 1: Test database directly
     print("\n📂 Testing database directly...")
     try:
-        manager = Live2DModelManager('src/ai_companion.db')
+        manager = Live2DModelManager('src/ai2d_chat.db')
         motions = manager.get_model_motions('kanade')
         print(f"✅ Direct database query: {len(motions)} motions for kanade")
         

@@ -307,7 +307,7 @@ class EnhancedLLMHandler:
         if personality_notes:
             character_context += f"\nPersonality Notes: {personality_notes}"
         
-        system_prompt = f"""You are {character_name}, a warm and emotionally expressive AI companion with a unique personality.{character_context}
+        system_prompt = f"""You are {character_name}, a warm and emotionally expressive AI live2d chat with a unique personality.{character_context}
 
 Your personality traits:
 {personality_desc}

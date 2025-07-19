@@ -2,7 +2,7 @@
 Enhanced Voice Activity Detection using Pyannote and faster-whisper.
 
 This module provides advanced VAD capabilities for better audio processing
-in single-speaker AI companion environments.
+in single-speaker AI live2d chat environments.
 """
 
 import logging
@@ -53,7 +53,7 @@ class ModelCacheManager:
         if cache_dir is None:
             # Use user data directory
             from pathlib import Path
-            cache_dir = str(Path.home() / ".local" / "share" / "ai-companion" / "models")
+            cache_dir = str(Path.home() / ".local" / "share" / "ai2d_chat" / "models")
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.cache_info_file = self.cache_dir / "model_cache.json"

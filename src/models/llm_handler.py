@@ -70,7 +70,7 @@ class LLMHandler:
         self.context_length = self.system_detector.capabilities.get("max_context_length", 2048)
         
         # Personality system prompt template
-        self.system_prompt_template = """You are an AI companion with a unique personality. Your traits are:
+        self.system_prompt_template = """You are an AI live2d chat with a unique personality. Your traits are:
 {personality_description}
 
 Your current emotional state:

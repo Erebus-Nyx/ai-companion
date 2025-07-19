@@ -32,7 +32,7 @@ def test_database_setup():
     
     try:
         # Initialize database
-        db_manager = DBManager("test_ai_companion.db")
+        db_manager = DBManager("test_ai2d_chat.db")
         
         # Test basic functionality
         user_id = "test_user"
@@ -67,7 +67,7 @@ def test_memory_system():
     
     try:
         # Initialize database and memory system
-        db_manager = DBManager("test_ai_companion.db")
+        db_manager = DBManager("test_ai2d_chat.db")
         memory_system = MemorySystem(db_manager)
         
         user_id = "test_user"
@@ -130,7 +130,7 @@ def test_enhanced_llm_handler():
     
     try:
         # Initialize components
-        db_manager = DBManager("test_ai_companion.db")
+        db_manager = DBManager("test_ai2d_chat.db")
         llm_handler = EnhancedLLMHandler(db_manager=db_manager)
         
         # Test model status (without initializing the actual model for speed)
@@ -165,7 +165,7 @@ def test_model_initialization():
     
     try:
         # Initialize components
-        db_manager = DBManager("test_ai_companion.db")
+        db_manager = DBManager("test_ai2d_chat.db")
         llm_handler = EnhancedLLMHandler(db_manager=db_manager)
         
         # Test model initialization
@@ -196,7 +196,7 @@ def test_integration():
     
     try:
         # Initialize all components
-        db_manager = DBManager("test_ai_companion.db")
+        db_manager = DBManager("test_ai2d_chat.db")
         memory_system = MemorySystem(db_manager)
         llm_handler = EnhancedLLMHandler(db_manager=db_manager)
         
@@ -244,7 +244,7 @@ def test_integration():
 
 def cleanup_test_files():
     """Clean up test database files"""
-    test_files = ["test_ai_companion.db"]
+    test_files = ["test_ai2d_chat.db"]
     for file in test_files:
         if Path(file).exists():
             os.remove(file)

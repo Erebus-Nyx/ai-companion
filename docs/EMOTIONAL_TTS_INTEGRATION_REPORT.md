@@ -2,7 +2,7 @@
 
 ## Overview
 
-This report documents the successful implementation of **Emotional Text-to-Speech (TTS) Synthesis** for the AI Companion project. This enhancement connects the existing personality system and emotion detection to voice synthesis, enabling the AI companion to speak with appropriate emotional tone based on its responses and personality state.
+This report documents the successful implementation of **Emotional Text-to-Speech (TTS) Synthesis** for the AI Companion project. This enhancement connects the existing personality system and emotion detection to voice synthesis, enabling the AI live2d chat to speak with appropriate emotional tone based on its responses and personality state.
 
 ## Implementation Summary
 
@@ -410,7 +410,7 @@ console.log('🔊 TTS Audio:', data.tts_audio.emotion, 'intensity:', data.tts_au
 
 ## Conclusion
 
-The **Emotional TTS Integration** successfully bridges the gap between the AI companion's personality system and voice synthesis, creating a more immersive and emotionally engaging user experience. The system provides:
+The **Emotional TTS Integration** successfully bridges the gap between the AI live2d chat's personality system and voice synthesis, creating a more immersive and emotionally engaging user experience. The system provides:
 
 1. **Seamless Integration**: Works transparently with existing chat and personality systems
 2. **Rich Emotional Range**: 15+ emotions with nuanced voice modulation
@@ -418,7 +418,7 @@ The **Emotional TTS Integration** successfully bridges the gap between the AI co
 4. **Robust Architecture**: Fallback support and error handling
 5. **Future-Ready**: Extensible design for advanced voice features
 
-This enhancement represents a significant step toward creating a truly interactive AI companion that can express emotions not just through text and animation, but through natural, emotionally-aware speech synthesis.
+This enhancement represents a significant step toward creating a truly interactive AI live2d chat that can express emotions not just through text and animation, but through natural, emotionally-aware speech synthesis.
 
 ---
 

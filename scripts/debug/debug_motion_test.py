@@ -46,7 +46,7 @@ def test_model_files():
     import os
     
     # Use user data directory for Live2D models
-    user_data_dir = os.path.expanduser("~/.local/share/ai-companion")
+    user_data_dir = os.path.expanduser("~/.local/share/ai2d_chat")
     models_dir = os.path.join(user_data_dir, "live2d_models")
     if not os.path.exists(models_dir):
         print(f"❌ Live2D models directory not found: {models_dir}")

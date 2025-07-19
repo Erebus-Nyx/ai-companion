@@ -8,7 +8,7 @@ import os
 
 def clear_database():
     """Clear all Live2D data from the database"""
-    db_path = '/home/nyx/ai-companion/src/ai_companion.db'
+    db_path = '/home/nyx/ai2d_chat/src/ai2d_chat.db'
     
     if not os.path.exists(db_path):
         print(f"❌ Database not found: {db_path}")

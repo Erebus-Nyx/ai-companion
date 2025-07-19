@@ -12,7 +12,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-SERVICE_NAME="ai-companion"
+SERVICE_NAME="ai2d_chat"
 
 # Function to show usage
 show_usage() {
