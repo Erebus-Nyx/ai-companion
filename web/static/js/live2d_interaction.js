@@ -41,9 +41,15 @@ class Live2DInteraction {
         this.setupMouseTracking();
     }
 
-    // Initialize the canvas manager - no model needed at this stage
-    initialize() {
+    // Initialize the canvas manager - accepts optional model for compatibility
+    initialize(model = null) {
         this.logger.logInfo('Interaction manager initialized');
+        
+        // If a model is provided, update to use it
+        if (model) {
+            this.updateModel(model);
+        }
+        
         return true;
     }
 
@@ -75,33 +81,72 @@ class Live2DInteraction {
 
     // Set up interaction for the loaded model
     setupModelInteraction() {
-        if (!this.model || !this.app) return;
+        if (!this.model || !this.app) {
+            console.error('Cannot setup interaction - missing model or app:', { model: !!this.model, app: !!this.app });
+            return;
+        }
         
-        console.log('Setting up model interaction for:', this.model);
+        console.log('Setting up model interaction for:', this.model.constructor.name);
+        console.log('Model details:', {
+            position: { x: this.model.x, y: this.model.y },
+            scale: { x: this.model.scale.x, y: this.model.scale.y },
+            bounds: this.model.getBounds()
+        });
         
-        // Make model interactive
+        // Make model interactive - following live2d-viewer-web pattern
         this.model.interactive = true;
         this.model.eventMode = 'static';
         
-        // Add event listeners
-        this.model.off('pointerdown', this.mouseHandlers.onPointerDown)
-                  .on('pointerdown', this.mouseHandlers.onPointerDown);
-        this.app.stage.off('pointermove', this.mouseHandlers.onPointerMove)
-                      .on('pointermove', this.mouseHandlers.onPointerMove);
-        this.app.stage.off('pointerup', this.mouseHandlers.onPointerUp)
-                      .on('pointerup', this.mouseHandlers.onPointerUp);
-        this.app.stage.off('pointerupoutside', this.mouseHandlers.onPointerUpOutside)
-                      .on('pointerupoutside', this.mouseHandlers.onPointerUpOutside);
+        console.log('Model interactive state:', {
+            interactive: this.model.interactive,
+            eventMode: this.model.eventMode,
+            position: { x: this.model.x, y: this.model.y }
+        });
+        
+        // Remove any existing listeners first
+        this.model.off('pointerdown');
+        this.model.off('pointermove');
+        this.model.off('pointerup');
+        this.model.off('pointerupoutside');
+        
+        console.log('Event handlers being attached:', {
+            onPointerDown: typeof this.mouseHandlers.onPointerDown,
+            onPointerMove: typeof this.mouseHandlers.onPointerMove,
+            onPointerUp: typeof this.mouseHandlers.onPointerUp,
+            onPointerUpOutside: typeof this.mouseHandlers.onPointerUpOutside
+        });
+        
+        // Add event listeners directly to model (like live2d-viewer-web)
+        this.model.on('pointerdown', this.mouseHandlers.onPointerDown);
+        this.model.on('pointermove', this.mouseHandlers.onPointerMove);
+        this.model.on('pointerup', this.mouseHandlers.onPointerUp);
+        this.model.on('pointerupoutside', this.mouseHandlers.onPointerUpOutside);
+        
+        console.log('Event listeners attached, checking:', {
+            pointerdown_listeners: this.model.listeners('pointerdown').length,
+            pointermove_listeners: this.model.listeners('pointermove').length,
+            pointerup_listeners: this.model.listeners('pointerup').length,
+            pointerupoutside_listeners: this.model.listeners('pointerupoutside').length
+        });
         
         // Add wheel event to canvas for zoom
         const canvas = this.app.canvas || this.app.view;
         if (canvas) {
-            console.log('Adding wheel event to canvas');
+            console.log('Adding wheel event to canvas element:', canvas.tagName);
             canvas.removeEventListener('wheel', this.mouseHandlers.onWheel);
             canvas.addEventListener('wheel', this.mouseHandlers.onWheel, { passive: false });
+            
+            // Test if wheel events work
+            console.log('Canvas wheel event listener added successfully');
         } else {
-            console.error('Canvas not found for wheel events');
+            console.error('Canvas not found for wheel events - app.canvas:', this.app.canvas, 'app.view:', this.app.view);
         }
+        
+        console.log('Model interaction setup completed with handlers:', {
+            pointerdown: !!this.model.listeners('pointerdown').length,
+            pointermove: !!this.model.listeners('pointermove').length,
+            canvas_wheel: !!canvas
+        });
         
         this.logger.logInfo('Model interaction set up');
     }
@@ -110,13 +155,11 @@ class Live2DInteraction {
     removeModelInteraction() {
         if (!this.model) return;
         
-        this.model.off('pointerdown', this.mouseHandlers.onPointerDown);
-        
-        if (this.app) {
-            this.app.stage.off('pointermove', this.mouseHandlers.onPointerMove);
-            this.app.stage.off('pointerup', this.mouseHandlers.onPointerUp);
-            this.app.stage.off('pointerupoutside', this.mouseHandlers.onPointerUpOutside);
-        }
+        // Remove all listeners from model (following live2d-viewer-web pattern)
+        this.model.off('pointerdown');
+        this.model.off('pointermove');
+        this.model.off('pointerup');
+        this.model.off('pointerupoutside');
         
         // Remove wheel event
         const canvas = this.app.canvas || this.app.view;
@@ -157,21 +200,29 @@ class Live2DInteraction {
         this.logger.logInfo('Model updated in interaction manager');
     }
 
-    // Pointer down handler
+    // Pointer down handler - simplified following live2d-viewer-web pattern
     onPointerDown(event) {
-        console.log('Pointer down event triggered');
-        if (!this.model) return;
+        console.log('🖱️ POINTER DOWN EVENT TRIGGERED - Context check:', {
+            hasThis: !!this,
+            hasModel: !!this.model,
+            hasApp: !!this.app,
+            eventGlobal: event.data.global,
+            constructor: this.constructor.name
+        });
         
-        // Check for hit areas first
-        const hitAreas = this.checkHitAreas(event.data.global);
-        if (hitAreas.length > 0) {
-            // If hit area is clicked, don't start drag
+        if (!this.model) {
+            console.error('No model available for pointer down');
             return;
         }
         
+        console.log('Model position before drag:', { x: this.model.x, y: this.model.y });
+        
+        // Start dragging (simplified like live2d-viewer-web)
         this.isDragging = true;
         this.dragOffset.x = event.data.global.x - this.model.x;
         this.dragOffset.y = event.data.global.y - this.model.y;
+        
+        console.log('Drag started with offset:', this.dragOffset);
         
         // Visual feedback
         this.model.alpha = 0.8;
@@ -179,35 +230,15 @@ class Live2DInteraction {
         this.logger.logInfo('Drag started');
     }
 
-    // Pointer move handler
+    // Pointer move handler - simplified following live2d-viewer-web pattern
     onPointerMove(event) {
         if (!this.model || !this.isDragging) return;
         
-        // Update model position
-        let newX = event.data.global.x - this.dragOffset.x;
-        let newY = event.data.global.y - this.dragOffset.y;
+        console.log('🖱️ Dragging model to:', event.data.global);
         
-        // Boundary constraints
-        const bounds = this.model.getBounds();
-        const canvasWidth = this.app.renderer.width;
-        const canvasHeight = this.app.renderer.height;
-        
-        // Prevent dragging completely off-screen
-        if (bounds.width > canvasWidth) {
-            newX = Math.max(newX, canvasWidth - bounds.width);
-            newX = Math.min(newX, 0);
-        } else {
-            newX = Math.max(newX, 0);
-            newX = Math.min(newX, canvasWidth - bounds.width);
-        }
-        
-        if (bounds.height > canvasHeight) {
-            newY = Math.max(newY, canvasHeight - bounds.height);
-            newY = Math.min(newY, 0);
-        } else {
-            newY = Math.max(newY, 0);
-            newY = Math.min(newY, canvasHeight - bounds.height);
-        }
+        // Update model position directly (like live2d-viewer-web)
+        const newX = event.data.global.x - this.dragOffset.x;
+        const newY = event.data.global.y - this.dragOffset.y;
         
         this.model.position.set(newX, newY);
         
@@ -215,14 +246,27 @@ class Live2DInteraction {
         this.updateFrameVisualizations();
     }
 
-    // Pointer up handler
+        // Pointer up handler - simplified following live2d-viewer-web pattern
     onPointerUp(event) {
-        if (!this.model || !this.isDragging) return;
+        console.log('🖱️ Pointer up event triggered');
+        if (!this.model) return;
         
-        this.isDragging = false;
-        this.model.alpha = 1.0; // Restore opacity
-        
-        this.logger.logInfo('Drag ended');
+        if (this.isDragging) {
+            console.log('Drag ended at position:', { x: this.model.x, y: this.model.y });
+            this.isDragging = false;
+            this.model.alpha = 1.0; // Restore opacity
+            
+            this.logger.logInfo('Drag ended');
+        } else {
+            // Check for hit areas and trigger motions
+            const hitAreas = this.checkHitAreas(event.data.global);
+            if (hitAreas.length > 0) {
+                console.log('Hit area clicked:', hitAreas);
+                // Trigger first matching hit area motion
+                const hitArea = hitAreas[0];
+                this.triggerMotion(`tap_${hitArea}`, 'Click motion');
+            }
+        }
     }
 
     // Pointer up outside handler
@@ -232,16 +276,23 @@ class Live2DInteraction {
         this.isDragging = false;
         this.model.alpha = 1.0;
         
+        // Notify multi-model manager to save the new position
+        if (window.live2dMultiModelManager && window.live2dMultiModelManager.activeModelId) {
+            window.live2dMultiModelManager.saveCurrentModelState();
+        }
+        
         this.logger.logInfo('Drag ended (outside)');
     }
 
     // Mouse wheel handler for zoom
     onWheel(event) {
-        console.log('Wheel event triggered:', event.deltaY);
+        console.log('🎯 Wheel event triggered:', { deltaY: event.deltaY, currentZoom: this.currentZoom });
         event.preventDefault();
         
         const delta = -Math.sign(event.deltaY);
-        this.setZoom(this.currentZoom + delta * this.zoomStep);
+        const newZoom = this.currentZoom + delta * this.zoomStep;
+        console.log('Setting zoom from', this.currentZoom, 'to', newZoom);
+        this.setZoom(newZoom);
     }
 
     // Set zoom level
@@ -299,6 +350,11 @@ class Live2DInteraction {
         const centerY = this.app.renderer.height / 2;
         
         this.model.position.set(centerX, centerY);
+        
+        // Notify multi-model manager to save the new position
+        if (window.live2dMultiModelManager && window.live2dMultiModelManager.activeModelId) {
+            window.live2dMultiModelManager.saveCurrentModelState();
+        }
         
         // Update frame visualizations
         this.updateFrameVisualizations();

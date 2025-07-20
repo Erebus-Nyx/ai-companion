@@ -3,6 +3,25 @@
 
 import os
 from typing import Dict, Any
+try:
+    from .config_manager import ConfigManager
+except ImportError:
+    try:
+        from config_manager import ConfigManager
+    except ImportError:
+        ConfigManager = None
+
+def get_config_value(key: str, default: Any = None) -> Any:
+    """Get configuration value from config.yaml if available, otherwise use environment or default"""
+    if ConfigManager:
+        try:
+            config_manager = ConfigManager()
+            config = config_manager.load_config()
+            server_config = config.get('server', {})
+            return server_config.get(key, os.environ.get(key.upper(), default))
+        except Exception:
+            pass
+    return os.environ.get(key.upper(), default)
 
 class ProductionConfig:
     """Production configuration for AI Companion"""
@@ -12,9 +31,9 @@ class ProductionConfig:
     DEBUG = False
     TESTING = False
     
-    # Server Configuration
-    HOST = os.environ.get('HOST', '0.0.0.0')
-    PORT = int(os.environ.get('PORT', 19443))
+    # Server Configuration - Now uses config.yaml
+    HOST = get_config_value('host', '0.0.0.0')
+    PORT = int(get_config_value('port', 19080))  # Use config.yaml port setting
     
     # Database Configuration
     DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///ai2d_chat.db')

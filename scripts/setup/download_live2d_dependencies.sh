@@ -1,13 +1,13 @@
 #!/bin/bash
 # download_live2d_dependencies.sh
-# Download and organize Live2D dependencies for offline installation
+# Download and organize Live2D dependencies
 
 set -e
 
-echo "📦 Downloading Live2D Dependencies for Offline Installation"
-echo "=========================================================="
+echo "📦 Downloading Live2D Dependencies"
+echo "=================================="
 
-DIST_DIR="src/web/static/dist"
+DIST_DIR="web/static/dist"
 mkdir -p "$DIST_DIR"
 
 # Download pixi-live2d-display if not present
@@ -47,7 +47,7 @@ if [ "$all_present" = true ]; then
     echo "📊 File sizes:"
     ls -lh "$DIST_DIR"/*.js 2>/dev/null || true
     echo ""
-    echo "🔧 Package is ready for offline installation"
+    echo "🔧 Package is ready for use"
 else
     echo ""
     echo "❌ Some dependencies are missing. Please check the above output."

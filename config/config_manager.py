@@ -69,33 +69,22 @@ class ConfigManager:
         
     def setup_paths(self):
         """Setup paths based on installation mode."""
-        if self.is_dev_mode:
-            # Development mode: use repository directories
-            repo_root = Path(__file__).parent.parent.resolve()
-            self.config_dir = repo_root
-            self.data_dir = repo_root
-            self.cache_dir = repo_root / 'cache'
-            self.database_dir = repo_root / 'src' / 'databases'
-            self.models_dir = repo_root / 'src' / 'models'
-            self.live2d_models_dir = repo_root / 'src' / 'live2d_models'
-            
-        else:
-            # Production mode: use XDG user directories
-            home = Path.home()
-            
-            # Configuration directory
-            self.config_dir = home / '.config' / 'ai2d_chat'
-            
-            # Data directory  
-            self.data_dir = home / '.local' / 'share' / 'ai2d_chat'
-            
-            # Cache directory
-            self.cache_dir = home / '.cache' / 'ai2d_chat'
-            
-            # Specific data subdirectories
-            self.database_dir = self.data_dir / 'databases'
-            self.models_dir = self.data_dir / 'models'
-            self.live2d_models_dir = self.data_dir / 'live2d_models'
+        # Both dev and production use the same config paths - only difference is Flask vs pipx hosting
+        home = Path.home()
+        
+        # Configuration directory (same for both dev and production)
+        self.config_dir = home / '.config' / 'ai2d_chat'
+        
+        # Data directory (same for both dev and production)  
+        self.data_dir = home / '.local' / 'share' / 'ai2d_chat'
+        
+        # Cache directory (same for both dev and production)
+        self.cache_dir = home / '.cache' / 'ai2d_chat'
+        
+        # Specific data subdirectories (same for both dev and production)
+        self.database_dir = self.data_dir / 'databases'
+        self.models_dir = self.data_dir / 'models'
+        self.live2d_models_dir = self.data_dir / 'live2d_models'
             
     def ensure_directories(self):
         """Create necessary directories if they don't exist."""

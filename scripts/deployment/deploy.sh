@@ -22,9 +22,10 @@ echo -e "${BLUE}📍 Working directory: $SCRIPT_DIR${NC}"
 
 # Step 1: Backup the current index.html
 echo -e "\n${YELLOW}📦 Step 1: Backing up current index.html...${NC}"
-if [ -f "src/web/templates/index.html" ]; then
+if [ -f "web/templates/index.html" ]; then
     BACKUP_NAME="index_backup_$(date +%Y%m%d_%H%M%S).html"
-    cp "src/web/templates/index.html" "backups/$BACKUP_NAME"
+    mkdir -p "backups"
+    cp "web/templates/index.html" "backups/$BACKUP_NAME"
     echo -e "${GREEN}✅ Backup created: backups/$BACKUP_NAME${NC}"
 else
     echo -e "${YELLOW}⚠️  No existing index.html found to backup${NC}"
@@ -32,18 +33,18 @@ fi
 
 # Step 2: Replace index.html with live2d_pixi.html
 echo -e "\n${YELLOW}🔄 Step 2: Migrating Live2D interface...${NC}"
-if [ -f "src/web/static/live2d_pixi.html" ]; then
+if [ -f "web/static/live2d_pixi.html" ]; then
     # Create template directory if it doesn't exist
-    mkdir -p "src/web/templates"
+    mkdir -p "web/templates"
     
     # Copy live2d_pixi.html to replace index.html
-    cp "src/web/static/live2d_pixi.html" "src/web/templates/index.html"
+    cp "web/static/live2d_pixi.html" "web/templates/index.html"
     echo -e "${GREEN}✅ Live2D interface migrated to index.html${NC}"
     
     # Update the CSS link in the new index.html to use the correct path
-    sed -i 's|href="css/live2d_test.css"|href="/static/css/live2d_test.css"|g' "src/web/templates/index.html"
-    sed -i 's|src="js/|src="/static/js/|g' "src/web/templates/index.html"
-    sed -i 's|src="dist/|src="/static/dist/|g' "src/web/templates/index.html"
+    sed -i 's|href="css/live2d_test.css"|href="/static/css/live2d_test.css"|g' "web/templates/index.html"
+    sed -i 's|src="js/|src="/static/js/|g' "web/templates/index.html"
+    sed -i 's|src="dist/|src="/static/dist/|g' "web/templates/index.html"
     echo -e "${GREEN}✅ Updated static file paths for Flask serving${NC}"
 else
     echo -e "${RED}❌ Error: live2d_pixi.html not found!${NC}"

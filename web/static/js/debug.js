@@ -1,6 +1,38 @@
 // debug.js
 // Debug UI and logging system for Live2D frontend
 
+// Helper function to get API base URL with dynamic config loading
+async function getApiBaseUrl() {
+    // Ensure server configuration is loaded
+    if (typeof loadServerConfig === 'function' && !window.ai2d_chat_CONFIG._configLoaded) {
+        try {
+            await loadServerConfig();
+        } catch (error) {
+            console.warn('Failed to load server config in debug functions:', error);
+        }
+    }
+    
+    return window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+}
+
+function updateModelInfo() {
+    const modelNameElement = document.getElementById('debug-current-model');
+    const modelMotionsElement = document.getElementById('debug-motion-count');
+    
+    // Use new Live2D multi-model manager system
+    if (window.live2dMultiModelManager && window.live2dMultiModelManager.activeModelId) {
+        const activeModel = window.live2dMultiModelManager.models.get(window.live2dMultiModelManager.activeModelId);
+        if (activeModel) {
+            if (modelNameElement) modelNameElement.textContent = activeModel.name;
+            // Count motions - this would need to be implemented in the motion manager
+            if (modelMotionsElement) modelMotionsElement.textContent = '0'; // Placeholder
+        }
+    } else {
+        if (modelNameElement) modelNameElement.textContent = 'None';
+        if (modelMotionsElement) modelMotionsElement.textContent = '0';
+    }
+}
+
 function debugLog(message, type = 'info') {
     if (!window.debugLogBuffer) window.debugLogBuffer = [];
     const timestamp = new Date().toLocaleTimeString();
@@ -19,20 +51,39 @@ function updateDebugLogDisplay() {
         return `<div class="${typeClass}">${entry.full}</div>`;
     }).join('');
     window.debugRealtimeLog.innerHTML = logHtml;
+    
+    // Force scroll to bottom
     window.debugRealtimeLog.scrollTop = window.debugRealtimeLog.scrollHeight;
+    
+    // Ensure the log is visible and scrollable
+    if (window.debugRealtimeLog.style.maxHeight !== '200px') {
+        window.debugRealtimeLog.style.maxHeight = '200px';
+        window.debugRealtimeLog.style.overflowY = 'auto';
+    }
 }
 
 function updateDebugStatus() {
-    if (window.live2dv4) setDebugStatus(window.debugSDKStatus, 'Live2D SDK Loaded', 'ok');
-    else setDebugStatus(window.debugSDKStatus, 'SDK Missing', 'error');
-    const canvas = document.getElementById('live2d4');
-    if (canvas && canvas.getContext) {
-        try {
-            const ctx = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-            if (ctx) setDebugStatus(window.debugCanvasStatus, 'WebGL Ready', 'ok');
-            else setDebugStatus(window.debugCanvasStatus, 'WebGL Failed', 'error');
-        } catch (e) { setDebugStatus(window.debugCanvasStatus, 'Canvas Error', 'error'); }
-    } else setDebugStatus(window.debugCanvasStatus, 'Canvas Missing', 'error');
+    // Check Live2D SDK availability
+    if (window.LIVE2DCUBISMCORE) {
+        setDebugStatus(window.debugSDKStatus, 'Live2D SDK Loaded', 'ok');
+    } else {
+        setDebugStatus(window.debugSDKStatus, 'SDK Missing', 'error');
+    }
+    
+    // Check for pixiContainer and Live2D integration
+    const canvas = document.getElementById('pixiContainer');
+    if (canvas) {
+        // Check if Live2D integration is initialized
+        if (window.live2dIntegration && window.live2dIntegration.initialized) {
+            setDebugStatus(window.debugCanvasStatus, 'Live2D System Ready', 'ok');
+        } else if (window.live2dIntegration) {
+            setDebugStatus(window.debugCanvasStatus, 'Live2D Initializing...', 'warn');
+        } else {
+            setDebugStatus(window.debugCanvasStatus, 'Live2D Not Started', 'error');
+        }
+    } else {
+        setDebugStatus(window.debugCanvasStatus, 'Canvas Missing', 'error');
+    }
     updateModelInfo();
 }
 
@@ -70,25 +121,29 @@ function debugRefreshStatus() {
 }
 
 function debugTestMotion() {
-    if (!window.currentModel || !window.live2dv4 || !window.live2dv4._model) {
+    // Check for new Live2D system
+    if (!window.live2dMultiModelManager || !window.live2dMultiModelManager.activeModelId) {
         debugLog('❌ No model loaded for motion test', 'error');
         return;
     }
     
     debugLog('🎭 Testing random motion...');
     try {
-        const model = window.live2dv4._model;
-        if (model.internalModel && model.internalModel.motionManager) {
-            const motionGroups = Object.keys(model.internalModel.motionManager.definitions || {});
-            if (motionGroups.length > 0) {
-                const randomGroup = motionGroups[Math.floor(Math.random() * motionGroups.length)];
-                model.motion(randomGroup);
-                debugLog(`✅ Played motion from group: ${randomGroup}`);
+        const activeModel = window.live2dMultiModelManager.models.get(window.live2dMultiModelManager.activeModelId);
+        if (activeModel && activeModel.pixiModel) {
+            // Try to trigger a motion using the PIXI Live2D model
+            const model = activeModel.pixiModel;
+            if (model.motion) {
+                // Try different motion types
+                const motionTypes = ['idle', 'tap_body', 'head', 'body', 'expression'];
+                const randomMotion = motionTypes[Math.floor(Math.random() * motionTypes.length)];
+                model.motion(randomMotion);
+                debugLog(`✅ Attempted to play motion: ${randomMotion}`);
             } else {
-                debugLog('❌ No motion groups found', 'warn');
+                debugLog('❌ Motion function not available on model', 'error');
             }
         } else {
-            debugLog('❌ Motion manager not available', 'error');
+            debugLog('❌ No PIXI model found', 'error');
         }
     } catch (error) {
         debugLog(`❌ Motion test failed: ${error.message}`, 'error');
@@ -178,12 +233,13 @@ document.addEventListener('DOMContentLoaded', function() {
             debugLog('✅ Model load attempt completed');
         }, 1500);
     };
-    // Patch debug button handlers to check for model presence
+    // Patch debug button handlers to check for model presence in new system
     ['debugTestMotion', 'debugLogMotions', 'testBasicLive2D', 'debugLive2D', 'testAllMotions'].forEach(fn => {
         const orig = window[fn];
         if (typeof orig === 'function') {
             window[fn] = function() {
-                if (!window.currentModel || !window.live2dv4 || !window.live2dv4._model) {
+                // Check for new Live2D system
+                if (!window.live2dMultiModelManager || !window.live2dMultiModelManager.activeModelId) {
                     debugLog('❌ No model loaded. Please load a model first.', 'error');
                     const loadBtn = document.getElementById('debug-load-default-model');
                     if (loadBtn) loadBtn.style.display = 'inline-block';
@@ -202,7 +258,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         const loadBtn = document.getElementById('debug-load-default-model');
         if (loadBtn) {
-            if (!window.currentModel || !window.live2dv4 || !window.live2dv4._model) {
+            // Check for new Live2D system
+            if (!window.live2dMultiModelManager || !window.live2dMultiModelManager.activeModelId) {
                 loadBtn.style.display = 'inline-block';
             } else {
                 loadBtn.style.display = 'none';
@@ -257,15 +314,50 @@ document.addEventListener('DOMContentLoaded', function() {
         debugLog('🧪 === Starting System Test ===');
         debugLog(window.live2dv4 ? '✅ Live2D SDK: Available' : '❌ Live2D SDK: Missing');
         debugLog(window.currentModel ? `✅ Model: ${window.currentModel}` : '❌ Model: None');
-        const canvas = document.getElementById('live2d4');
-        debugLog(canvas ? '✅ Canvas: Found' : '❌ Canvas: Missing');
+        
+        // Check for pixiContainer instead of live2d4
+        const canvas = document.getElementById('pixiContainer');
+        debugLog(canvas ? '✅ Canvas: Found (pixiContainer)' : '❌ Canvas: Missing (pixiContainer)');
+        
+        // Check Live2D integration status
+        if (window.live2dIntegration) {
+            debugLog('✅ Live2D Integration: Available');
+            if (window.live2dIntegration.initialized) {
+                debugLog('✅ Live2D Integration: Initialized');
+            } else {
+                debugLog('⚠️ Live2D Integration: Not initialized');
+            }
+        } else {
+            debugLog('❌ Live2D Integration: Not available');
+        }
+        
+        // Test multi-model manager positioning
+        if (window.live2dMultiModelManager) {
+            debugLog('✅ Multi-model manager: Available');
+            const models = window.live2dMultiModelManager.getAllModels();
+            debugLog(`📦 Loaded models: ${models.length}`);
+            if (window.live2dMultiModelManager.activeModelId) {
+                const activeModel = window.live2dMultiModelManager.models.get(window.live2dMultiModelManager.activeModelId);
+                if (activeModel && activeModel.pixiModel) {
+                    const pos = activeModel.pixiModel.position;
+                    debugLog(`📍 Active model position: (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})`);
+                    const state = window.live2dMultiModelManager.modelStates.get(window.live2dMultiModelManager.activeModelId);
+                    if (state) {
+                        debugLog(`💾 Saved state position: (${state.position.x.toFixed(1)}, ${state.position.y.toFixed(1)})`);
+                    }
+                }
+            }
+        } else {
+            debugLog('❌ Multi-model manager: Not available');
+        }
+        
         await testDatabaseConnection();
         debugLog('🎉 === System Test Complete ===');
     };
     window.debugDatabaseInfo = async function() {
         debugLog('💾 Loading database information...');
         try {
-            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            const apiBaseUrl = await getApiBaseUrl();
             const response = await fetch(`${apiBaseUrl}/api/live2d/models`);
             if (response.ok) {
                 const models = await response.json();
@@ -284,7 +376,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!confirm('⚠️ WARNING: Delete ALL database content?')) return;
         debugLog('🗑 Clearing database...');
         try {
-            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            const apiBaseUrl = await getApiBaseUrl();
             const response = await fetch(`${apiBaseUrl}/api/live2d/clear_database`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
@@ -302,7 +394,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!confirm('📥 Re-import all models and motions?')) return;
         debugLog('📥 Starting re-import...');
         try {
-            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            const apiBaseUrl = await getApiBaseUrl();
             const response = await fetch(`${apiBaseUrl}/api/live2d/reimport_all`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
@@ -316,12 +408,155 @@ document.addEventListener('DOMContentLoaded', function() {
             debugLog(`❌ Import error: ${error.message}`, 'error');
         }
     };
+    
+    // Test model positioning fixes
+    window.debugTestPositioning = function() {
+        debugLog('📍 === Testing Model Positioning ===');
+        
+        if (!window.live2dMultiModelManager) {
+            debugLog('❌ Multi-model manager not available');
+            return;
+        }
+        
+        const models = window.live2dMultiModelManager.getAllModels();
+        debugLog(`📦 Testing with ${models.length} loaded models`);
+        
+        if (models.length === 0) {
+            debugLog('⚠️ No models loaded for positioning test');
+            return;
+        }
+        
+        models.forEach((modelData, index) => {
+            const isActive = window.live2dMultiModelManager.activeModelId === modelData.id;
+            const state = window.live2dMultiModelManager.modelStates.get(modelData.id);
+            
+            debugLog(`🎭 Model ${index + 1}: ${modelData.name} ${isActive ? '(Active)' : ''}`);
+            
+            if (modelData.pixiModel) {
+                const currentPos = modelData.pixiModel.position;
+                debugLog(`  📍 Current position: (${currentPos.x.toFixed(1)}, ${currentPos.y.toFixed(1)})`);
+                
+                if (state) {
+                    debugLog(`  💾 Saved state: (${state.position.x.toFixed(1)}, ${state.position.y.toFixed(1)}), scale: ${state.scale}`);
+                } else {
+                    debugLog(`  ❌ No state saved for this model`);
+                }
+            } else {
+                debugLog(`  ❌ No PIXI model found`);
+            }
+        });
+        
+        // Test center function
+        if (window.live2dMultiModelManager.activeModelId) {
+            debugLog('🎯 Testing center function...');
+            const beforePos = window.live2dMultiModelManager.models.get(window.live2dMultiModelManager.activeModelId).pixiModel.position;
+            debugLog(`  📍 Before center: (${beforePos.x.toFixed(1)}, ${beforePos.y.toFixed(1)})`);
+            
+            // Call center function
+            if (window.live2dIntegration && window.live2dIntegration.core && window.live2dIntegration.core.interactionManager) {
+                window.live2dIntegration.core.interactionManager.centerModel();
+                const afterPos = window.live2dMultiModelManager.models.get(window.live2dMultiModelManager.activeModelId).pixiModel.position;
+                debugLog(`  📍 After center: (${afterPos.x.toFixed(1)}, ${afterPos.y.toFixed(1)})`);
+                
+                // Check if state was saved
+                const newState = window.live2dMultiModelManager.modelStates.get(window.live2dMultiModelManager.activeModelId);
+                if (newState) {
+                    debugLog(`  💾 State updated: (${newState.position.x.toFixed(1)}, ${newState.position.y.toFixed(1)})`);
+                }
+            }
+        }
+        
+        debugLog('✅ === Positioning Test Complete ===');
+    };
+    
+    // Test interaction system (drag and zoom)
+    window.debugTestInteraction = function() {
+        debugLog('🖱️ === Testing Interaction System ===');
+        
+        if (!window.live2dIntegration || !window.live2dIntegration.core) {
+            debugLog('❌ Live2D integration not available');
+            return;
+        }
+        
+        const interactionManager = window.live2dIntegration.core.interactionManager;
+        if (!interactionManager) {
+            debugLog('❌ Interaction manager not available');
+            return;
+        }
+        
+        debugLog('✅ Interaction manager found');
+        debugLog(`🎯 Current zoom: ${interactionManager.currentZoom}`);
+        debugLog(`🖱️ Is dragging: ${interactionManager.isDragging}`);
+        
+        // Check if model is interactive
+        if (interactionManager.model) {
+            debugLog(`🎭 Model interactive: ${interactionManager.model.interactive}`);
+            debugLog(`🎭 Model event mode: ${interactionManager.model.eventMode}`);
+            debugLog(`🎭 Model position: (${interactionManager.model.x.toFixed(1)}, ${interactionManager.model.y.toFixed(1)})`);
+            
+            // Check event listeners
+            const pointerListeners = interactionManager.model.listeners('pointerdown');
+            debugLog(`🎯 Pointer down listeners: ${pointerListeners.length}`);
+            
+            if (interactionManager.app && interactionManager.app.stage) {
+                const moveListeners = interactionManager.app.stage.listeners('pointermove');
+                debugLog(`🎯 Pointer move listeners: ${moveListeners.length}`);
+            }
+            
+            // Check canvas wheel event
+            const canvas = interactionManager.app?.canvas || interactionManager.app?.view;
+            if (canvas) {
+                debugLog(`🎯 Canvas element: ${canvas.tagName}`);
+                debugLog(`🎯 Canvas size: ${canvas.width}x${canvas.height}`);
+            } else {
+                debugLog('❌ Canvas element not found');
+            }
+            
+        } else {
+            debugLog('❌ No model loaded in interaction manager');
+        }
+        
+        // Test zoom functionality
+        debugLog('🧪 Testing zoom functionality...');
+        const originalZoom = interactionManager.currentZoom;
+        interactionManager.setZoom(originalZoom + 0.1);
+        setTimeout(() => {
+            debugLog(`🎯 Zoom test: ${originalZoom} → ${interactionManager.currentZoom}`);
+            interactionManager.setZoom(originalZoom); // Reset
+        }, 100);
+        
+        debugLog('✅ === Interaction Test Complete ===');
+        debugLog('💡 Try clicking and dragging the model, or using mouse wheel to zoom');
+    };
+    
     window.debugLoadDefaultModel = function() {
         debugLog('📦 Loading default model: kanade');
-        if (typeof window.loadModel === 'function') {
+        
+        // Check if multi-model manager is available
+        if (window.live2dMultiModelManager) {
+            debugLog('🎭 Using multi-model manager to load model...');
+            window.live2dMultiModelManager.addModel('kanade').then(() => {
+                debugLog('✅ Default model loaded successfully');
+                updateDebugStatus();
+            }).catch(error => {
+                debugLog(`❌ Failed to load default model: ${error.message}`, 'error');
+                // Try to refresh available models first
+                window.live2dMultiModelManager.loadAvailableModels().then(() => {
+                    debugLog('🔄 Retrying model load after refreshing model list...');
+                    return window.live2dMultiModelManager.addModel('kanade');
+                }).then(() => {
+                    debugLog('✅ Default model loaded on retry');
+                    updateDebugStatus();
+                }).catch(retryError => {
+                    debugLog(`❌ Failed to load model even after retry: ${retryError.message}`, 'error');
+                });
+            });
+        } else if (typeof window.loadModel === 'function') {
+            debugLog('🎭 Using legacy loadModel function...');
             window.loadModel('kanade');
         } else {
-            debugLog('❌ loadModel function not available', 'error');
+            debugLog('❌ No model loading mechanism available', 'error');
+            debugLog('💡 Make sure Live2D system is properly initialized', 'warn');
         }
     };
     window.debugForceModelInit = function() {
@@ -340,7 +575,7 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     async function testDatabaseConnection() {
         try {
-            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            const apiBaseUrl = await getApiBaseUrl();
             const response = await fetch(`${apiBaseUrl}/api/live2d/models`);
             if (response.ok) {
                 debugLog('✅ Database: Connected');
@@ -438,4 +673,54 @@ window.debugLive2D = function() {
     
     // Test model structure if available
     debugModelStructure();
+};
+
+// Ensure all debug functions are available globally
+window.debugModelStructure = function() {
+    debugLog('🔍 Checking model structure...');
+    if (!window.live2dMultiModelManager || !window.live2dMultiModelManager.activeModelId) {
+        debugLog('❌ No model loaded for structure analysis', 'error');
+        return;
+    }
+    
+    try {
+        const activeModel = window.live2dMultiModelManager.models.get(window.live2dMultiModelManager.activeModelId);
+        if (activeModel && activeModel.pixiModel) {
+            debugLog('📋 Model Structure Analysis:');
+            debugLog(`  Model name: ${activeModel.name}`);
+            debugLog(`  PIXI model: Available`);
+            debugLog(`  Model visible: ${activeModel.pixiModel.visible}`);
+            debugLog(`  Model position: (${activeModel.pixiModel.x.toFixed(1)}, ${activeModel.pixiModel.y.toFixed(1)})`);
+            debugLog(`  Model scale: ${activeModel.pixiModel.scale.x.toFixed(2)}`);
+            debugLog(`  Model interactive: ${activeModel.pixiModel.interactive}`);
+            
+            // Check for motion capabilities
+            if (activeModel.pixiModel.motion) {
+                debugLog(`  Motion function: Available`);
+            } else {
+                debugLog(`  Motion function: Missing`);
+            }
+        } else {
+            debugLog('❌ No PIXI model found', 'error');
+        }
+    } catch (error) {
+        debugLog(`❌ Structure analysis failed: ${error.message}`, 'error');
+    }
+};
+
+window.debugLive2D = function() {
+    debugLog('🔍 Live2D System Debug...');
+    debugLog(`Live2D Integration: ${window.live2dIntegration ? 'Available' : 'Missing'}`);
+    debugLog(`Multi-Model Manager: ${window.live2dMultiModelManager ? 'Available' : 'Missing'}`);
+    debugLog(`PIXI Application: ${window.live2dIntegration?.core?.app ? 'Available' : 'Missing'}`);
+    debugLog(`Canvas Element: ${document.getElementById('pixiContainer') ? 'Available' : 'Missing'}`);
+    
+    if (window.live2dIntegration) {
+        debugLog(`Integration Initialized: ${window.live2dIntegration.initialized}`);
+        if (window.live2dIntegration.core) {
+            debugLog(`Canvas Size: ${window.live2dIntegration.core.canvasWidth}x${window.live2dIntegration.core.canvasHeight}`);
+        }
+    }
+    
+    debugLog('✅ Live2D debug complete');
 };

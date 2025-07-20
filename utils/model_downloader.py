@@ -12,6 +12,7 @@ from typing import Dict, Optional, Callable
 from urllib.parse import urlparse
 import hashlib
 import json
+from datetime import datetime
 from huggingface_hub import hf_hub_download, list_repo_files
 from tqdm import tqdm
 
@@ -65,31 +66,40 @@ class ModelDownloader:
         
         self.system_detector = SystemDetector()
         
-        # Model registry with different variants - ALL required models for AI Companion
+                # Model registry with different variants - ALL required models for AI Companion
         self.model_registry = {
             "llm": {
                 "tiny": {
                     "source_type": "huggingface",
                     "repo_id": "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
                     "filename": "tinyllama-1.1b-chat-v1.0.Q4_0.gguf",
+                    "local_filename": "model.gguf",
                     "size_mb": 700,
-                    "min_ram_gb": 2
+                    "min_ram_gb": 4
                 },
                 "small": {
                     "source_type": "huggingface",
-                    "repo_id": "Drakldol/Llama-3.1-8B-Instruct-1.2-Uncensored",
-                    "filename": "model.safetensors",
-                    "size_mb": 8000,
-                    "min_ram_gb": 12,
-                    "model_format": "safetensors"
+                    "repo_id": "TheBloke/Llama-2-7B-Chat-GGUF",
+                    "filename": "llama-2-7b-chat.Q4_0.gguf",
+                    "local_filename": "model.gguf",
+                    "size_mb": 4000,
+                    "min_ram_gb": 8
                 },
                 "medium": {
                     "source_type": "huggingface",
-                    "repo_id": "TheBloke/Wizard-Vicuna-13B-Uncensored-GPTQ",
-                    "filename": "model.safetensors",
-                    "size_mb": 13000,
-                    "min_ram_gb": 16,
-                    "model_format": "safetensors"
+                    "repo_id": "QuantFactory/DarkIdol-Llama-3.1-8B-Instruct-1.2-Uncensored-GGUF",
+                    "filename": "DarkIdol-Llama-3.1-8B-Instruct-1.2-Uncensored.Q5_K_M.gguf",
+                    "local_filename": "model.gguf",
+                    "size_mb": 4800,
+                    "min_ram_gb": 12
+                },
+                "large": {
+                    "source_type": "huggingface",
+                    "repo_id": "TheBloke/Wizard-Vicuna-13B-Uncensored-GGUF",
+                    "filename": "Wizard-Vicuna-13B-Uncensored.Q5_K_M.gguf",
+                    "local_filename": "model.gguf",
+                    "size_mb": 9000,
+                    "min_ram_gb": 16
                 }
             },
             "tts": {
@@ -105,40 +115,12 @@ class ModelDownloader:
                 }
             },
             "whisper": {
-                "tiny": {
+                "faster-whisper": {
                     "source_type": "pip_package",
                     "package_name": "faster-whisper",
-                    "model_name": "tiny",
-                    "size_mb": 39,
+                    "description": "Faster Whisper - supports all model sizes (tiny, base, small, medium, large-v3)",
+                    "size_mb": 0,  # Models downloaded on-demand by faster-whisper
                     "min_ram_gb": 1
-                },
-                "base": {
-                    "source_type": "pip_package", 
-                    "package_name": "faster-whisper",
-                    "model_name": "base",
-                    "size_mb": 142,
-                    "min_ram_gb": 1
-                },
-                "small": {
-                    "source_type": "pip_package",
-                    "package_name": "faster-whisper", 
-                    "model_name": "small",
-                    "size_mb": 244,
-                    "min_ram_gb": 2
-                },
-                "medium": {
-                    "source_type": "pip_package",
-                    "package_name": "faster-whisper",
-                    "model_name": "medium", 
-                    "size_mb": 769,
-                    "min_ram_gb": 4
-                },
-                "large-v3": {
-                    "source_type": "pip_package",
-                    "package_name": "faster-whisper",
-                    "model_name": "large-v3",
-                    "size_mb": 1550,
-                    "min_ram_gb": 8
                 }
             },
             "silero_vad": {
@@ -184,16 +166,8 @@ class ModelDownloader:
         memory_gb = self.system_detector.system_info.get("total_memory_gb", 4)
         
         # Select whisper model based on system capability  
-        if memory_gb >= 32:
-            whisper_size = "large-v3"  # Best quality for very high-end systems (64GB+ gets this)
-        elif memory_gb >= 16:
-            whisper_size = "large-v3"  # Best quality for high-end systems  
-        elif memory_gb >= 8:
-            whisper_size = "medium"    # Good quality for mid-range systems
-        elif memory_gb >= 4:
-            whisper_size = "small"     # Decent quality for lower-end systems
-        else:
-            whisper_size = "base"      # Basic quality for minimal systems
+        # Note: faster-whisper downloads models on-demand, so we just install the package
+        whisper_size = "faster-whisper"  # Single package that handles all model sizes
         
         # All required models for AI Companion
         models = {
@@ -248,9 +222,10 @@ class ModelDownloader:
         
         # For file-based models (huggingface, direct_url)
         if model_type == "llm":
-            if "filename" in model_info:
-                model_path = self.models_dir / "llm" / model_info["filename"]
-                return model_path.exists()
+            # Since all LLM models use the same filename (model.gguf), 
+            # just check if any LLM model exists
+            model_path = self.models_dir / "llm" / "model.gguf"
+            return model_path.exists()
             
         elif model_type == "tts":
             # Check if all required files exist
@@ -345,10 +320,24 @@ class ModelDownloader:
                 # Check required files
                 if "filename" in model_info:
                     required_file = model_info["filename"]
-                    if required_file not in available_files:
-                        self.logger.error(f"Required file {required_file} not found in {repo_id}")
-                        return False
-                    self.logger.info(f"✅ Required file {required_file} found in {repo_id}")
+                    
+                    # For LLM models, be more flexible with filename matching
+                    if model_type == "llm":
+                        # Look for any GGUF file that contains the quantization pattern
+                        gguf_files = [f for f in available_files if f.endswith('.gguf')]
+                        if gguf_files:
+                            self.logger.info(f"✅ Found GGUF files in {repo_id}: {gguf_files[:3]}...")  # Show first 3
+                            return True
+                        else:
+                            self.logger.error(f"No GGUF files found in {repo_id}")
+                            return False
+                    else:
+                        # Non-LLM models need exact filename match
+                        if required_file not in available_files:
+                            self.logger.error(f"Required file {required_file} not found in {repo_id}")
+                            return False
+                        self.logger.info(f"✅ Required file {required_file} found in {repo_id}")
+                        
                 elif "files" in model_info:
                     required_files = model_info["files"]
                     missing_files = [f for f in required_files if f not in available_files]
@@ -532,30 +521,80 @@ class ModelDownloader:
         """Download LLM model from Hugging Face."""
         try:
             repo_id = model_info["repo_id"]
-            filename = model_info["filename"]
+            original_filename = model_info["filename"]
+            local_filename = model_info.get("local_filename", "model.gguf")
             
-            self.logger.info(f"Downloading LLM model: {repo_id}/{filename}")
+            self.logger.info(f"Downloading LLM model from: {repo_id}")
             
             # Create LLM models directory
             llm_dir = self.models_dir / "llm"
             llm_dir.mkdir(parents=True, exist_ok=True)
             
+            # For LLM models, try to find the best available GGUF file
+            from huggingface_hub import list_repo_files
+            available_files = list(list_repo_files(repo_id))
+            gguf_files = [f for f in available_files if f.endswith('.gguf')]
+            
+            # Try to find the specific file first, then fall back to best available GGUF
+            filename_to_download = None
+            if original_filename in available_files:
+                filename_to_download = original_filename
+                self.logger.info(f"Found exact match: {original_filename}")
+            elif gguf_files:
+                # Smart selection: prefer Q5_K_M > Q4_K_M > Q3_K_M > Q5_K_S > Q4_K_S > others
+                preferred_quantizations = [
+                    'Q5_K_M', 'Q4_K_M', 'Q3_K_M', 'Q5_K_S', 'Q4_K_S', 
+                    'Q8_0', 'Q6_K', 'Q5_0', 'Q4_0', 'Q3_K_S', 'Q3_K_L', 'Q2_K'
+                ]
+                
+                # Try to find files with preferred quantizations
+                for quant in preferred_quantizations:
+                    matching_files = [f for f in gguf_files if quant in f]
+                    if matching_files:
+                        filename_to_download = matching_files[0]
+                        self.logger.info(f"Selected preferred quantization {quant}: {filename_to_download}")
+                        break
+                
+                # If no preferred quantization found, use the first available
+                if not filename_to_download:
+                    filename_to_download = gguf_files[0]
+                    self.logger.warning(f"No preferred quantization found, using: {filename_to_download}")
+            else:
+                self.logger.error(f"No GGUF files found in {repo_id}")
+                return False
+            
             # Download using huggingface_hub
             downloaded_path = hf_hub_download(
                 repo_id=repo_id,
-                filename=filename,
+                filename=filename_to_download,
                 cache_dir=str(self.cache_dir),
                 resume_download=True
             )
             
-            # Copy to our models directory
-            target_path = llm_dir / filename
+            # Copy to our models directory with the local filename
+            target_path = llm_dir / local_filename
+            
+            # Always copy to the standardized filename, even if it exists (overwrite)
+            import shutil
+            shutil.copy2(downloaded_path, target_path)
+            self.logger.info(f"Model copied from cache to: {target_path}")
+            
+            # Verify the file was copied successfully before saving metadata
             if not target_path.exists():
-                import shutil
-                shutil.copy2(downloaded_path, target_path)
+                self.logger.error(f"Failed to copy model file to {target_path}")
+                return False
+            
+            # Save model metadata only after successful copy
+            self._save_model_metadata("llm", {
+                "repo_id": repo_id,
+                "original_filename": filename_to_download,
+                "local_filename": local_filename,
+                "download_date": datetime.now().isoformat(),
+                "size_mb": model_info.get("size_mb", 0)
+            })
             
             if progress_callback:
-                progress_callback(100, f"LLM model downloaded: {filename}")
+                progress_callback(100, f"LLM model downloaded: {local_filename}")
             
             self.logger.info(f"LLM model downloaded successfully: {target_path}")
             return True
@@ -563,6 +602,40 @@ class ModelDownloader:
         except Exception as e:
             self.logger.error(f"Failed to download LLM model: {e}")
             return False
+    
+    def _save_model_metadata(self, model_type: str, metadata: Dict):
+        """Save model metadata to JSON file."""
+        try:
+            metadata_path = self.models_dir / "installed_models.json"
+            
+            # Load existing metadata or create new
+            if metadata_path.exists():
+                with open(metadata_path, 'r') as f:
+                    all_metadata = json.load(f)
+            else:
+                all_metadata = {}
+            
+            # Add/update model metadata
+            if model_type not in all_metadata:
+                all_metadata[model_type] = []
+            
+            # Remove existing entry for same repo_id if exists
+            all_metadata[model_type] = [
+                m for m in all_metadata[model_type] 
+                if m.get("repo_id") != metadata.get("repo_id")
+            ]
+            
+            # Add new metadata
+            all_metadata[model_type].append(metadata)
+            
+            # Save back to file
+            with open(metadata_path, 'w') as f:
+                json.dump(all_metadata, f, indent=2)
+            
+            self.logger.info(f"Model metadata saved for {model_type}: {metadata['repo_id']}")
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to save model metadata: {e}")
     
     def _download_tts_model(self, model_variant: str, model_info: Dict, 
                            progress_callback: Optional[Callable] = None) -> bool:
@@ -798,8 +871,8 @@ class ModelDownloader:
             return Path(model_info["local_path"])
             
         if model_type == "llm":
-            if "filename" in model_info:
-                return self.models_dir / "llm" / model_info["filename"]
+            # All LLM models use the same filename
+            return self.models_dir / "llm" / "model.gguf"
         elif model_type == "tts":
             return self.models_dir / "tts" / model_variant
         elif model_type == "whisper":
@@ -1073,6 +1146,18 @@ class ModelDownloader:
         except Exception as e:
             self.logger.error(f"❌ Failed to verify local git model {model_type}:{model_variant}: {e}")
             return False
+
+    def get_installed_models_metadata(self) -> Dict:
+        """Get metadata for all installed models."""
+        try:
+            metadata_path = self.models_dir / "installed_models.json"
+            if metadata_path.exists():
+                with open(metadata_path, 'r') as f:
+                    return json.load(f)
+            return {}
+        except Exception as e:
+            self.logger.error(f"Failed to load model metadata: {e}")
+            return {}
 
 
 def main():

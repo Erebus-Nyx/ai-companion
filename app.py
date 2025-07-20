@@ -49,10 +49,10 @@ except ImportError:
             def get_relevant_memories(self, *args, **kwargs): return []
 
 try:
-    from databases.db_manager import DBManager
+    from databases.database_manager import DatabaseManager as DBManager
 except ImportError:
     try:
-        from .databases.db_manager import DBManager
+        from .databases.database_manager import DatabaseManager as DBManager
     except ImportError:
         # Minimal fallback for DBManager
         class DBManager:
@@ -105,7 +105,7 @@ except ImportError:
         # Minimal fallback for ConfigManager
         class ConfigManager:
             def __init__(self, *args, **kwargs): pass
-            def load_config(self): return {"server": {"host": "0.0.0.0", "port": 19443}}
+            def load_config(self): return {"server": {"host": "0.0.0.0", "port": 19080, "dev_port": 19081}}
 
 try:
     from utils.model_downloader import ModelDownloader
@@ -620,7 +620,33 @@ class AICompanionApp:
 def kill_existing_instances():
     """Kill any existing instances of the Flask app running on the same port"""
     current_pid = os.getpid()
-    port = 19443  # The port our Flask app uses
+    
+    # Don't run this function if we're likely in a Flask reloader subprocess
+    # Flask reloader creates a subprocess that we don't want to kill
+    try:
+        import sys
+        if '--reloader' in sys.argv or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+            logger.info("Running in Flask reloader subprocess, skipping process cleanup")
+            return
+    except Exception:
+        pass
+    
+    # Get port from config instead of hardcoding
+    try:
+        from config.config_manager import ConfigManager
+        config_manager = ConfigManager()
+        config = config_manager.load_config()
+        server_config = config.get('server', {})
+        
+        # Use dev_port in dev mode, regular port otherwise
+        is_dev_mode = config_manager.is_dev_mode
+        if is_dev_mode:
+            port = server_config.get('dev_port', server_config.get('port', 19080) + 1)
+        else:
+            port = server_config.get('port', 19080)
+    except Exception:
+        port = 19080  # Fallback to default from config.yaml
+        
     killed_count = 0
     
     try:
@@ -639,6 +665,10 @@ def kill_existing_instances():
                             if pid != current_pid:
                                 try:
                                     proc = psutil.Process(pid)
+                                    # Double-check this isn't our current process
+                                    if proc.pid == current_pid:
+                                        continue
+                                        
                                     logger.info(f"Killing process using port {port}: PID {pid}, CMD: {' '.join(proc.cmdline())}")
                                     
                                     # Try graceful termination first
@@ -675,11 +705,12 @@ def kill_existing_instances():
                 )
                 
                 # Check for Flask app process (look for app.py in command line)
+                # But exclude current process even if it matches
                 app_match = any(
                     'app.py' in str(arg) for arg in cmdline
                 ) if cmdline else False
                 
-                if port_match or app_match:
+                if (port_match or app_match) and proc.info['pid'] != current_pid:
                     logger.info(f"Killing existing instance: PID {proc.info['pid']}, CMD: {' '.join(cmdline) if cmdline else 'N/A'}")
                     
                     # Try graceful termination first
@@ -736,18 +767,18 @@ def initialize_app():
     finally:
         loop.close()
 
-# Run initialization in background thread
+# Run initialization in background thread only when imported, not when running as main
 if __name__ != '__main__':
-    # When imported, start initialization
+    # When imported, start initialization in background
     init_thread = threading.Thread(target=initialize_app, daemon=True)
     init_thread.start()
+else:
+    # When running as main, don't auto-initialize in background
+    pass
 
 def run_server():
     """Entry point for pipx installation to run the server."""
-    # Kill any existing instances first
-    kill_existing_instances()
-    
-    # Load configuration
+    # Load configuration first
     config_manager = ConfigManager()
     config = config_manager.load_config()
     
@@ -763,13 +794,16 @@ def run_server():
         port = server_config.get('dev_port', server_config.get('port', 19080) + 1)
         debug = True  # Always use debug in dev mode
         logger.info("🔧 Running in DEVELOPMENT mode")
+        # Don't kill existing instances in dev mode - Flask debug mode handles this
     else:
         # Production mode: use regular port
         port = server_config.get('port', 19080)
         debug = server_config.get('debug', False)
         logger.info("📦 Running in PRODUCTION mode")
+        # Only kill existing instances in production mode
+        kill_existing_instances()
     
-    # Initialize and run
+    # Initialize the app
     initialize_app()
     
     # Run the application

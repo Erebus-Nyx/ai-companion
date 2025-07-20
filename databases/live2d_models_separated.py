@@ -60,6 +60,15 @@ class Live2DModelManager:
                 cursor.execute(table_sql)
                 self.logger.debug(f"Created/verified table: {table_name}")
             
+            # Migration: Add preview_image column if it doesn't exist
+            try:
+                cursor.execute("SELECT preview_image FROM live2d_models LIMIT 1")
+            except sqlite3.OperationalError:
+                # Column doesn't exist, add it
+                self.logger.info("Adding preview_image column to live2d_models table")
+                cursor.execute("ALTER TABLE live2d_models ADD COLUMN preview_image TEXT")
+                conn.commit()
+            
             # Create indexes for better performance
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_motions_model_id ON live2d_motions(model_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_motions_type ON live2d_motions(motion_type)")

@@ -30,36 +30,32 @@ class Live2DMultiModelManager {
 
     // Helper function for API calls with automatic fallback
     async fetchWithFallback(endpoint) {
-        const primaryUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
-        const fallbackUrls = window.ai2d_chat_CONFIG?.FALLBACK_URLS || [];
-        const urlsToTry = [primaryUrl, ...fallbackUrls];
-        
-        let lastError = null;
-        
-        for (const apiBaseUrl of urlsToTry) {
+        // Ensure server configuration is loaded
+        if (typeof loadServerConfig === 'function' && !window.ai2d_chat_CONFIG._configLoaded) {
             try {
-                const fullUrl = `${apiBaseUrl}${endpoint}`;
-                console.log(`Trying API URL: ${fullUrl}`);
-                const response = await fetch(fullUrl);
-                
-                if (response.ok) {
-                    // Update global config with working URL
-                    if (window.ai2d_chat_CONFIG) {
-                        window.ai2d_chat_CONFIG.API_BASE_URL = apiBaseUrl;
-                    }
-                    return response;
-                }
-                
-                throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-                
+                await loadServerConfig();
             } catch (error) {
-                lastError = error;
-                console.warn(`Failed to fetch from ${apiBaseUrl}: ${error.message}`);
-                continue; // Try next URL
+                console.warn('Failed to load server config in fetchWithFallback:', error);
             }
         }
         
-        throw lastError || new Error(`Failed to fetch ${endpoint} from any API endpoint`);
+        const primaryUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+        
+        try {
+            const fullUrl = `${primaryUrl}${endpoint}`;
+            console.log(`Trying API URL: ${fullUrl}`);
+            const response = await fetch(fullUrl);
+            
+            if (response.ok) {
+                return response;
+            }
+            
+            throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+            
+        } catch (error) {
+            console.error(`Failed to fetch from ${primaryUrl}: ${error.message}`);
+            throw error;
+        }
     }
 
     initializeUI() {
@@ -173,55 +169,47 @@ class Live2DMultiModelManager {
     }
 
     async loadAvailableModels() {
-        // Get primary URL and fallback URLs
-        const primaryUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
-        const fallbackUrls = window.ai2d_chat_CONFIG?.FALLBACK_URLS || [];
-        const urlsToTry = [primaryUrl, ...fallbackUrls];
-        
-        let lastError = null;
-        
-        for (const apiBaseUrl of urlsToTry) {
+        // Ensure server configuration is loaded
+        if (typeof loadServerConfig === 'function' && !window.ai2d_chat_CONFIG._configLoaded) {
             try {
-                console.log(`Trying API URL: ${apiBaseUrl}/api/live2d/models`);
-                const response = await fetch(`${apiBaseUrl}/api/live2d/models`);
-                
-                if (!response.ok) {
-                    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-                }
-                
-                const models = await response.json();
-                
-                if (!Array.isArray(models) || models.length === 0) {
-                    throw new Error('No models returned from API');
-                }
-                
-                // Update global config with working URL
-                if (window.ai2d_chat_CONFIG) {
-                    window.ai2d_chat_CONFIG.API_BASE_URL = apiBaseUrl;
-                }
-                
-                this.modelList = models.map(model => ({
-                    name: model.model_name,
-                    path: model.model_path,
-                    configFile: model.config_file,
-                    url: `${apiBaseUrl}/${model.model_path}/${model.config_file}`,
-                    info: model.info || model.model_name
-                }));
-                
-                this.log(`Successfully loaded ${this.modelList.length} available models from API (${apiBaseUrl})`, 'success');
-                return this.modelList;
-                
+                await loadServerConfig();
             } catch (error) {
-                lastError = error;
-                console.warn(`Failed to load from ${apiBaseUrl}: ${error.message}`);
-                continue; // Try next URL
+                console.warn('Failed to load server config in loadAvailableModels:', error);
             }
         }
         
-        // If all URLs failed
-        this.log(`Failed to load model list from any API endpoint. Last error: ${lastError?.message}`, 'error');
-        this.modelList = [];
-        throw lastError || new Error('Failed to load from any API endpoint');
+        const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+        
+        try {
+            console.log(`Loading models from: ${apiBaseUrl}/api/live2d/models`);
+            const response = await fetch(`${apiBaseUrl}/api/live2d/models`);
+            
+            if (!response.ok) {
+                throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+            }
+            
+            const models = await response.json();
+            
+            if (!Array.isArray(models) || models.length === 0) {
+                throw new Error('No models returned from API');
+            }
+            
+            this.modelList = models.map(model => ({
+                name: model.model_name,
+                path: model.model_path,
+                configFile: model.config_file,
+                url: `${apiBaseUrl}/${model.model_path}/${model.config_file}`,
+                info: model.info || model.model_name
+            }));
+            
+            this.log(`Successfully loaded ${this.modelList.length} available models from API (${apiBaseUrl})`, 'success');
+            return this.modelList;
+            
+        } catch (error) {
+            this.log(`Failed to load model list from API: ${error.message}`, 'error');
+            this.modelList = [];
+            throw error;
+        }
     }
 
     async addModel(modelName) {
@@ -270,10 +258,12 @@ class Live2DMultiModelManager {
 
             this.models.set(modelId, modelData);
             
-            // Initialize model state
+            // Initialize model state with centered position
+            const centerX = this.core.canvasWidth / 2;
+            const centerY = this.core.canvasHeight / 2;
             this.modelStates.set(modelId, {
                 scale: 1.0, // Zoom level (multiplied by baseScale)
-                position: { x: 0, y: 0 },
+                position: { x: centerX, y: centerY }, // Initialize with center position
                 visible: true,
                 motions: {
                     idle: null,
@@ -633,9 +623,17 @@ class Live2DMultiModelManager {
 
     async getModelTexture(modelData) {
         try {
+            // Ensure server configuration is loaded
+            if (typeof loadServerConfig === 'function' && !window.ai2d_chat_CONFIG._configLoaded) {
+                try {
+                    await loadServerConfig();
+                } catch (error) {
+                    console.warn('Failed to load server config in getModelTexture:', error);
+                }
+            }
+            
             // First, try to get texture info from the API
-            // Use dynamic API base URL from global config
-            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
             const textureResponse = await fetch(`${apiBaseUrl}/api/live2d/textures/${modelData.name}`);
             if (textureResponse.ok) {
                 const textureInfo = await textureResponse.json();
@@ -803,6 +801,11 @@ class Live2DMultiModelManager {
             this.uiController.onModelFocusChanged(modelData.name);
         }
 
+        // Update people panel to reflect active model change
+        if (typeof populatePeopleModels === 'function') {
+            populatePeopleModels();
+        }
+
         this.log(`Active model set to: ${modelData.name}`, 'info');
     }
 
@@ -853,14 +856,15 @@ class Live2DMultiModelManager {
             zoomValue.textContent = state.scale.toFixed(2);
         }
         
-        // Restore position
-        modelData.pixiModel.x = state.position.x;
-        modelData.pixiModel.y = state.position.y;
+        // Restore position - ensure it's valid
+        const posX = state.position.x || (this.core.canvasWidth / 2);
+        const posY = state.position.y || (this.core.canvasHeight / 2);
+        modelData.pixiModel.position.set(posX, posY);
         
         // Restore visibility
         modelData.pixiModel.visible = state.visible;
         
-        this.log(`Model scaled to: ${finalScale.toFixed(2)} (base: ${modelData.baseScale.toFixed(2)}, zoom: ${state.scale.toFixed(2)})`, 'info');
+        this.log(`Model state restored: scale=${finalScale.toFixed(2)}, position=(${posX.toFixed(1)},${posY.toFixed(1)})`, 'info');
     }
 
     updateUIForActiveModel(modelData) {
@@ -971,8 +975,16 @@ class Live2DMultiModelManager {
     // Database preview caching methods
     async getCachedPreview(modelName) {
         try {
-            // Use dynamic API base URL from global config
-            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            // Ensure server configuration is loaded
+            if (typeof loadServerConfig === 'function' && !window.ai2d_chat_CONFIG._configLoaded) {
+                try {
+                    await loadServerConfig();
+                } catch (error) {
+                    console.warn('Failed to load server config in getCachedPreview:', error);
+                }
+            }
+            
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
             const response = await fetch(`${apiBaseUrl}/api/live2d/preview/${encodeURIComponent(modelName)}`);
             
             if (response.ok) {
@@ -997,8 +1009,16 @@ class Live2DMultiModelManager {
 
     async saveCachedPreview(modelName, previewData) {
         try {
-            // Use dynamic API base URL from global config
-            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            // Ensure server configuration is loaded
+            if (typeof loadServerConfig === 'function' && !window.ai2d_chat_CONFIG._configLoaded) {
+                try {
+                    await loadServerConfig();
+                } catch (error) {
+                    console.warn('Failed to load server config in saveCachedPreview:', error);
+                }
+            }
+            
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
             const response = await fetch(`${apiBaseUrl}/api/live2d/preview/${encodeURIComponent(modelName)}`, {
                 method: 'POST',
                 headers: {
@@ -1030,8 +1050,16 @@ class Live2DMultiModelManager {
 
     async hasCachedPreview(modelName) {
         try {
-            // Use dynamic API base URL from global config
-            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || 'http://localhost:19443';
+            // Ensure server configuration is loaded
+            if (typeof loadServerConfig === 'function' && !window.ai2d_chat_CONFIG._configLoaded) {
+                try {
+                    await loadServerConfig();
+                } catch (error) {
+                    console.warn('Failed to load server config in hasCachedPreview:', error);
+                }
+            }
+            
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
             const response = await fetch(`${apiBaseUrl}/api/live2d/preview/${encodeURIComponent(modelName)}/check`);
             
             if (response.ok) {

@@ -39,7 +39,16 @@ except Exception as e:
 # Check API
 print("\n🌐 API Check:")
 try:
-    response = requests.get('http://localhost:19443/api/live2d/model/kanade/motions')
+    # Try to get port from config
+    import yaml
+    try:
+        with open('../../config.yaml', 'r') as f:
+            config = yaml.safe_load(f)
+        port = config.get('server', {}).get('port', 19080)
+    except Exception:
+        port = 19080  # Default from config.yaml
+        
+    response = requests.get(f'http://localhost:{port}/api/live2d/model/kanade/motions')
     print(f"API status: {response.status_code}")
     if response.ok:
         motions = response.json()

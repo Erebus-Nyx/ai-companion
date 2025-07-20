@@ -29,6 +29,7 @@ except ImportError:
 
 system_bp = Blueprint('system', __name__)
 logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 # Track server start time
 SERVER_START_TIME = time.time()
@@ -144,10 +145,59 @@ def api_system_health():
             "timestamp": datetime.now().isoformat()
         }), 500
 
+@system_bp.route('/api/system/config', methods=['GET'])
+def api_system_config():
+    """Get server configuration for frontend."""
+    try:
+        # Get current server configuration from app globals or request
+        protocol = 'https' if request.is_secure else 'http'
+        host = request.host  # This includes port if present
+        
+        # Try to get config from app_globals if available
+        server_config = {}
+        if hasattr(app_globals, 'config') and app_globals.config:
+            server_config = app_globals.config.get('server', {})
+        
+        # Build the base URL using the current request context
+        base_url = f"{protocol}://{host}"
+        
+        config = {
+            "server": {
+                "protocol": protocol,
+                "host": host,
+                "base_url": base_url
+            },
+            "endpoints": {
+                "base_url": base_url,
+                "live2d_interface": f"{base_url}/live2d",
+                "api_docs": f"{base_url}/api/system/version"
+            }
+        }
+        
+        return jsonify(config)
+        
+    except Exception as e:
+        logger.error(f"Error getting system config: {e}")
+        return jsonify({
+            "error": "Failed to get system configuration",
+            "fallback": {
+                "server": {
+                    "protocol": "http",
+                    "host": "localhost",
+                    "base_url": "http://localhost"
+                }
+            }
+        }), 500
+
 @system_bp.route('/api/system/info', methods=['GET'])
 def api_system_info():
     """Get general system information."""
     try:
+        # Get server configuration dynamically
+        protocol = 'https' if request.is_secure else 'http'
+        host = request.host
+        base_url = f"{protocol}://{host}"
+        
         info = {
             "name": "AI Companion",
             "version": __version__,
@@ -162,9 +212,9 @@ def api_system_info():
                 "Enhanced Audio Pipeline"
             ],
             "endpoints": {
-                "base_url": "http://localhost:19443",
-                "live2d_interface": "http://localhost:19443/live2d",
-                "api_docs": "http://localhost:19443/api/system/version"
+                "base_url": base_url,
+                "live2d_interface": f"{base_url}/live2d",
+                "api_docs": f"{base_url}/api/system/version"
             }
         }
         

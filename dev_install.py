@@ -409,7 +409,13 @@ class AICompanionInstaller:
             server_url = f"http://{host}:{dev_port}"
         except Exception as e:
             logger.warning(f"Could not load server config: {e}")
-            server_url = "http://localhost:19081"  # Default dev port
+            # Get default dev port from config.yaml
+            try:
+                config = self.config.load_config()
+                dev_port = config.get('server', {}).get('dev_port', 19081)
+                server_url = f"http://localhost:{dev_port}"
+            except Exception:
+                server_url = "http://localhost:19081"  # Ultimate fallback
         
         print("\n" + "="*60)
         print("🎉 Development Installation Complete!")

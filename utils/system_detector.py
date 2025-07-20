@@ -289,13 +289,13 @@ class SystemDetector:
         else:
             if memory_gb >= 16 and has_gpu:
                 capabilities["performance_tier"] = "high"
-                capabilities["recommended_llm_size"] = "medium"
+                capabilities["recommended_llm_size"] = "large"
                 capabilities["max_context_length"] = 8192
                 capabilities["tts_quality"] = "high"
                 capabilities["recommended_quantization"] = "q5_1"
             elif memory_gb >= 8:
                 capabilities["performance_tier"] = "medium"
-                capabilities["recommended_llm_size"] = "small"
+                capabilities["recommended_llm_size"] = "medium"
                 capabilities["max_context_length"] = 4096
                 capabilities["recommended_quantization"] = "q4_0"
             else:
@@ -324,7 +324,7 @@ class SystemDetector:
                 # High-end Raspberry Pi with sufficient memory
                 model_config = {
                     "llm_model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-                    "llm_file": "tinyllama-1.1b-chat-v1.0.Q4_0.gguf",
+                    "llm_file": "model.gguf",
                     "tts_model": "kokoro-v0_19",
                     "tts_voice": "af_sarah",
                     "context_length": "2048"
@@ -333,7 +333,7 @@ class SystemDetector:
                 # Standard Raspberry Pi or lower memory
                 model_config = {
                     "llm_model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-                    "llm_file": "tinyllama-1.1b-chat-v1.0.Q4_0.gguf",
+                    "llm_file": "model.gguf",
                     "tts_model": "kokoro-v0_19",
                     "tts_voice": "af_sarah",
                     "context_length": "1024"
@@ -343,28 +343,28 @@ class SystemDetector:
             model_recommendations = {
                 "low": {
                     "llm_model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-                    "llm_file": "tinyllama-1.1b-chat-v1.0.Q4_0.gguf",
+                    "llm_file": "model.gguf",
                     "tts_model": "kokoro-v0_19",
-                    "tts_voice": "af_sarah",
+                    "tts_voice": "af_heart",
                     "context_length": "2048"
                 },
                 "low-medium": {
                     "llm_model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-                    "llm_file": "tinyllama-1.1b-chat-v1.0.Q4_0.gguf",
+                    "llm_file": "model.gguf",
                     "tts_model": "kokoro-v0_19",
                     "tts_voice": "af_heart",
                     "context_length": "2048"
                 },
                 "medium": {
-                    "llm_model": "Drakldol/Llama-3.1-8B-Instruct-1.2-Uncensored",
-                    "llm_file": "model.safetensors",
+                    "llm_model": "QuantFactory/DarkIdol-Llama-3.1-8B-Instruct-1.2-Uncensored-GGUF",
+                    "llm_file": "model.gguf",
                     "tts_model": "kokoro-v0_19",
                     "tts_voice": "af_heart",
                     "context_length": "4096"
                 },
                 "high": {
-                    "llm_model": "TheBloke/Wizard-Vicuna-13B-Uncensored-GPTQ",
-                    "llm_file": "model.safetensors",
+                    "llm_model": "TheBloke/Wizard-Vicuna-13B-Uncensored-GGUF",
+                    "llm_file": "model.gguf",
                     "tts_model": "kokoro-v0_19",
                     "tts_voice": "af_heart",
                     "context_length": "8192"

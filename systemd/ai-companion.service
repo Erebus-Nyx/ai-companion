@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 WorkingDirectory=/home/nyx/ai2d_chat
 Environment=PATH=/home/nyx/ai2d_chat/.venv/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/home/nyx/ai2d_chat/.venv/bin/ai2d_chat server --port 19443 --host 0.0.0.0
+ExecStart=/home/nyx/ai2d_chat/.venv/bin/ai2d_chat server
 Restart=always
 RestartSec=10
 

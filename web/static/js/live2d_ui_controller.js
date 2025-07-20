@@ -363,7 +363,8 @@ class Live2DUIController {
 
     async loadModelExpressions(modelName) {
         try {
-            const response = await fetch(`http://localhost:19443/api/live2d/model/${modelName}/expressions`);
+            const baseUrl = await getApiBaseUrl();
+            const response = await fetch(`${baseUrl}/api/live2d/model/${modelName}/expressions`);
             const data = await response.json();
             
             this.populateExpressions(data.expressions || []);

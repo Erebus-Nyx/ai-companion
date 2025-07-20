@@ -2,7 +2,7 @@
 // Exports all functions to window for global access
 
 // Update database info section
-function updateDatabaseInfo() {
+async function updateDatabaseInfo() {
     const dbModelCountEl = document.getElementById('debug-db-model-count');
     const dbMotionCountEl = document.getElementById('debug-db-motion-count');
     const dbConnectionEl = document.getElementById('debug-db-connection');
@@ -10,7 +10,8 @@ function updateDatabaseInfo() {
         window.debugLog && window.debugLog('⚠️ Database info elements not found');
         return;
     }
-    fetch('http://localhost:19443/api/live2d/system_status')
+    const baseUrl = await getApiBaseUrl();
+    fetch(`${baseUrl}/api/live2d/system_status`)
         .then(response => response.json())
         .then(data => {
             if (data.database_connection) {
@@ -40,7 +41,8 @@ function updateDatabaseInfo() {
 async function debugDatabaseInfo() {
     window.debugLog && window.debugLog('💾 Loading database information...');
     try {
-        const response = await fetch('http://localhost:19443/api/live2d/models');
+        const baseUrl = await getApiBaseUrl();
+        const response = await fetch(`${baseUrl}/api/live2d/models`);
         if (response.ok) {
             const models = await response.json();
             window.debugLog && window.debugLog(`📦 Database models: ${models.length}`);
@@ -60,7 +62,8 @@ async function debugClearDatabase() {
     if (!confirm('⚠️ WARNING: Delete ALL database content?')) return;
     window.debugLog && window.debugLog('🗑 Clearing database...');
     try {
-        const response = await fetch('http://localhost:19443/api/live2d/clear_database', {
+        const baseUrl = await getApiBaseUrl();
+        const response = await fetch(`${baseUrl}/api/live2d/clear_database`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -80,7 +83,8 @@ async function debugReimportData() {
     if (!confirm('📥 Re-import all models and motions?')) return;
     window.debugLog && window.debugLog('📥 Starting re-import...');
     try {
-        const response = await fetch('http://localhost:19443/api/live2d/reimport_all', {
+        const baseUrl = await getApiBaseUrl();
+        const response = await fetch(`${baseUrl}/api/live2d/reimport_all`, {
             headers: { 'Content-Type': 'application/json' }
         });
         if (response.ok) {

@@ -90,7 +90,8 @@ async function loadAvailableModels() {
     modelCachePromise = (async () => {
         try {
             const startTime = performance.now();
-            const response = await fetch('http://localhost:19443/api/live2d/models');
+            const baseUrl = await getApiBaseUrl();
+            const response = await fetch(`${baseUrl}/api/live2d/models`);
             if (response.ok) {
                 const models = await response.json();
                 window.availableModels = models;

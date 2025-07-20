@@ -21,8 +21,9 @@ class Live2DMotionManager {
         try {
             this.log(`Loading motions for model: ${modelName}`, 'info');
             
-            // Load motions from Flask API
-            const response = await fetch(`http://localhost:13443/api/live2d/model/${modelName}/motions`);
+            // Load motions from Flask API using dynamic configuration
+            const baseUrl = await getApiBaseUrl();
+            const response = await fetch(`${baseUrl}/api/live2d/model/${modelName}/motions`);
             
             if (!response.ok) {
                 throw new Error(`Failed to load motions: ${response.status}`);
@@ -251,7 +252,8 @@ class Live2DMotionManager {
                 try {
                     const modelName = this.core.currentModel?.name;
                     if (modelName) {
-                        const motionUrl = `http://localhost:13443/api/live2d/model/${modelName}/motion/${motionName}`;
+                        const baseUrl = await getApiBaseUrl();
+                        const motionUrl = `${baseUrl}/api/live2d/model/${modelName}/motion/${motionName}`;
                         await model.motion(motionUrl, priority);
                         success = true;
                     }
