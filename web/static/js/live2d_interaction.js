@@ -103,24 +103,41 @@ class Live2DInteraction {
             position: { x: this.model.x, y: this.model.y }
         });
         
-        // Remove any existing listeners first
-        this.model.off('pointerdown');
-        this.model.off('pointermove');
-        this.model.off('pointerup');
-        this.model.off('pointerupoutside');
+        // Remove any existing listeners first - be more thorough
+        this.model.removeAllListeners('pointerdown');
+        this.model.removeAllListeners('pointermove');
+        this.model.removeAllListeners('pointerup');
+        this.model.removeAllListeners('pointerupoutside');
+        
+        // Check if already set up to prevent duplicate listeners
+        if (this.model._live2dInteractionSetup) {
+            console.log('🔄 Model already has interaction setup, skipping duplicate');
+            return;
+        }
+        
+        // CRITICAL FIX: Properly bind event handlers to maintain context
+        const boundHandlers = {
+            onPointerDown: this.mouseHandlers.onPointerDown.bind(this),
+            onPointerMove: this.mouseHandlers.onPointerMove.bind(this),
+            onPointerUp: this.mouseHandlers.onPointerUp.bind(this),
+            onPointerUpOutside: this.mouseHandlers.onPointerUpOutside.bind(this)
+        };
         
         console.log('Event handlers being attached:', {
-            onPointerDown: typeof this.mouseHandlers.onPointerDown,
-            onPointerMove: typeof this.mouseHandlers.onPointerMove,
-            onPointerUp: typeof this.mouseHandlers.onPointerUp,
-            onPointerUpOutside: typeof this.mouseHandlers.onPointerUpOutside
+            onPointerDown: typeof boundHandlers.onPointerDown,
+            onPointerMove: typeof boundHandlers.onPointerMove,
+            onPointerUp: typeof boundHandlers.onPointerUp,
+            onPointerUpOutside: typeof boundHandlers.onPointerUpOutside
         });
         
-        // Add event listeners directly to model (like live2d-viewer-web)
-        this.model.on('pointerdown', this.mouseHandlers.onPointerDown);
-        this.model.on('pointermove', this.mouseHandlers.onPointerMove);
-        this.model.on('pointerup', this.mouseHandlers.onPointerUp);
-        this.model.on('pointerupoutside', this.mouseHandlers.onPointerUpOutside);
+        // Add event listeners directly to model with proper binding
+        this.model.on('pointerdown', boundHandlers.onPointerDown);
+        this.model.on('pointermove', boundHandlers.onPointerMove);
+        this.model.on('pointerup', boundHandlers.onPointerUp);
+        this.model.on('pointerupoutside', boundHandlers.onPointerUpOutside);
+        
+        // Mark as set up to prevent duplicates
+        this.model._live2dInteractionSetup = true;
         
         console.log('Event listeners attached, checking:', {
             pointerdown_listeners: this.model.listeners('pointerdown').length,
@@ -134,7 +151,7 @@ class Live2DInteraction {
         if (canvas) {
             console.log('Adding wheel event to canvas element:', canvas.tagName);
             canvas.removeEventListener('wheel', this.mouseHandlers.onWheel);
-            canvas.addEventListener('wheel', this.mouseHandlers.onWheel, { passive: false });
+            canvas.addEventListener('wheel', this.mouseHandlers.onWheel.bind(this), { passive: false });
             
             // Test if wheel events work
             console.log('Canvas wheel event listener added successfully');
@@ -200,88 +217,155 @@ class Live2DInteraction {
         this.logger.logInfo('Model updated in interaction manager');
     }
 
-    // Pointer down handler - simplified following live2d-viewer-web pattern
+        // Pointer down handler - start drag following live2d-viewer-web pattern
     onPointerDown(event) {
-        console.log('🖱️ POINTER DOWN EVENT TRIGGERED - Context check:', {
-            hasThis: !!this,
-            hasModel: !!this.model,
-            hasApp: !!this.app,
-            eventGlobal: event.data.global,
-            constructor: this.constructor.name
+        console.log('🖱️ POINTER DOWN EVENT!', {
+            eventType: event.type,
+            globalPos: event.data.global,
+            target: event.target?.constructor?.name
         });
         
-        if (!this.model) {
-            console.error('No model available for pointer down');
+        // Stop event propagation to prevent bubbling to other elements
+        event.stopPropagation();
+        
+        // Find the interaction manager context
+        let interactionManager = this;
+        if (!this?.model && window.live2dIntegration?.interactionManager) {
+            interactionManager = window.live2dIntegration.interactionManager;
+            console.log('🔧 Using global interaction manager for pointer down');
+        }
+        
+        if (!interactionManager?.model) {
+            console.log('❌ No model available for pointer down');
             return;
         }
         
-        console.log('Model position before drag:', { x: this.model.x, y: this.model.y });
+        const model = interactionManager.model;
+        const position = event.data.global;
         
-        // Start dragging (simplified like live2d-viewer-web)
-        this.isDragging = true;
-        this.dragOffset.x = event.data.global.x - this.model.x;
-        this.dragOffset.y = event.data.global.y - this.model.y;
+        // Start dragging
+        interactionManager.isDragging = true;
+        interactionManager.dragStart = { x: position.x, y: position.y };
+        interactionManager.modelStart = { x: model.x, y: model.y };
         
-        console.log('Drag started with offset:', this.dragOffset);
+        model.alpha = 0.8; // Visual feedback
         
-        // Visual feedback
-        this.model.alpha = 0.8;
+        console.log('🖱️ Drag started:', {
+            startPos: interactionManager.dragStart,
+            modelStart: interactionManager.modelStart
+        });
         
-        this.logger.logInfo('Drag started');
+        if (interactionManager.logger) {
+            interactionManager.logger.logInfo('Drag started');
+        }
+        
+        // Check for hit areas (if available)
+        interactionManager.checkHitAreas(event);
     }
 
     // Pointer move handler - simplified following live2d-viewer-web pattern
     onPointerMove(event) {
-        if (!this.model || !this.isDragging) return;
+        // Find the interaction manager context
+        let interactionManager = this;
+        if (!this?.model && window.live2dIntegration?.interactionManager) {
+            interactionManager = window.live2dIntegration.interactionManager;
+        }
         
-        console.log('🖱️ Dragging model to:', event.data.global);
+        // Only handle move events when actually dragging
+        if (!interactionManager?.model || !interactionManager?.isDragging) return;
         
-        // Update model position directly (like live2d-viewer-web)
-        const newX = event.data.global.x - this.dragOffset.x;
-        const newY = event.data.global.y - this.dragOffset.y;
+        const position = event.data.global;
+        const deltaX = position.x - interactionManager.dragStart.x;
+        const deltaY = position.y - interactionManager.dragStart.y;
         
-        this.model.position.set(newX, newY);
+        // Update model position using drag calculation
+        interactionManager.model.x = interactionManager.modelStart.x + deltaX;
+        interactionManager.model.y = interactionManager.modelStart.y + deltaY;
+        
+        // Only log occasionally during drag to avoid spam
+        if (Math.abs(deltaX) % 10 < 2 || Math.abs(deltaY) % 10 < 2) {
+            console.log('🖱️ Dragging model:', {
+                newPos: { x: Math.round(interactionManager.model.x), y: Math.round(interactionManager.model.y) },
+                delta: { x: Math.round(deltaX), y: Math.round(deltaY) }
+            });
+        }
         
         // Update frame visualizations if visible
-        this.updateFrameVisualizations();
+        if (interactionManager.updateFrameVisualizations) {
+            interactionManager.updateFrameVisualizations();
+        }
     }
 
         // Pointer up handler - simplified following live2d-viewer-web pattern
     onPointerUp(event) {
-        console.log('🖱️ Pointer up event triggered');
-        if (!this.model) return;
+        console.log('🎉 POINTER UP EVENT!', {
+            eventType: event.type,
+            globalPos: event.data.global,
+            target: event.target?.constructor?.name
+        });
         
-        if (this.isDragging) {
-            console.log('Drag ended at position:', { x: this.model.x, y: this.model.y });
-            this.isDragging = false;
-            this.model.alpha = 1.0; // Restore opacity
+        // Stop event propagation
+        event.stopPropagation();
+        
+        // Find the interaction manager context
+        let interactionManager = this;
+        if (!this?.model && window.live2dIntegration?.interactionManager) {
+            interactionManager = window.live2dIntegration.interactionManager;
+            console.log('🔧 Using global interaction manager for pointer up');
+        }
+        
+        if (!interactionManager?.model) {
+            console.log('❌ No model available for pointer up');
+            return;
+        }
+        
+        const model = interactionManager.model;
+        
+        if (interactionManager.isDragging) {
+            console.log('✅ Drag ended at position:', { x: model.x, y: model.y });
+            interactionManager.isDragging = false;
+            model.alpha = 1.0; // Restore opacity
             
-            this.logger.logInfo('Drag ended');
-        } else {
-            // Check for hit areas and trigger motions
-            const hitAreas = this.checkHitAreas(event.data.global);
-            if (hitAreas.length > 0) {
-                console.log('Hit area clicked:', hitAreas);
-                // Trigger first matching hit area motion
-                const hitArea = hitAreas[0];
-                this.triggerMotion(`tap_${hitArea}`, 'Click motion');
+            if (interactionManager.logger) {
+                interactionManager.logger.logInfo('Drag ended');
             }
+        } else {
+            console.log('✅ Click detected (not drag)');
+            // Simple click behavior - no hit area testing for now
+            console.log('🎯 Click registered on model at:', event.data.global);
         }
     }
 
-    // Pointer up outside handler
+    // Pointer up outside handler - only handle when actually dragging
     onPointerUpOutside(event) {
-        if (!this.model || !this.isDragging) return;
+        // Find the interaction manager context
+        let interactionManager = this;
+        if (!this?.model && window.live2dIntegration?.interactionManager) {
+            interactionManager = window.live2dIntegration.interactionManager;
+        }
         
-        this.isDragging = false;
-        this.model.alpha = 1.0;
+        // CRITICAL: Only handle this event if we're actually dragging
+        if (!interactionManager?.isDragging) {
+            return; // Ignore the event if we're not dragging
+        }
+        
+        console.log('🔼 POINTER UP OUTSIDE EVENT (during drag):', {
+            wasActuallyDragging: interactionManager.isDragging,
+            modelPosition: { x: interactionManager.model.x, y: interactionManager.model.y }
+        });
+        
+        // End the drag operation
+        interactionManager.isDragging = false;
+        interactionManager.model.alpha = 1.0;
         
         // Notify multi-model manager to save the new position
         if (window.live2dMultiModelManager && window.live2dMultiModelManager.activeModelId) {
             window.live2dMultiModelManager.saveCurrentModelState();
         }
         
-        this.logger.logInfo('Drag ended (outside)');
+        if (interactionManager.logger) {
+            interactionManager.logger.logInfo('Drag ended (outside)');
+        }
     }
 
     // Mouse wheel handler for zoom
@@ -618,6 +702,42 @@ class Live2DInteraction {
                bounds.x + bounds.width > 0 && 
                bounds.y < canvasHeight && 
                bounds.y + bounds.height > 0;
+    }
+
+    // Check hit areas (placeholder implementation)
+    checkHitAreas(globalPosition) {
+        if (!this.model || !this.model.internalModel) {
+            return [];
+        }
+
+        // Convert global position to model local coordinates
+        const localPoint = this.model.toLocal(globalPosition);
+        
+        try {
+            // Try to use Live2D hit testing if available
+            if (this.model.internalModel.hitTest) {
+                return this.model.internalModel.hitTest(localPoint.x, localPoint.y) || [];
+            }
+        } catch (error) {
+            console.warn('Hit test failed:', error);
+        }
+        
+        return [];
+    }
+
+    // Trigger motion (placeholder implementation)
+    triggerMotion(motionName, description = '') {
+        if (!this.model || !this.model.motion) {
+            console.log('Cannot trigger motion - no model or motion system available');
+            return;
+        }
+
+        try {
+            console.log(`Triggering motion: ${motionName} (${description})`);
+            this.model.motion(motionName);
+        } catch (error) {
+            console.warn(`Failed to trigger motion ${motionName}:`, error);
+        }
     }
 
     // Cleanup
