@@ -11,7 +11,7 @@ def install_live2d_models():
     """Copy Live2D models from git repository to user data directory."""
     
     # Source: git repository
-    repo_models_dir = Path("/home/nyx/ai2d_chat/src/live2d_models")
+    repo_models_dir = Path("/home/nyx/ai2d_chat/live2d_models")
     
     # Destination: user data directory
     user_data_dir = Path.home() / ".local/share/ai2d_chat"

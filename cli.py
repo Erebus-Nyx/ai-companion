@@ -40,7 +40,7 @@ def get_config_defaults():
         except ImportError:
             try:
                 # For installed package
-                from src.config.config_manager import ConfigManager
+                from config.config_manager import ConfigManager
             except ImportError:
                 # Return hardcoded fallbacks if config manager not available
                 return {'host': 'localhost', 'port': 4011}
@@ -251,8 +251,8 @@ class AICompanionCLI:
                 from utils.model_downloader import ModelDownloader
                 from utils.system_detector import SystemDetector
             except ImportError:
-                from src.utils.model_downloader import ModelDownloader
-                from src.utils.system_detector import SystemDetector
+                from utils.model_downloader import ModelDownloader
+                from utils.system_detector import SystemDetector
             
             system_detector = SystemDetector()
             downloader = ModelDownloader()
@@ -357,7 +357,7 @@ class AICompanionCLI:
                     try:
                         from utils.live2d_model_installer import Live2DModelInstaller
                     except ImportError:
-                        from src.utils.live2d_model_installer import Live2DModelInstaller
+                        from utils.live2d_model_installer import Live2DModelInstaller
                     
                     live2d_installer = Live2DModelInstaller()
                     live2d_results = live2d_installer.install_all_models()
@@ -378,7 +378,7 @@ class AICompanionCLI:
                     try:
                         from databases.db_manager import DBManager
                     except ImportError:
-                        from src.databases.db_manager import DBManager
+                        from databases.db_manager import DBManager
                     
                     db_manager = DBManager()
                     print("✅ Database manager initialized")
@@ -408,7 +408,7 @@ class AICompanionCLI:
                 from config.config_manager import ConfigManager
             except ImportError:
                 # For installed package
-                from src.config.config_manager import ConfigManager
+                from config.config_manager import ConfigManager
         
         # Get configuration values with fallbacks
         try:
@@ -465,7 +465,7 @@ class AICompanionCLI:
             try:
                 from app import app, socketio
             except ImportError:
-                from src.app import app, socketio
+                from app import app, socketio
             
             print("✅ AI Companion modules loaded successfully.")
             
@@ -624,7 +624,7 @@ class AICompanionCLI:
         try:
             from utils.live2d_model_installer import Live2DModelInstaller
         except ImportError:
-            from src.utils.live2d_model_installer import Live2DModelInstaller
+            from utils.live2d_model_installer import Live2DModelInstaller
         
         installer = Live2DModelInstaller()
         
@@ -737,7 +737,7 @@ class AICompanionCLI:
                     from config.config_manager import ConfigManager
                 except ImportError:
                     # For installed package
-                    from src.config.config_manager import ConfigManager
+                    from config.config_manager import ConfigManager
             
             # Get configuration values
             try:
@@ -1420,7 +1420,7 @@ ingress:
                 from config.config_manager import ConfigManager
             except ImportError:
                 # For installed package
-                from src.config.config_manager import ConfigManager
+                from config.config_manager import ConfigManager
             
         # Check if configuration already exists
         manager = ConfigManager()
@@ -1481,7 +1481,7 @@ ingress:
         try:
             from utils.model_downloader import ModelDownloader, get_user_data_dir
         except ImportError:
-            from src.utils.model_downloader import ModelDownloader, get_user_data_dir
+            from utils.model_downloader import ModelDownloader, get_user_data_dir
         
         print("🧠 AI Companion Model Information")
         print("=" * 50)

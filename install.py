@@ -702,9 +702,9 @@ class AI2DChatInstaller:
                                   capture_output=True, text=True, check=True)
             print("✅ CLI working")
             
-            # Test server (just check help, don't start)
-            result = subprocess.run(['ai2d_chat-server', '--help'], 
-                                  capture_output=True, text=True, check=True)
+            # Test server CLI (correct command name with underscore)
+            result = subprocess.run(['ai2d_chat_server', '--help'], 
+                                  capture_output=True, text=True, check=True, timeout=10)
             print("✅ Server command working")
             
             return True
@@ -771,11 +771,23 @@ class AI2DChatInstaller:
         
         print("\n🚀 Getting Started:")
         print("1. Start the server:")
-        print("   ai2d_chat-server")
+        print("   ai2d_chat_server")
         print("\n2. Or use the CLI:")
         print("   ai2d_chat --help")
         print("\n3. Access the web interface:")
-        print("   http://localhost:5000")
+        # Try to get the actual configured port
+        try:
+            from config.config_manager import ConfigManager
+            manager = ConfigManager()
+            config = manager.load_config()
+            server_config = config.get('server', {})
+            host = server_config.get('host', 'localhost')
+            port = server_config.get('port', 19080)
+            if host == '0.0.0.0':
+                host = 'localhost'
+            print(f"   http://{host}:{port}")
+        except Exception:
+            print("   http://localhost:19080")
         
         if not self.auto_setup:
             print("\n🔧 Complete setup (if not done automatically):")

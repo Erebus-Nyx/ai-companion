@@ -1135,7 +1135,7 @@ def is_live2d_enabled() -> bool:
 def get_live2d_viewer_path() -> str:
     """Get path to Live2D Viewer Web"""
     live2d_config = get_live2d_config()
-    return live2d_config.get('viewer_web_path', 'src/web/static/live2d-viewer-web')
+    return live2d_config.get('viewer_web_path', 'web/static/live2d-viewer-web')
 
 def get_live2d_models_directory() -> str:
     """Get Live2D models directory"""

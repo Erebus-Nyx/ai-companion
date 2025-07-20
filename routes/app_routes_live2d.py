@@ -448,7 +448,7 @@ def api_debug_paths():
             'user_data_dir_exists': os.path.exists(user_data_dir),
             'live2d_models_exists': os.path.exists(live2d_models_path),
             'old_web_static_assets': os.path.exists('web/static/assets'),
-            'old_src_web_static_assets': os.path.exists('src/web/static/assets'),
+            'old_web_static_assets': os.path.exists('web/static/assets'),
         },
         'directory_listings': {
             'current_dir': os.listdir('.') if os.path.exists('.') else 'Not found',
@@ -797,7 +797,7 @@ def debug_model_data(model_name):
             'model_info': model_info,
             'model_path_raw': model_info['model_path'],
             'config_file_raw': model_info['config_file'],
-            'constructed_path': f"src/web{model_info['model_path']}/{model_info['config_file']}"
+            'constructed_path': f"web{model_info['model_path']}/{model_info['config_file']}"
         }
         
         return jsonify(debug_info)
@@ -837,7 +837,7 @@ def get_model_textures(model_name):
             return jsonify({'error': f'Model {model_name} not found'}), 404
         
         # Read model configuration
-        # model_path is now like static/assets/miku_1, Flask runs from src/ so we need web/ prefix
+        # model_path is now like static/assets/miku_1, Flask runs from root so we need web/ prefix
         model_config_path = f"web/{model_info['model_path']}/{model_info['config_file']}"
         logger.info(f"DEBUG: model_config_path = '{model_config_path}'")
         
@@ -872,7 +872,7 @@ def get_model_textures(model_name):
             
             # Construct full paths
             texture_path = f"/{model_info['model_path']}/{texture_relative_path}"
-            full_texture_path = f"web{texture_path}"  # Flask runs from src/ so we need web/ prefix
+            full_texture_path = f"web{texture_path}"  # Flask runs from root so we need web/ prefix
             
             texture_info = {
                 'filename': texture_file,

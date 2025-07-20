@@ -8,7 +8,7 @@ the application runs from the repository source code.
 
 Key differences from production install:
 - Uses development port (19081) to avoid conflicts with production install
-- Runs code from repository source (python src/app.py)  
+- Runs code from repository source (python app.py)  
 - Uses Poetry for dependency management
 - Allows immediate testing of code changes
 
@@ -88,7 +88,7 @@ class AICompanionInstaller:
             'models/llm',
             'databases',
             'logs',
-            'src/web/static'
+            'web/static'
         ]
         
         for directory in directories:
@@ -218,7 +218,7 @@ class AICompanionInstaller:
         print("1. Activate the virtual environment:")
         print("   poetry shell")
         print("\n2. Start the AI Companion (development mode):")
-        print("   python src/app.py")
+        print("   python app.py")
         print(f"\n3. Open your browser and go to:")
         print(f"   {server_url}")
         
@@ -240,7 +240,7 @@ class AICompanionInstaller:
         
         print("\n💡 Development Tips:")
         print("   - Production install uses port 19080 (ai2d_chat command)")
-        print("   - Development install uses port 19081 (python src/app.py)")
+        print("   - Development install uses port 19081 (python app.py)")
         print("   - Both share the same data directories")
         print("   - For production install: python scripts/install.py")
         

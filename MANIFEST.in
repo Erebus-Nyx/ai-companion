@@ -1,6 +1,14 @@
 # MANIFEST.in
 # Ensure all Live2D, PIXI, and Cubism dependencies are included in the package
 
+# Include main Python modules
+include *.py
+include cli.py
+include server_cli.py
+include app.py
+include main.py
+include __version__.py
+
 # Include all static web assets
 recursive-include web/static *.html *.css *.js *.json *.md *.txt *.wasm *.map *.ts *.d.ts
 
@@ -18,6 +26,17 @@ recursive-include web/templates *.html
 # Include configuration files
 include *.yaml *.yml *.json *.toml *.cfg *.ini
 include README.md LICENSE requirements.txt
+
+# Include all Python packages
+recursive-include api *.py
+recursive-include audio *.py
+recursive-include cache *.py  
+recursive-include config *.py *.yaml *.yml *.template
+recursive-include databases *.py *.sql
+recursive-include models *.py
+recursive-include routes *.py  
+recursive-include utils *.py
+recursive-include web *.py
 recursive-include config *.yaml *.yml *.template
 
 # Include model and data directories

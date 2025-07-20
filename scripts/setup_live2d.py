@@ -429,7 +429,7 @@ class Live2DSetup:
                 },
                 'live2d': {
                     'enabled': True,
-                    'viewer_web_path': 'src/web/static/live2d-viewer-web',
+                    'viewer_web_path': 'web/static/live2d-viewer-web',
                     'models_directory': 'models/live2d',
                     'auto_setup': True,
                     'integration_mode': 'embedded'
@@ -998,7 +998,7 @@ def main():
         print("\nNext steps:")
         print("1. Update .secrets file with your API keys")
         print("2. Place Live2D models in models/live2d/")
-        print("3. Run: python src/app.py")
+        print("3. Run: python app.py")
         print("4. Access: http://localhost:5000")
         print("\nPrerequisites met:")
         print("• Node.js and npm are installed for Live2D Viewer Web")
