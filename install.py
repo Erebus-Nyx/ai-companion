@@ -174,6 +174,24 @@ class AI2DChatInstaller:
                 print(f"❌ {tool} not found and is required")
                 return False
         
+        # Check for build module
+        try:
+            subprocess.run([sys.executable, '-c', 'import build'], 
+                         capture_output=True, text=True, check=True)
+        except subprocess.CalledProcessError:
+            print("📦 Installing build module...")
+            try:
+                subprocess.run([sys.executable, '-m', 'pip', 'install', '--user', 'build'], 
+                             check=True, capture_output=True, text=True)
+                print("✅ Build module installed")
+            except subprocess.CalledProcessError:
+                try:
+                    subprocess.run(['sudo', 'apt', 'install', '-y', 'python3-build'], 
+                                 check=True, capture_output=True, text=True)
+                    print("✅ Build module installed via apt")
+                except subprocess.CalledProcessError:
+                    print("⚠️  Could not install build module - build may fail")
+        
         # Check pipx with multiple installation methods
         try:
             result = subprocess.run(['pipx', '--version'], 
@@ -309,9 +327,35 @@ class AI2DChatInstaller:
                     print("🧹 Cleaning dist directory...")
                 shutil.rmtree(self.dist_dir)
             
-            # Build the package
-            self._run_command([sys.executable, '-m', 'build'], 
-                            "Building wheel package", capture_output=not self.verbose)
+            # Build the package with better error capture
+            try:
+                result = subprocess.run([sys.executable, '-m', 'build'], 
+                                      capture_output=True, text=True, check=True)
+                if self.verbose and result.stdout:
+                    print("Build output:", result.stdout)
+            except subprocess.CalledProcessError as build_error:
+                if not self.verbose:
+                    self._stop_spinner()
+                print(f"❌ Build failed: {build_error}")
+                print("📋 Build error details:")
+                if build_error.stdout:
+                    print("   STDOUT:", build_error.stdout[-1000:])  # Last 1000 chars
+                if build_error.stderr:
+                    print("   STDERR:", build_error.stderr[-1000:])  # Last 1000 chars
+                
+                # Check for common Raspberry Pi build issues
+                error_text = (build_error.stdout or '') + (build_error.stderr or '')
+                if 'externally-managed-environment' in error_text:
+                    print("🔧 Detected externally managed Python environment")
+                    print("   Try: sudo apt install python3-build")
+                elif 'No module named build' in error_text:
+                    print("🔧 Missing build module")
+                    print("   Try: pip install --user build")
+                elif 'MANIFEST.in' in error_text or 'no files found matching' in error_text:
+                    print("🔧 MANIFEST.in issues detected")
+                    print("   This is likely due to missing files after restructuring")
+                
+                return False
             
             if not self.verbose:
                 self._stop_spinner()
@@ -326,13 +370,6 @@ class AI2DChatInstaller:
             print(f"✅ Package built: {self.wheel_file.name}")
             return True
             
-        except subprocess.CalledProcessError as e:
-            if not self.verbose:
-                self._stop_spinner()
-            print(f"❌ Build failed: {e}")
-            if self.verbose:
-                print(f"   Error details: {e.stderr if hasattr(e, 'stderr') else 'No details available'}")
-            return False
         except Exception as e:
             if not self.verbose:
                 self._stop_spinner()

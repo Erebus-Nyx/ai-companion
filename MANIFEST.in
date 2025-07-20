@@ -2,34 +2,50 @@
 # Ensure all Live2D, PIXI, and Cubism dependencies are included in the package
 
 # Include all static web assets
-recursive-include src/web/static *.html *.css *.js *.json *.md *.txt *.wasm *.map *.ts *.d.ts
+recursive-include web/static *.html *.css *.js *.json *.md *.txt *.wasm *.map *.ts *.d.ts
 
 # Specifically include Live2D and PIXI distributions
-recursive-include src/web/static/dist *.js *.wasm *.map *.json *.md *.txt
-recursive-include src/web/static/dist/CubismSdkForWeb-5-r.4 *
+recursive-include web/static/dist *.js *.wasm *.map *.json *.md *.txt
+recursive-include web/static/dist/CubismSdkForWeb-5-r.4 *
 
 # Include all JavaScript and CSS files
-recursive-include src/web/static/js *.js
-recursive-include src/web/static/css *.css
+recursive-include web/static/js *.js
+recursive-include web/static/css *.css
 
 # Include templates
-recursive-include src/web/templates *.html
+recursive-include web/templates *.html
 
 # Include configuration files
 include *.yaml *.yml *.json *.toml *.cfg *.ini
 include README.md LICENSE requirements.txt
-recursive-include src/config *.yaml *.yml *.template
+recursive-include config *.yaml *.yml *.template
 
 # Include model and data directories
-recursive-include models *.json *.yaml *.md *.txt
+recursive-include models *.json *.yaml *.md *.txt *.bin *.onnx *.onnx_data *.safetensors
+recursive-include live2d_models *.json *.txt *.md *.png *.moc3 *.physics3 *.cdi3 *.exp3 *.motion3 *.wav *.opus *.can3 *.cmo3 *.settings
 recursive-include docs *.md *.txt
 
 # Include version and CLI modules
-include src/__version__.py
-include src/cli.py
+include __version__.py
+include cli.py
+include server_cli.py
+include app.py
+include main.py
+
+# Include Python packages
+recursive-include api *.py
+recursive-include audio *.py
+recursive-include config *.py
+recursive-include databases *.py
+recursive-include models *.py
+recursive-include routes *.py
+recursive-include scripts *.py
+recursive-include utils *.py
 
 # Exclude unnecessary files
 global-exclude *.pyc *.pyo *.pyd __pycache__ *.so *.egg-info
 global-exclude .git* .DS_Store .vscode
 prune tests
 prune .pytest_cache
+prune archive
+prune backups

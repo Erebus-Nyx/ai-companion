@@ -7,13 +7,14 @@ name = "ai2d_chat"
 version = "0.4.0"
 description = "An interactive AI live2d chat with Live2D visual avatar, voice capabilities, and advanced AI integration featuring enhanced VAD, emotional TTS, and local LLM processing."
 authors = [{name = "AI2D Chat Team", email = "contact@ai2d_chat.com"}]
-license = {text = "MIT"}
+license = "MIT"
 readme = "README.md"
 requires-python = ">=3.8"
 keywords = ["AI", "companion", "avatar", "Live2D", "voice", "chatbot", "llm", "tts", "vad", "emotional-ai"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
