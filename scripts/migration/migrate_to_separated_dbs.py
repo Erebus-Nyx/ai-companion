@@ -5,6 +5,7 @@ Migrate from single database to separated databases and clear only Live2D data
 
 import sys
 import os
+from pathlib import Path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from database.database_manager import DatabaseManager
@@ -12,8 +13,9 @@ from database.database_manager import DatabaseManager
 def migrate_and_clear_live2d():
     """Migrate existing data to separated databases and clear only Live2D data"""
     
-    # Paths
-    old_db_path = '/home/nyx/ai2d_chat/src/ai2d_chat.db'
+    # Paths - use relative path to find old database
+    script_dir = Path(__file__).parent.parent.parent  # Go up to repo root
+    old_db_path = str(script_dir / 'src' / 'ai2d_chat.db')
     
     print("🔄 === MIGRATING TO SEPARATED DATABASES ===")
     
@@ -62,7 +64,9 @@ def migrate_and_clear_live2d():
             print(f"  {db_name}: {db_stats['total_rows']} rows, {db_stats['size_mb']} MB")
     
     print("\n✅ Database separation completed!")
-    print("📁 Database files located in: /home/nyx/ai2d_chat/databases/")
+    # Get databases directory relative to repo root
+    databases_dir = script_dir / "databases"
+    print(f"📁 Database files located in: {databases_dir}/")
     print("   - live2d.db (cleared and ready for import)")
     print("   - conversations.db (preserved)")
     print("   - personality.db (preserved)")

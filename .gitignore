@@ -155,3 +155,8 @@ temp/
 
 # Github Copilot
 .github/copilot-instructions.md
+.github/
+
+# VS Code
+.vscode/
+ai-companion.code-workspace

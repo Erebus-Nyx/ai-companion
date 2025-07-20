@@ -156,7 +156,7 @@ rpi = [
 
 [tool.setuptools]
 include-package-data = true
-py-modules = ["cli", "app", "__version__", "app_globals"]
+py-modules = ["cli", "server_cli", "app", "__version__", "app_globals"]
 
 [tool.setuptools.packages.find]
 exclude = ["tests*", "docs*", "examples*", "backups*", "archive*", "node_modules*"]

@@ -38,7 +38,7 @@ This directory contains all test files for the AI Companion project.
 
 To run Python tests:
 ```bash
-cd /home/nyx/ai2d_chat
+cd <your-ai2d-chat-directory>
 python -m pytest tests/
 ```
 

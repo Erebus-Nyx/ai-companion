@@ -236,7 +236,8 @@ class AI2DChatInstaller:
             {
                 'name': 'pip with --break-system-packages (last resort)',
                 'command': [sys.executable, '-m', 'pip', 'install', '--break-system-packages', 'pipx'],
-                'check': lambda: True
+                'check': lambda: True,
+                'warning': True
             }
         ]
         
@@ -245,6 +246,11 @@ class AI2DChatInstaller:
                 continue
                 
             print(f"   Trying {method['name']}...")
+            
+            # Show warning for risky methods
+            if method.get('warning'):
+                print("   ⚠️  WARNING: This method may affect system stability")
+                
             try:
                 subprocess.run(method['command'], check=True, 
                              capture_output=not self.verbose, text=True)
@@ -266,6 +272,9 @@ class AI2DChatInstaller:
                     subprocess.run(['pipx', '--version'], 
                                  check=True, capture_output=True, text=True)
                     print("✅ pipx installed successfully")
+                    if method.get('warning'):
+                        print("   ⚠️  IMPORTANT: System packages may have been affected.")
+                        print("   ⚠️  Consider using system package manager for future installs.")
                     return True
                 except (subprocess.CalledProcessError, FileNotFoundError):
                     # Try adding ~/.local/bin to PATH temporarily
@@ -815,6 +824,25 @@ def main():
                        help='Show detailed build and installation output')
     
     args = parser.parse_args()
+    
+    # Handle force confirmation for installation
+    if args.force:
+        print("\n⚠️  WARNING: Force installation will permanently delete:")
+        print("   - All conversation history and databases")
+        print("   - Downloaded LLM models")
+        print("   - Live2D models and configurations")
+        print("   - User settings and profiles")
+        
+        while True:
+            response = input("\nAre you sure you want to continue? (yes/no): ").lower().strip()
+            if response in ['yes', 'y']:
+                print("Proceeding with force installation...")
+                break
+            elif response in ['no', 'n']:
+                print("Installation cancelled by user")
+                sys.exit(0)
+            else:
+                print("Please enter 'yes' or 'no'")
     
     installer = AI2DChatInstaller(
         force_reinstall=args.force,

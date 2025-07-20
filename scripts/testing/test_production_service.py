@@ -8,6 +8,7 @@ are correctly configured and the service can start in production mode.
 
 import subprocess
 import time
+from pathlib import Path
 import sys
 import requests
 from pathlib import Path
@@ -17,10 +18,11 @@ def test_service_restart():
     print("🔄 Testing service restart without dev flag...")
     
     try:
-        # Stop current service
+        # Stop current service - use relative path
+        script_dir = Path(__file__).parent.parent.parent  # Go up to repo root
         result = subprocess.run(
             ["./scripts/service-manager.sh", "stop"],
-            capture_output=True, text=True, cwd="/home/nyx/ai2d_chat"
+            capture_output=True, text=True, cwd=str(script_dir)
         )
         print(f"Service stop: {result.returncode}")
         
@@ -34,7 +36,7 @@ def test_service_restart():
         # Start service
         result = subprocess.run(
             ["./scripts/service-manager.sh", "start"],
-            capture_output=True, text=True, cwd="/home/nyx/ai2d_chat"
+            capture_output=True, text=True, cwd=str(script_dir)
         )
         print(f"Service start: {result.returncode}")
         print(f"Output: {result.stdout}")
@@ -149,9 +151,10 @@ def main():
         
         # Get logs for debugging
         try:
+            script_dir = Path(__file__).parent.parent.parent  # Go up to repo root
             result = subprocess.run(
                 ["./scripts/service-manager.sh", "logs"],
-                capture_output=True, text=True, cwd="/home/nyx/ai2d_chat"
+                capture_output=True, text=True, cwd=str(script_dir)
             )
             print("Recent logs:")
             print(result.stdout[-1000:])  # Last 1000 chars

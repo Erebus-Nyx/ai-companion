@@ -11,8 +11,9 @@ from pathlib import Path
 def copy_pyannote_models():
     """Copy PyAnnote models from git to user data directory."""
     
-    # Source paths (in git repository)
-    repo_base = Path("/home/nyx/ai2d_chat")
+    # Source paths (in git repository) - use relative path
+    script_dir = Path(__file__).parent.parent.parent  # Go up to repo root  
+    repo_base = script_dir
     git_pyannote_base = repo_base / "src/models/pyannote"
     
     # Destination paths (user data directory) 

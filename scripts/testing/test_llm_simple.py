@@ -3,6 +3,7 @@
 
 import sys
 import os
+from pathlib import Path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from database.db_manager import DBManager
@@ -38,7 +39,8 @@ def test_llm():
         
         # Check what models are available
         print("Available model files:")
-        model_dir = "/home/nyx/ai2d_chat/models/llm"
+        # Use user data directory for models
+        model_dir = str(Path.home() / ".local/share/ai2d_chat/models/llm")
         if os.path.exists(model_dir):
             for file in os.listdir(model_dir):
                 print(f"  - {file}")

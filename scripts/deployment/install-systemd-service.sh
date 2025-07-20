@@ -15,10 +15,12 @@ NC='\033[0m' # No Color
 # Configuration
 SERVICE_NAME="ai2d_chat"
 SERVICE_FILE="ai2d_chat.service"
-INSTALL_DIR="/home/nyx/ai2d_chat"
-VENV_PATH="/home/nyx/ai2d_chat/.venv"
-USER="nyx"
-GROUP="nyx"
+# Get the directory where this script is located and go up to repo root
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+INSTALL_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+VENV_PATH="$INSTALL_DIR/.venv"
+USER="$(whoami)"
+GROUP="$(id -gn)"
 
 echo -e "${BLUE}🤖 AI Companion Systemd Service Installer${NC}"
 echo "============================================="

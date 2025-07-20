@@ -504,6 +504,50 @@ class AICompanionCLI:
             print(f"❌ Failed to start server: {e}")
             sys.exit(1)
     
+    def start_server_background(self, port: int = None, host: str = None, dev: bool = False):
+        """Start the AI Companion server in background mode using systemd or daemon."""
+        
+        # Set environment variables for the server to pick up
+        if port is not None:
+            os.environ['AI2D_SERVER_PORT'] = str(port)
+        if host is not None:
+            os.environ['AI2D_SERVER_HOST'] = host
+        if dev:
+            os.environ['AI2D_DEBUG'] = 'true'
+        
+        print(f"🚀 Starting {get_version_string()} (background mode)")
+        if port and host:
+            print(f"🌐 Server will be available at: http://{host}:{port}")
+        
+        # Import systemd/daemon functionality from server_cli
+        try:
+            from server_cli import has_systemd, start_systemd_service, daemonize
+            
+            # Check for systemd first
+            if has_systemd():
+                print("📦 Systemd detected - starting as systemd service")
+                if start_systemd_service():
+                    print("✅ Server started successfully via systemd")
+                    return
+                else:
+                    print("⚠️  Systemd service failed, falling back to daemon mode")
+            
+            # Fall back to daemon mode
+            print("🔧 Starting as daemon process")
+            
+            # Fork to daemon
+            if daemonize():
+                # We're now in the daemon process - start the actual server
+                self.start_server(port=port, host=host, dev=dev)
+                
+        except ImportError as e:
+            print(f"❌ Error importing background service components: {e}")
+            print("🔧 Falling back to foreground mode")
+            self.start_server(port=port, host=host, dev=dev)
+        except Exception as e:
+            print(f"❌ Failed to start background server: {e}")
+            sys.exit(1)
+    
     def stop_server(self):
         """Stop the AI Companion server."""
         if self.server_process:
@@ -668,6 +712,188 @@ class AICompanionCLI:
             print(f"🎭 Installing model: {model_name}")
             success = installer.install_model(model_name)
             print(f"{'✅' if success else '❌'} Model installation: {model_name}")
+        
+        elif args.live2d_action == "delete":
+            self.delete_live2d_model()
+    
+    def delete_live2d_model(self):
+        """Delete a specific Live2D model with confirmation"""
+        try:
+            from pathlib import Path
+            
+            # Standard data directories  
+            data_dir = Path.home() / ".local" / "share" / "ai2d_chat"
+            live2d_dir = data_dir / "live2d_models"
+            
+            if not live2d_dir.exists():
+                print("No Live2D models directory found")
+                return
+            
+            # List available models
+            models = []
+            for item in live2d_dir.iterdir():
+                if item.is_dir():
+                    model_files = list(item.glob("*.model3.json")) + list(item.glob("*.model.json"))
+                    if model_files:
+                        models.append((item.name, item))
+            
+            if not models:
+                print("No Live2D models found to delete")
+                return
+            
+            print("\nAvailable Live2D Models:")
+            print("-" * 40)
+            for i, (name, path) in enumerate(models, 1):
+                print(f"{i}. {name}")
+            
+            # Get user selection
+            while True:
+                try:
+                    choice = input(f"\nSelect model to delete (1-{len(models)}) or 'q' to quit: ").strip()
+                    if choice.lower() == 'q':
+                        return
+                    
+                    choice_idx = int(choice) - 1
+                    if 0 <= choice_idx < len(models):
+                        break
+                    else:
+                        print(f"Please enter a number between 1 and {len(models)}")
+                except ValueError:
+                    print("Please enter a valid number")
+            
+            model_name, model_path = models[choice_idx]
+            
+            # Confirmation prompt
+            print(f"\n⚠️  WARNING: This will permanently delete the Live2D model:")
+            print(f"   Model: {model_name}")
+            print(f"   Path: {model_path}")
+            
+            while True:
+                response = input(f"\nDelete '{model_name}'? (yes/no): ").lower().strip()
+                if response in ['yes', 'y']:
+                    import shutil
+                    shutil.rmtree(model_path)
+                    print(f"✅ Live2D model '{model_name}' deleted successfully")
+                    break
+                elif response in ['no', 'n']:
+                    print("Deletion cancelled")
+                    break
+                else:
+                    print("Please enter 'yes' or 'no'")
+                    
+        except Exception as e:
+            print(f"Error deleting Live2D model: {e}")
+
+    def handle_database_command(self, args):
+        """Handle database management commands."""
+        if args.db_action == "list":
+            self.list_databases()
+        elif args.db_action == "reset":
+            self.reset_database()
+        else:
+            print("Database command requires an action (list, reset)")
+    
+    def list_databases(self):
+        """List available databases"""
+        try:
+            from pathlib import Path
+            
+            # Standard data directories
+            data_dir = Path.home() / ".local" / "share" / "ai2d_chat"
+            db_dir = data_dir / "databases"
+            
+            if not db_dir.exists():
+                print("No database directory found")
+                return
+            
+            db_files = []
+            for db_file in db_dir.glob("*.db"):
+                if db_file.is_file():
+                    size = db_file.stat().st_size
+                    size_mb = size / (1024 * 1024)
+                    db_files.append((db_file.name, size_mb, db_file))
+            
+            if not db_files:
+                print("No database files found")
+                return
+            
+            print("\nAvailable Databases:")
+            print("-" * 50)
+            for i, (name, size_mb, path) in enumerate(db_files, 1):
+                print(f"{i}. {name}")
+                print(f"   Size: {size_mb:.2f} MB")
+                print(f"   Path: {path}")
+                print()
+                
+        except Exception as e:
+            print(f"Error listing databases: {e}")
+    
+    def reset_database(self):
+        """Reset a specific database with confirmation"""
+        try:
+            from pathlib import Path
+            
+            # Standard data directories
+            data_dir = Path.home() / ".local" / "share" / "ai2d_chat"
+            db_dir = data_dir / "databases"
+            
+            if not db_dir.exists():
+                print("No database directory found")
+                return
+            
+            # List available databases
+            db_files = []
+            for db_file in db_dir.glob("*.db"):
+                if db_file.is_file():
+                    db_files.append((db_file.name, db_file))
+            
+            if not db_files:
+                print("No database files found to reset")
+                return
+            
+            print("\nAvailable Databases:")
+            print("-" * 40)
+            for i, (name, path) in enumerate(db_files, 1):
+                print(f"{i}. {name}")
+            
+            # Get user selection
+            while True:
+                try:
+                    choice = input(f"\nSelect database to reset (1-{len(db_files)}) or 'q' to quit: ").strip()
+                    if choice.lower() == 'q':
+                        return
+                    
+                    choice_idx = int(choice) - 1
+                    if 0 <= choice_idx < len(db_files):
+                        break
+                    else:
+                        print(f"Please enter a number between 1 and {len(db_files)}")
+                except ValueError:
+                    print("Please enter a valid number")
+            
+            db_name, db_path = db_files[choice_idx]
+            
+            # Confirmation prompt
+            print(f"\n⚠️  WARNING: This will permanently delete all data in:")
+            print(f"   Database: {db_name}")
+            print(f"   Path: {db_path}")
+            print("   This action cannot be undone!")
+            
+            while True:
+                response = input(f"\nReset database '{db_name}'? (yes/no): ").lower().strip()
+                if response in ['yes', 'y']:
+                    db_path.unlink()
+                    print(f"✅ Database '{db_name}' reset successfully")
+                    print("   Database will be recreated when the application starts")
+                    break
+                elif response in ['no', 'n']:
+                    print("Reset cancelled")
+                    break
+                else:
+                    print("Please enter 'yes' or 'no'")
+                    
+        except Exception as e:
+            print(f"Error resetting database: {e}")
 
     def handle_tunnel_command(self, args):
         """Handle Cloudflare tunnel management commands."""
@@ -1478,6 +1704,9 @@ ingress:
 
     def show_models(self, list_models: bool = False, download_missing: bool = False):
         """Show model information and storage locations."""
+        # TODO: Fix/correct the output on models --list that doesn't show correct information
+        # The list_available_models() method and model status detection needs improvement
+        # to provide accurate information about downloaded vs available models
         try:
             from utils.model_downloader import ModelDownloader, get_user_data_dir
         except ImportError:
@@ -1562,6 +1791,10 @@ def main():
     server_parser.add_argument("--host", default=config_defaults['host'], 
                               help=f"Host to bind to (default: {config_defaults['host']} from config)")
     server_parser.add_argument("--dev", action="store_true", help="Run in development mode")
+    server_parser.add_argument("--foreground", "-f", action="store_true", 
+                              help="Run server in foreground (disable systemd/daemon mode) - useful for testing")
+    server_parser.add_argument("--no-daemon", action="store_true", 
+                              help="Disable daemon mode (alias for --foreground)")
     
     # API documentation command
     api_parser = subparsers.add_parser("api", help="Show API documentation")
@@ -1597,9 +1830,17 @@ def main():
     live2d_subparsers.add_parser("install", help="Install all Live2D models")
     live2d_subparsers.add_parser("refresh", help="Refresh Live2D models (install new/updated)")
     live2d_subparsers.add_parser("list", help="List available and installed Live2D models")
+    live2d_subparsers.add_parser("delete", help="Delete a specific Live2D model (interactive)")
     
     install_parser = live2d_subparsers.add_parser("install-single", help="Install specific model")
     install_parser.add_argument("model_name", help="Name of model to install")
+    
+    # Database management command
+    db_parser = subparsers.add_parser("database", help="Database management")
+    db_subparsers = db_parser.add_subparsers(dest="db_action", help="Database actions")
+    
+    db_subparsers.add_parser("list", help="List available databases")
+    db_subparsers.add_parser("reset", help="Reset a specific database (interactive)")
     
     # Tunnel command
     tunnel_parser = subparsers.add_parser("tunnel", help="Cloudflare tunnel management")
@@ -1643,7 +1884,15 @@ def main():
     
     if args.command == "server":
         try:
-            cli.start_server(port=args.port, host=args.host, dev=args.dev)
+            # Check if we should run in foreground mode
+            run_foreground = args.foreground or args.no_daemon or args.dev
+            
+            if run_foreground:
+                # Run in foreground mode (existing behavior)
+                cli.start_server(port=args.port, host=args.host, dev=args.dev)
+            else:
+                # Run in background mode using ai2d_chat_server logic
+                cli.start_server_background(port=args.port, host=args.host, dev=args.dev)
         except KeyboardInterrupt:
             print("\n🛑 Server stopped by user")
             sys.exit(0)
@@ -1669,6 +1918,9 @@ def main():
     
     elif args.command == "live2d":
         cli.handle_live2d_command(args)
+    
+    elif args.command == "database":
+        cli.handle_database_command(args)
     
     elif args.command == "tunnel":
         cli.handle_tunnel_command(args)

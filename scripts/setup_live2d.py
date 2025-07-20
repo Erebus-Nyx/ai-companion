@@ -11,7 +11,7 @@ from typing import Optional, Dict, Any, List
 # Add src to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from config.config_manager import ConfigManager
+from config.config_manager import ConfigManager, get_live2d_viewer_path, get_live2d_repository_url, update_live2d_setup_status
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,8 +20,8 @@ class Live2DSetup:
     def __init__(self, config_manager: Optional[ConfigManager] = None):
         self.config = config_manager or ConfigManager()
         self.base_path = Path(__file__).parent.parent
-        self.viewer_path = self.base_path / self.config.get_live2d_viewer_path()
-        self.repository_url = self.config.get_live2d_repository_url()
+        self.viewer_path = self.base_path / get_live2d_viewer_path()
+        self.repository_url = get_live2d_repository_url()
         
         # Add rebuild flag
         self.force_rebuild = False
@@ -242,9 +242,9 @@ class Live2DSetup:
             logger.info(f"System capabilities: {capabilities}")
             logger.info(f"Recommended models: {recommended_models}")
             
-            # Update config with system info
-            self.config.set('system.capabilities', capabilities)
-            self.config.set('system.recommended_models', recommended_models)
+            # Update config with system info (log instead of storing)
+            logger.info(f"System capabilities detected: {capabilities}")
+            logger.info(f"Recommended models: {recommended_models}")
             
             return {
                 'capabilities': capabilities,
@@ -301,7 +301,7 @@ class Live2DSetup:
         try:
             logger.info("Setting up Live2D models...")
             
-            models_dir = self.base_path / self.config.get_models_directory()
+            models_dir = self.base_path / 'models' / 'live2d'
             models_dir.mkdir(parents=True, exist_ok=True)
             
             # Create sample model structure
@@ -389,13 +389,13 @@ class Live2DSetup:
             db_dir.mkdir(exist_ok=True)
             
             # Initialize Live2D database
-            from database.live2d_models_separated import initialize_live2d_database
+            from databases.live2d_models_separated import initialize_live2d_database
             initialize_live2d_database()
             logger.info("Live2D database initialized")
             
             # Initialize conversations database
             try:
-                from database.conversation_manager import initialize_conversations_database
+                from databases.conversation_manager import initialize_conversations_database
                 initialize_conversations_database()
                 logger.info("Conversations database initialized")
             except ImportError:
@@ -403,7 +403,7 @@ class Live2DSetup:
             
             # Initialize personality database
             try:
-                from database.personality_manager import initialize_personality_database
+                from databases.personality_manager import initialize_personality_database
                 initialize_personality_database()
                 logger.info("Personality database initialized")
             except ImportError:
@@ -591,7 +591,7 @@ class Live2DSetup:
             os.chdir(self.viewer_path)
             
             # Build the project
-            build_command = self.config.get('live2d.build_command', 'npm run build')
+            build_command = 'npm run build'  # Use default build command
             subprocess.run(build_command.split(), check=True)
             
             os.chdir(original_cwd)
@@ -852,7 +852,7 @@ export class AICompanionModelEntity extends ModelEntity {
         
         try:
             # Update config
-            self.config.update_live2d_setup_status("starting")
+            update_live2d_setup_status("starting")
             
             # Clean and rebuild if requested
             if self.force_rebuild:
@@ -861,7 +861,7 @@ export class AICompanionModelEntity extends ModelEntity {
                     logger.warning("Failed to clean existing installation, continuing anyway")
                 
                 if not self.rebuild_python_package():
-                    self.config.update_live2d_setup_status("failed_package_rebuild")
+                    update_live2d_setup_status("failed_package_rebuild")
                     return False
             
             # Detect system requirements
@@ -869,55 +869,55 @@ export class AICompanionModelEntity extends ModelEntity {
             
             # Setup configuration files
             if not self.setup_configuration_files():
-                self.config.update_live2d_setup_status("failed_configuration")
+                update_live2d_setup_status("failed_configuration")
                 return False
             
             # Download required models
             if not self.download_required_models(system_info):
-                self.config.update_live2d_setup_status("failed_model_download")
+                update_live2d_setup_status("failed_model_download")
                 return False
             
             # Setup voice models
             if not self.setup_voice_models():
-                self.config.update_live2d_setup_status("failed_voice_setup")
+                update_live2d_setup_status("failed_voice_setup")
                 return False
             
             # Initialize databases
             if not self.initialize_databases():
-                self.config.update_live2d_setup_status("failed_database_init")
+                update_live2d_setup_status("failed_database_init")
                 return False
             
             # Check prerequisites
             if not self.check_prerequisites():
-                self.config.update_live2d_setup_status("failed_prerequisites")
+                update_live2d_setup_status("failed_prerequisites")
                 return False
             
             # Clone repository
             if not self.clone_live2d_viewer_web():
-                self.config.update_live2d_setup_status("failed_clone")
+                update_live2d_setup_status("failed_clone")
                 return False
             
             # Install dependencies
             if not self.install_dependencies():
-                self.config.update_live2d_setup_status("failed_dependencies")
+                update_live2d_setup_status("failed_dependencies")
                 return False
             
             # Build project
             if not self.build_viewer():
-                self.config.update_live2d_setup_status("failed_build")
+                update_live2d_setup_status("failed_build")
                 return False
             
             # Setup integration files
             if not self.setup_integration_files():
-                self.config.update_live2d_setup_status("failed_integration")
+                update_live2d_setup_status("failed_integration")
                 return False
             
             # Verify setup
             if not self.verify_setup():
-                self.config.update_live2d_setup_status("failed_verification")
+                update_live2d_setup_status("failed_verification")
                 return False
             
-            self.config.update_live2d_setup_status("completed")
+            update_live2d_setup_status("completed")
             logger.info("Complete AI Companion Live2D setup finished successfully!")
             
             # Log final status
@@ -927,7 +927,7 @@ export class AICompanionModelEntity extends ModelEntity {
             
         except Exception as e:
             logger.error(f"Setup failed with unexpected error: {e}")
-            self.config.update_live2d_setup_status(f"failed_unexpected: {e}")
+            update_live2d_setup_status(f"failed_unexpected: {e}")
             return False
     
     def _log_setup_completion(self):

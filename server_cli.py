@@ -91,7 +91,26 @@ def install_systemd_service():
     if not ai2d_chat_server_cmd:
         ai2d_chat_server_cmd = str(Path.home() / ".local" / "bin" / "ai2d_chat_server")
     
-    service_content = f"""[Unit]
+    # For user services, determine if we need User= directive
+    if service_type == "user":
+        # User services automatically run as the invoking user - no User= needed
+        service_content = f"""[Unit]
+Description=AI2D Chat Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart={ai2d_chat_server_cmd} --foreground
+Restart=always
+RestartSec=3
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:{Path.home() / '.local' / 'bin'}
+
+[Install]
+WantedBy=default.target
+"""
+    else:
+        # System services need User= directive
+        service_content = f"""[Unit]
 Description=AI2D Chat Server
 After=network.target
 
@@ -104,7 +123,7 @@ RestartSec=3
 Environment=PATH=/usr/local/bin:/usr/bin:/bin:{Path.home() / '.local' / 'bin'}
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target
 """
     
     # Create service directory if it doesn't exist

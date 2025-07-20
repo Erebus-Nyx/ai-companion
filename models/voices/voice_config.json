@@ -1,0 +1,13 @@
+{
+  "default_voice": "tacotron2-en",
+  "available_voices": [
+    "tacotron2-en",
+    "waveglow-en",
+    "silero-tts-en"
+  ],
+  "voice_settings": {
+    "speed": 1.0,
+    "pitch": 1.0,
+    "volume": 0.8
+  }
+}

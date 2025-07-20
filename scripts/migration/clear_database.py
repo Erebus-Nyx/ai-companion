@@ -5,10 +5,13 @@ Clear the Live2D database completely
 
 import sqlite3
 import os
+from pathlib import Path
 
 def clear_database():
     """Clear all Live2D data from the database"""
-    db_path = '/home/nyx/ai2d_chat/src/ai2d_chat.db'
+    # Use relative path to find database
+    script_dir = Path(__file__).parent.parent.parent  # Go up to repo root
+    db_path = str(script_dir / 'src' / 'ai2d_chat.db')
     
     if not os.path.exists(db_path):
         print(f"❌ Database not found: {db_path}")

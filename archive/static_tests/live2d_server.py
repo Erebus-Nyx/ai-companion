@@ -7,10 +7,14 @@ import sys
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import socketserver
 from urllib.parse import urlparse
+from pathlib import Path
 
 class Live2DHTTPRequestHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory="/home/nyx/ai2d_chat/src/web/static", **kwargs)
+        # Use relative path to find static directory
+        script_dir = Path(__file__).parent.parent.parent  # Go up to repo root
+        static_dir = str(script_dir / "src/web/static")
+        super().__init__(*args, directory=static_dir, **kwargs)
     
     def end_headers(self):
         # Add CORS headers for local development
@@ -48,7 +52,10 @@ def main():
     print(f"Starting Live2D development server...")
     print(f"Server running at: http://localhost:{port}")
     print(f"Live2D viewer URL: http://localhost:{port}/index.html")
-    print(f"Serving from: /home/nyx/ai2d_chat/src/web/static")
+    # Show the actual static directory path
+    script_dir = Path(__file__).parent.parent.parent  # Go up to repo root
+    static_dir = script_dir / "src/web/static"
+    print(f"Serving from: {static_dir}")
     print("Press Ctrl+C to stop the server")
     
     with socketserver.TCPServer(("", port), Live2DHTTPRequestHandler) as httpd:

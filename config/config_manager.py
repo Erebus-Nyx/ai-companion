@@ -16,6 +16,7 @@ import sys
 import shutil
 import json
 import yaml
+import time
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 import tempfile
@@ -1161,7 +1162,7 @@ def update_live2d_setup_status(status: str):
         
         # Update Live2D setup status
         config['live2d']['setup_status'] = status
-        config['live2d']['setup_timestamp'] = str(os.time.time())
+        config['live2d']['setup_timestamp'] = str(time.time())
         
         with open(config_path, 'w') as f:
             yaml.dump(config, f, default_flow_style=False, indent=2, width=120)
