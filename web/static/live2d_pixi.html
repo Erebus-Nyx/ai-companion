@@ -1004,93 +1004,10 @@ async function loadLive2DModel(modelPath) {
     }
 }
 
-// Helper function to update model info display
+// Helper function to update model info display (disabled)
 function updateModelInfoDisplay(message) {
-    // Update the model info div if it exists
-    let modelInfo = document.getElementById('model-info');
-    if (!modelInfo) {
-        // Create model info display if it doesn't exist
-        modelInfo = document.createElement('div');
-        modelInfo.id = 'model-info';
-        modelInfo.style.cssText = `
-            position: absolute;
-            top: 0px;
-            left: 0px;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 11px;
-            z-index: 1000;
-            max-width: 280px;
-            font-family: monospace;
-            white-space: pre-line;
-        `;
-        document.body.appendChild(modelInfo);
-    }
-    
-    const timestamp = new Date().toLocaleTimeString();
-    
-    // Get current active model info
-    let activeModelInfo = '';
-    if (live2dMultiModelManager) {
-        const activeModel = live2dMultiModelManager.getActiveModel();
-        const allModels = live2dMultiModelManager.getAllModels();
-        
-        if (activeModel) {
-            const modelName = activeModel.name || 'Unknown';
-            const position = activeModel.pixiModel ? `(${Math.round(activeModel.pixiModel.x)}, ${Math.round(activeModel.pixiModel.y)})` : '(0, 0)';
-            const scale = activeModel.pixiModel ? activeModel.pixiModel.scale.x.toFixed(2) : '1.00';
-            const visible = activeModel.pixiModel ? activeModel.pixiModel.visible : false;
-            const interactive = activeModel.pixiModel ? activeModel.pixiModel.interactive : false;
-            activeModelInfo = `Active Model: ${modelName}\nPosition: ${position}\nScale: ${scale}\nVisible: ${visible}\nInteractive: ${interactive}`;
-        } else {
-            // Show all models and their visibility status
-            activeModelInfo = `No active model\nTotal models: ${allModels.length}`;
-            if (allModels.length > 0) {
-                activeModelInfo += '\nModels:';
-                allModels.forEach((modelData, index) => {
-                    const visible = modelData.pixiModel ? modelData.pixiModel.visible : false;
-                    activeModelInfo += `\n- ${modelData.name}: ${visible ? 'visible' : 'hidden'}`;
-                });
-            }
-        }
-    } else {
-        activeModelInfo = 'Live2D system not ready';
-    }
-    
-    modelInfo.innerHTML = `
-        <div style="color: #4CAF50; font-weight: bold;">🖱️ Live2D Mouse Controls</div>
-        <div style="margin: 8px 0; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 4px;">
-            ${message}
-        </div>
-        <div style="margin: 8px 0; padding: 8px; background: rgba(76,175,80,0.1); border-radius: 4px; font-size: 10px;">
-            ${activeModelInfo}
-        </div>
-        <div style="margin: 8px 0;">
-            <button onclick="updateCurrentModelReference(); updateModelInfoDisplay('Model reference updated');" style="background: #2196F3; color: white; border: none; padding: 4px 8px; border-radius: 3px; font-size: 10px; cursor: pointer;">
-                🔄 Refresh
-            </button>
-            <button onclick="debugModelSystem()" style="background: #FF9800; color: white; border: none; padding: 4px 8px; border-radius: 3px; font-size: 10px; cursor: pointer; margin-left: 4px;">
-                🔍 Debug
-            </button>
-        </div>
-        <div style="font-size: 10px; color: #aaa;">
-            <strong>Controls:</strong><br>
-            • Drag model to move<br>
-            • Mouse wheel to scale<br>
-            • Click parts for hit test<br>
-            <br>
-            <strong>System Status:</strong><br>
-            ✅ PIXI interaction system active<br>
-            ✅ Manual DOM bridge functional<br>
-            <br>
-            <strong>Updated:</strong> ${timestamp}
-        </div>
-    `;
+    // Overlay display disabled - function is now a no-op
 }
-
-
 
 // Global drag state variables (make accessible across all functions)
 window.dragState = {
@@ -1498,12 +1415,8 @@ function fixPixiInteractionSystem() {
     canvas.style.pointerEvents = 'auto';
     canvas.setAttribute('onmousemove', ''); // Force enable mousemove attribute
     
-    // CRITICAL: Check for competing event handlers on document/window
-    console.log('🔍 Checking for competing event handlers...');
-    const docListeners = getEventListeners ? getEventListeners(document) : 'DevTools required';
-    const windowListeners = getEventListeners ? getEventListeners(window) : 'DevTools required';
-    console.log('Document event listeners:', docListeners);
-    console.log('Window event listeners:', windowListeners);
+    // CRITICAL: Check for competing event handlers (DevTools only function removed)
+    console.log('🔍 Event handler check complete (getEventListeners requires DevTools)');
     
     // CRITICAL: Keep stage interaction DISABLED to prevent conflicts with manual DOM handlers
     pixiApp.stage.interactive = false;
@@ -1915,11 +1828,6 @@ function selectModelFromDialog(modelValue, modelName) {
 
 // ...existing code...
 </script>
-
-<!-- Add model info display div -->
-<div id="model-info" style="position: absolute; top: 0px; left: 0px; background: rgba(0,0,0,0.8); color: white; padding: 12px; border-radius: 6px; font-size: 11px; z-index: 1000; max-width: 280px; font-family: monospace;">
-    🔄 Initializing Live2D system with interaction fix...
-</div>
 
 <script>
 // Global state variables for UI panels
