@@ -95,7 +95,7 @@ Documentation = "https://github.com/Erebus-Nyx/ai2d_chat/blob/main/README.md"
 
 [project.scripts]
 ai2d_chat = "cli:main"
-ai2d_chat_server = "app:main"
+ai2d_chat_server = "server_cli:main"
 
 [project.optional-dependencies]
 dev = [

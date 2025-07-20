@@ -161,7 +161,7 @@ class AI2DChatInstaller:
         
     def check_prerequisites(self) -> bool:
         """Check if required tools are available."""
-        required_tools = ['python3', 'pip', 'pipx']
+        required_tools = ['python3', 'pip']
         
         print("🔍 Checking prerequisites...")
         
@@ -171,18 +171,18 @@ class AI2DChatInstaller:
                                       capture_output=True, text=True, check=True)
                 print(f"✅ {tool}: {result.stdout.strip().split()[0]}")
             except (subprocess.CalledProcessError, FileNotFoundError):
-                if tool == 'pipx':
-                    print(f"❌ {tool} not found - installing...")
-                    try:
-                        subprocess.run([sys.executable, '-m', 'pip', 'install', 'pipx'], check=True)
-                        subprocess.run([sys.executable, '-m', 'pipx', 'ensurepath'], check=True)
-                        print("✅ pipx installed successfully")
-                    except subprocess.CalledProcessError as e:
-                        print(f"❌ Failed to install pipx: {e}")
-                        return False
-                else:
-                    print(f"❌ {tool} not found and is required")
-                    return False
+                print(f"❌ {tool} not found and is required")
+                return False
+        
+        # Check pipx with multiple installation methods
+        try:
+            result = subprocess.run(['pipx', '--version'], 
+                                  capture_output=True, text=True, check=True)
+            print(f"✅ pipx: {result.stdout.strip()}")
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            print(f"❌ pipx not found - installing...")
+            if not self._install_pipx():
+                return False
         
         # Check Node.js and npm (for Live2D Viewer Web)
         node_tools = ['node', 'npm']
@@ -196,6 +196,81 @@ class AI2DChatInstaller:
                 print("   Install Node.js from: https://nodejs.org/")
         
         return True
+    
+    def _install_pipx(self) -> bool:
+        """Install pipx using the best available method for the current system."""
+        installation_methods = [
+            {
+                'name': 'system package manager (apt)',
+                'command': ['sudo', 'apt', 'install', '-y', 'pipx'],
+                'check': lambda: shutil.which('apt') is not None
+            },
+            {
+                'name': 'system package manager (dnf)',
+                'command': ['sudo', 'dnf', 'install', '-y', 'pipx'],
+                'check': lambda: shutil.which('dnf') is not None
+            },
+            {
+                'name': 'user pip with --user flag',
+                'command': [sys.executable, '-m', 'pip', 'install', '--user', 'pipx'],
+                'check': lambda: True
+            },
+            {
+                'name': 'pip with --break-system-packages (last resort)',
+                'command': [sys.executable, '-m', 'pip', 'install', '--break-system-packages', 'pipx'],
+                'check': lambda: True
+            }
+        ]
+        
+        for method in installation_methods:
+            if not method['check']():
+                continue
+                
+            print(f"   Trying {method['name']}...")
+            try:
+                subprocess.run(method['command'], check=True, 
+                             capture_output=not self.verbose, text=True)
+                
+                # Ensure pipx is in PATH
+                try:
+                    subprocess.run([sys.executable, '-m', 'pipx', 'ensurepath'], 
+                                 check=True, capture_output=True, text=True)
+                except subprocess.CalledProcessError:
+                    # Try direct pipx if it exists
+                    try:
+                        subprocess.run(['pipx', 'ensurepath'], 
+                                     check=True, capture_output=True, text=True)
+                    except (subprocess.CalledProcessError, FileNotFoundError):
+                        pass  # ensurepath might not be necessary
+                
+                # Verify installation
+                try:
+                    subprocess.run(['pipx', '--version'], 
+                                 check=True, capture_output=True, text=True)
+                    print("✅ pipx installed successfully")
+                    return True
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    # Try adding ~/.local/bin to PATH temporarily
+                    os.environ['PATH'] = f"{Path.home() / '.local' / 'bin'}:{os.environ.get('PATH', '')}"
+                    try:
+                        subprocess.run(['pipx', '--version'], 
+                                     check=True, capture_output=True, text=True)
+                        print("✅ pipx installed successfully")
+                        return True
+                    except (subprocess.CalledProcessError, FileNotFoundError):
+                        continue
+                        
+            except subprocess.CalledProcessError as e:
+                if self.verbose:
+                    print(f"   Failed: {e}")
+                continue
+        
+        print("❌ Failed to install pipx using any available method")
+        print("🔧 Please install pipx manually:")
+        print("   Debian/Ubuntu/Raspberry Pi: sudo apt install pipx")
+        print("   Fedora/RHEL: sudo dnf install pipx")
+        print("   Or visit: https://pypa.github.io/pipx/installation/")
+        return False
     
     def clean_previous_installation(self) -> bool:
         """Clean any previous installation."""
