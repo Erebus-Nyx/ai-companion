@@ -5,9 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live2D AI Companion - Dual Architecture Testing Interface</title>
     <link rel="stylesheet" href="/static/css/live2d_test.css">
-</head>
-    
     <!-- Live2D AI Companion - Production-ready avatar system with dual runtime support -->
+</head>
 </head>
 <body>
     <div class="app-container">
@@ -672,14 +671,22 @@ async function initializeLive2D() {
         // Store reference to multi-model manager for global access
         live2dMultiModelManager = live2dIntegration.modelManager;
         
-        // Store PIXI app reference from integration
-        pixiApp = live2dIntegration.app;
+        // Store PIXI app reference from integration.core.app (correct location)
+        pixiApp = live2dIntegration.core.app;
         
         // CRITICAL: Make globals available to debug console and other scripts
         window.live2dIntegration = live2dIntegration;
         window.live2dMultiModelManager = live2dMultiModelManager;
         window.uiController = uiController;
         window.pixiApp = pixiApp;
+        
+        // Additional debug: verify PIXI app is correctly assigned
+        console.log('🔍 PIXI app assignment check:', {
+            'live2dIntegration.app': !!live2dIntegration.app,
+            'live2dIntegration.core.app': !!live2dIntegration.core.app,
+            'assigned pixiApp': !!pixiApp,
+            'window.pixiApp': !!window.pixiApp
+        });
         
         // CRITICAL: Also expose the interaction manager for debug functions
         if (live2dIntegration && live2dIntegration.core && live2dIntegration.core.interactionManager) {
@@ -689,6 +696,10 @@ async function initializeLive2D() {
         
         // Also expose the SDK for debug console
         window.LIVE2DCUBISMCORE = window.Live2DCubismCore;
+        
+        // CRITICAL: Apply interaction fix immediately after initialization
+        console.log('🔧 Applying PIXI interaction fix...');
+        fixPixiInteractionSystem();
         
         // Set up connection between multi-model manager and UI controller
         live2dMultiModelManager.setUIController(uiController);
@@ -714,7 +725,7 @@ async function initializeFallbackLive2D() {
         pixiApp = new PIXI.Application({
             width: window.innerWidth,
             height: window.innerHeight,
-            backgroundColor: 0x1099bb,
+            backgroundColor: 0x000000, // Black background instead of blue
             transparent: true,
             antialias: true,
             resolution: window.devicePixelRatio || 1,
@@ -1057,16 +1068,7 @@ function updateModelInfoDisplay(message) {
             ${activeModelInfo}
         </div>
         <div style="margin: 8px 0;">
-            <button onclick="debugTestInteraction()" style="background: #4CAF50; color: white; border: none; padding: 4px 8px; border-radius: 3px; font-size: 10px; cursor: pointer;">
-                🧪 Test Interaction
-            </button>
-            <button onclick="debugModelInteraction()" style="background: #9C27B0; color: white; border: none; padding: 4px 8px; border-radius: 3px; font-size: 10px; cursor: pointer; margin-left: 4px;">
-                🎯 Test Model
-            </button>
-            <button onclick="debugModelClickTest()" style="background: #E91E63; color: white; border: none; padding: 4px 8px; border-radius: 3px; font-size: 10px; cursor: pointer; margin-left: 4px;">
-                👆 Test Click
-            </button>
-            <button onclick="updateCurrentModelReference(); updateModelInfoDisplay('Model reference updated');" style="background: #2196F3; color: white; border: none; padding: 4px 8px; border-radius: 3px; font-size: 10px; cursor: pointer; margin-left: 4px;">
+            <button onclick="updateCurrentModelReference(); updateModelInfoDisplay('Model reference updated');" style="background: #2196F3; color: white; border: none; padding: 4px 8px; border-radius: 3px; font-size: 10px; cursor: pointer;">
                 🔄 Refresh
             </button>
             <button onclick="debugModelSystem()" style="background: #FF9800; color: white; border: none; padding: 4px 8px; border-radius: 3px; font-size: 10px; cursor: pointer; margin-left: 4px;">
@@ -1080,179 +1082,665 @@ function updateModelInfoDisplay(message) {
             • Click parts for hit test<br>
             <br>
             <strong>System Status:</strong><br>
-            Live2D interaction active via live2d_interaction.js<br>
+            ✅ PIXI interaction system active<br>
+            ✅ Manual DOM bridge functional<br>
             <br>
             <strong>Updated:</strong> ${timestamp}
         </div>
     `;
 }
 
-// Enhanced debug function for interaction testing
-function debugTestInteraction() {
-    console.log('🧪 Testing Live2D mouse interaction system...');
+
+
+// Global drag state variables (make accessible across all functions)
+window.dragState = {
+    isDragging: false,
+    dragStart: null,
+    modelStart: null,
+    activeModel: null,
+    moveCount: 0,
+    pointerId: undefined
+};
+
+// Integrated PIXI interaction system fix
+function fixPixiInteractionSystem() {
+    const pixiApp = window.live2dIntegration?.core?.app || window.pixiApp;
+    if (!pixiApp) {
+        console.error('❌ No PIXI app found for interaction fix');
+        return;
+    }
     
-    // Get the active model directly from the multi-model manager
-    let activeModel = null;
-    let testPixiApp = null;
+    console.log('🔧 Applying PIXI interaction system fix...');
     
-    if (live2dMultiModelManager) {
-        const activeModelData = live2dMultiModelManager.getActiveModel();
-        if (activeModelData && activeModelData.pixiModel) {
-            activeModel = activeModelData.pixiModel;
-            console.log('✅ Found active model:', activeModelData.name);
+    // Step 1: Destroy any corrupted interaction manager
+    const interaction = pixiApp.renderer.plugins?.interaction;
+    if (interaction) {
+        try {
+            // Clear corrupted event data
+            if (interaction.eventData) {
+                Object.keys(interaction.eventData).forEach(key => {
+                    delete interaction.eventData[key];
+                });
+            }
+            
+            // Remove DOM listeners and destroy
+            if (interaction.removeEvents) interaction.removeEvents();
+            if (interaction.destroy) interaction.destroy();
+            delete pixiApp.renderer.plugins.interaction;
+            
+            console.log('✅ Old interaction manager cleaned up');
+        } catch (error) {
+            console.log('⚠️ Error cleaning old interaction:', error.message);
         }
     }
     
-    // Get PIXI app from integration
-    if (live2dIntegration && live2dIntegration.app) {
-        testPixiApp = live2dIntegration.app;
-        console.log('✅ Found PIXI app from integration');
-    }
-    
-    if (!activeModel) {
-        console.log('❌ No active model found for interaction testing');
-        updateModelInfoDisplay('❌ No active model found\nLoad a model first to test interaction');
-        return;
-    }
-    
-    if (!testPixiApp) {
-        console.log('❌ PIXI app not available from integration');
-        updateModelInfoDisplay('❌ PIXI app not available');
-        return;
-    }
-    
-    console.log('🔍 Active model interaction state:', {
-        interactive: activeModel.interactive,
-        eventMode: activeModel.eventMode,
-        hasApp: !!testPixiApp,
-        hasStage: !!testPixiApp?.stage,
-        hasCanvas: !!testPixiApp?.view,
-        position: { x: activeModel.x, y: activeModel.y },
-        scale: activeModel.scale.x,
-        visible: activeModel.visible
-    });
-    
-    // Test if PIXI events are working by clicking the stage
-    if (testPixiApp?.stage) {
-        console.log('🎯 Testing PIXI stage event system...');
-        const testHandler = (event) => {
-            console.log('✅ PIXI stage click event received!', event.data.global);
-            updateModelInfoDisplay('✅ Mouse events working!\nClick detected at: ' + 
-                `(${Math.round(event.data.global.x)}, ${Math.round(event.data.global.y)})\nInteraction system is functional!`);
-        };
+    // Step 2: Create new interaction manager or manual fallback
+    try {
+        let newInteraction = null;
         
-        // Remove any existing test handlers to prevent accumulation
-        testPixiApp.stage.removeAllListeners('pointerdown');
-        testPixiApp.stage.once('pointerdown', testHandler);
-        console.log('👆 Click anywhere on the canvas to test event system');
-        updateModelInfoDisplay('🧪 Testing mouse events...\nClick anywhere on canvas to verify interaction\n(Note: Live2D interaction system is already active)');
+        if (PIXI.InteractionManager) {
+            newInteraction = new PIXI.InteractionManager(pixiApp.renderer);
+        } else if (PIXI.interaction?.InteractionManager) {
+            newInteraction = new PIXI.interaction.InteractionManager(pixiApp.renderer);
+        }
+        
+        if (newInteraction) {
+            pixiApp.renderer.plugins.interaction = newInteraction;
+            newInteraction.interactionDOMElement = pixiApp.view;
+            console.log('✅ New PIXI interaction manager created');
+        }
+    } catch (error) {
+        console.log('⚠️ PIXI interaction manager creation failed:', error.message);
     }
     
-    // Don't re-setup interactions - they're already handled by live2d_interaction.js
-    console.log('ℹ️ Interaction system already active via live2d_interaction.js');
-    console.log('✅ Test setup complete - try clicking on the canvas');
-}
-
-// Enhanced debug function to test click events specifically (NO MOUSE MOVE) - COMPREHENSIVE TEST
-function debugModelClickTest() {
-    console.log('🔍 === TESTING MODEL CLICK EVENTS (NO MOVE) - COMPREHENSIVE ===');
+    // Step 3: Set up manual DOM event bridge with complete drag system
+    const canvas = pixiApp.view;
     
-    const activeModel = live2dMultiModelManager?.getActiveModel();
-    if (!activeModel?.pixiModel) {
-        console.error('❌ No active model with pixiModel');
-        updateModelInfoDisplay('❌ No active model found');
-        return;
+    // CRITICAL: Remove existing manual handlers
+    if (canvas._fixedPointerHandler) {
+        canvas.removeEventListener('mousedown', canvas._fixedPointerHandler);
+        canvas.removeEventListener('pointerdown', canvas._fixedPointerHandler);
+        document.removeEventListener('mousemove', canvas._fixedMoveHandler);
+        document.removeEventListener('mouseup', canvas._fixedUpHandler);
+        document.removeEventListener('pointerup', canvas._fixedUpHandler);
     }
     
-    const model = activeModel.pixiModel;
-    console.log('🎯 Testing click events on model:', activeModel.name);
-    console.log('🎯 Model type:', model.constructor.name);
-    console.log('🎯 Model prototype chain:', Object.getPrototypeOf(model).constructor.name);
-    console.log('🎯 Event target type:', typeof model);
-    console.log('🎯 Model bounds:', model.getBounds());
-    console.log('🎯 Model worldVisible:', model.worldVisible);
-    console.log('🎯 Model parent:', model.parent?.constructor.name);
+    // CRITICAL: Disable all existing Live2D interaction systems that might interfere
+    console.log('🔧 DISABLING existing Live2D interaction systems...');
     
-    // Remove all existing listeners for clean testing
-    model.removeAllListeners();
+    // Disable PIXI stage interaction to prevent conflicts
+    pixiApp.stage.interactive = false;
+    pixiApp.stage.eventMode = 'passive';
     
-    // Test if model supports events at all
-    console.log('🧪 Testing if model supports EventEmitter...');
-    console.log('🧪 Model.on method:', typeof model.on);
-    console.log('🧪 Model.emit method:', typeof model.emit);
-    console.log('🧪 Model.listenerCount method:', typeof model.listenerCount);
+    // Find any active models and disable their interaction systems
+    const activeModel = window.live2dMultiModelManager?.getActiveModel();
+    if (activeModel?.pixiModel) {
+        console.log('🔧 Disabling interaction on active model:', activeModel.name);
+        activeModel.pixiModel.interactive = false;
+        activeModel.pixiModel.eventMode = 'passive';
+        activeModel.pixiModel.removeAllListeners();
+    }
     
-    // Add ONLY pointerdown (click) event listener - NO MOVE EVENTS
-    console.log('🧪 Adding SIMPLE CLICK event listener...');
+    // Create comprehensive event handlers for full drag system
+    canvas._fixedPointerHandler = function(event) {
+        // Convert to canvas coordinates
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        
+        // Test model hit and start drag
+        const model = window.live2dMultiModelManager?.getActiveModel();
+        if (model?.pixiModel) {
+            const pixiModel = model.pixiModel;
+            const bounds = pixiModel.getBounds();
+            
+            console.log('🔍 Hit test debug:', {
+                canvasClick: { x: x, y: y },
+                modelBounds: { 
+                    x: bounds.x, 
+                    y: bounds.y, 
+                    width: bounds.width, 
+                    height: bounds.height 
+                },
+                modelPosition: { x: pixiModel.x, y: pixiModel.y },
+                modelName: model.name,
+                withinBounds: x >= bounds.x && x <= bounds.x + bounds.width && 
+                             y >= bounds.y && y <= bounds.y + bounds.height
+            });
+            
+            // Check if click is within model bounds
+            if (x >= bounds.x && x <= bounds.x + bounds.width && 
+                y >= bounds.y && y <= bounds.y + bounds.height) {
+                
+                // Start drag operation using global state
+                window.dragState.isDragging = true;
+                window.dragState.dragStart = { x: event.clientX, y: event.clientY };
+                window.dragState.modelStart = { x: pixiModel.x, y: pixiModel.y };
+                window.dragState.activeModel = pixiModel;
+                window.dragState.moveCount = 0; // Reset move counter for new drag
+                
+                // Visual feedback
+                pixiModel.alpha = 0.8;
+                
+                console.log('🖱️ Drag started:', {
+                    startPos: window.dragState.dragStart,
+                    modelStart: window.dragState.modelStart,
+                    modelName: model.name,
+                    activeModelSet: !!window.dragState.activeModel,
+                    pixiModelType: typeof pixiModel
+                });
+                
+                // Test immediate mousemove detection with MULTIPLE elements and capture phases
+                console.log('🧪 TESTING mousemove on multiple elements and capture phases...');
+                
+                const testMoveHandler = function(e) {
+                    if (window.dragState.isDragging) {
+                        console.log('✅ IMMEDIATE MOUSEMOVE TEST WORKS:', { 
+                            x: e.clientX, 
+                            y: e.clientY,
+                            target: e.target.tagName,
+                            phase: 'document'
+                        });
+                        // Don't remove immediately, let's see how many fire
+                    }
+                };
+                
+                const testBodyMoveHandler = function(e) {
+                    if (window.dragState.isDragging) {
+                        console.log('✅ BODY MOUSEMOVE TEST WORKS:', { 
+                            x: e.clientX, 
+                            y: e.clientY,
+                            target: e.target.tagName,
+                            phase: 'body'
+                        });
+                    }
+                };
+                
+                const testWindowMoveHandler = function(e) {
+                    if (window.dragState.isDragging) {
+                        console.log('✅ WINDOW MOUSEMOVE TEST WORKS:', { 
+                            x: e.clientX, 
+                            y: e.clientY,
+                            target: e.target.tagName,
+                            phase: 'window'
+                        });
+                    }
+                };
+                
+                // Add listeners with both capture and bubble phases
+                document.addEventListener('mousemove', testMoveHandler, { passive: false, capture: true });
+                document.addEventListener('mousemove', testMoveHandler, { passive: false, capture: false });
+                document.body.addEventListener('mousemove', testBodyMoveHandler, { passive: false, capture: true });
+                document.body.addEventListener('mousemove', testBodyMoveHandler, { passive: false, capture: false });
+                window.addEventListener('mousemove', testWindowMoveHandler, { passive: false });
+                
+                console.log('🧪 Multiple mousemove test handlers added - will test ALL phases');
+                
+                // CRITICAL: Store pointerId for potential cleanup, but don't capture
+                window.dragState.pointerId = event.pointerId;
+                
+                // CRITICAL DEBUG: Test if preventDefault is blocking events
+                console.log('� CRITICAL DEBUG - Event details:', {
+                    eventType: event.type,
+                    pointerId: event.pointerId,
+                    clientX: event.clientX,
+                    clientY: event.clientY,
+                    defaultPrevented: event.defaultPrevented,
+                    cancelable: event.cancelable,
+                    bubbles: event.bubbles,
+                    target: event.target.tagName,
+                    currentTarget: event.currentTarget.tagName
+                });
+                
+                // CRITICAL: DO NOT PREVENT DEFAULT - this might be blocking mousemove
+                console.log('🚫 NOT calling preventDefault() to test if this was blocking mousemove');
+                // event.preventDefault(); // COMMENTED OUT
+                // event.stopPropagation(); // COMMENTED OUT
+                
+                console.log('🚫 Pointer capture DISABLED to allow mousemove events');
+            } else {
+                console.log('🚫 Click outside model bounds');
+            }
+        } else {
+            console.log('🚫 No active model or pixiModel found');
+        }
+    };
     
-    model.on('pointerdown', (event) => {
-        console.log('🎉 SIMPLE CLICK EVENT RECEIVED!', {
-            x: event.data.global.x,
-            y: event.data.global.y,
-            button: event.data.button,
-            pointerId: event.data.pointerId,
-            target: event.target.constructor.name,
-            currentTarget: event.currentTarget.constructor.name,
-            eventType: event.type
+    // Mouse move handler for dragging - with enhanced diagnostics
+    canvas._fixedMoveHandler = function(event) {
+        // CRITICAL: Always log mousemove events during drag to diagnose the issue
+        if (window.dragState.isDragging) {
+            console.log('🔍 MOUSEMOVE EVENT RECEIVED during drag:', {
+                eventType: event.type,
+                clientX: event.clientX,
+                clientY: event.clientY,
+                hasActiveModel: !!window.dragState.activeModel,
+                hasDragStart: !!window.dragState.dragStart,
+                hasModelStart: !!window.dragState.modelStart
+            });
+        }
+        
+        // ONLY process if we have all required state
+        if (!window.dragState.isDragging || !window.dragState.activeModel || !window.dragState.dragStart || !window.dragState.modelStart) {
+            // Log why we're not processing (only during drag)
+            if (window.dragState.isDragging) {
+                console.log('� Cannot process mousemove - missing state:', {
+                    isDragging: window.dragState.isDragging,
+                    hasActiveModel: !!window.dragState.activeModel,
+                    hasDragStart: !!window.dragState.dragStart,
+                    hasModelStart: !!window.dragState.modelStart
+                });
+            }
+            return;
+        }
+        
+        // Calculate movement delta from original drag start position
+        const deltaX = event.clientX - window.dragState.dragStart.x;
+        const deltaY = event.clientY - window.dragState.dragStart.y;
+        
+        // Update model position in real-time
+        const newX = window.dragState.modelStart.x + deltaX;
+        const newY = window.dragState.modelStart.y + deltaY;
+        
+        window.dragState.activeModel.x = newX;
+        window.dragState.activeModel.y = newY;
+        
+        // Increment and log move counter
+        if (!window.dragState.moveCount) window.dragState.moveCount = 0;
+        window.dragState.moveCount++;
+        
+        // Log every 10th mousemove to reduce spam but show it's working
+        if (window.dragState.moveCount % 10 === 1) {
+            console.log('🖱️ REAL-TIME DRAG:', {
+                mousePos: { x: event.clientX, y: event.clientY },
+                delta: { x: Math.round(deltaX), y: Math.round(deltaY) },
+                modelPos: { x: Math.round(newX), y: Math.round(newY) },
+                moveCount: window.dragState.moveCount
+            });
+        }
+        
+        event.preventDefault();
+    };
+    
+    // Mouse up handler to end drag
+    canvas._fixedUpHandler = function(event) {
+        console.log('🔼 Mouse up event received:', { 
+            type: event.type, 
+            isDragging: window.dragState.isDragging, 
+            hasActiveModel: !!window.dragState.activeModel 
         });
         
-        // Simple visual feedback - move model slightly
-        model.x += 15;
-        model.y += 15;
-        console.log('🔄 Moved model to:', { x: model.x, y: model.y });
+        if (window.dragState.isDragging && window.dragState.activeModel) {
+            // End drag operation
+            window.dragState.isDragging = false;
+            window.dragState.activeModel.alpha = 1.0; // Restore opacity
+            
+            console.log('✅ Drag ended at position:', { 
+                x: Math.round(window.dragState.activeModel.x), 
+                y: Math.round(window.dragState.activeModel.y),
+                totalMoves: window.dragState.moveCount || 0
+            });
+            
+            // Release pointer capture if it was set
+            if (canvas.releasePointerCapture && window.dragState.pointerId !== undefined) {
+                try {
+                    canvas.releasePointerCapture(window.dragState.pointerId);
+                    console.log('✅ Released pointer capture for pointerId:', window.dragState.pointerId);
+                } catch (e) {
+                    console.log('⚠️ Failed to release pointer capture:', e.message);
+                }
+            }
+            
+            // Reset state
+            window.dragState.dragStart = null;
+            window.dragState.modelStart = null;
+            window.dragState.activeModel = null;
+            window.dragState.moveCount = 0;
+            window.dragState.pointerId = undefined;
+            
+            event.preventDefault();
+            event.stopPropagation();
+        } else {
+            console.log('🔼 Mouse up but not dragging or no active model');
+        }
+    };
+    
+    // Store handlers on canvas for cleanup (no need to reassign)
+    // canvas._fixedMoveHandler and canvas._fixedUpHandler are already defined above
+    
+    // Remove any existing event listeners first to prevent duplicates
+    canvas.removeEventListener('mousedown', canvas._fixedPointerHandler);
+    canvas.removeEventListener('pointerdown', canvas._fixedPointerHandler);
+    canvas.removeEventListener('mousemove', canvas._fixedMoveHandler);
+    document.removeEventListener('mousemove', canvas._fixedMoveHandler);
+    document.removeEventListener('mouseup', canvas._fixedUpHandler);
+    document.removeEventListener('pointerup', canvas._fixedUpHandler);
+    
+    console.log('🔧 CRITICAL: Adding fresh event listeners...');
+    
+    // Add all event listeners (both mouse and pointer events)
+    canvas.addEventListener('mousedown', canvas._fixedPointerHandler, { passive: false });
+    canvas.addEventListener('pointerdown', canvas._fixedPointerHandler, { passive: false });
+    
+    // CRITICAL: REMOVE canvas mousemove to test if it's conflicting with document mousemove
+    console.log('🧪 TESTING: Removing canvas mousemove listeners to prevent conflicts');
+    // canvas.addEventListener('mousemove', canvas._fixedMoveHandler, { passive: false }); // REMOVED
+    document.addEventListener('mousemove', canvas._fixedMoveHandler, { passive: false });
+    
+    document.addEventListener('mouseup', canvas._fixedUpHandler, { passive: false });
+    document.addEventListener('pointerup', canvas._fixedUpHandler, { passive: false });
+    
+    console.log('✅ Event listeners added:', {
+        canvasDown: 'mousedown + pointerdown',
+        canvasMove: 'REMOVED - testing conflict',
+        documentMove: 'mousemove', 
+        documentUp: 'mouseup + pointerup'
+    });
+    
+    // CRITICAL DIAGNOSTIC: Add global mousemove detector to test if ANY mousemove events fire
+    let globalMoveCount = 0;
+    document.addEventListener('mousemove', function(event) {
+        if (window.dragState.isDragging) {
+            globalMoveCount++;
+            if (globalMoveCount <= 5) { // Only log first 5 to avoid spam
+                console.log(`🌍 GLOBAL MOUSEMOVE ${globalMoveCount}:`, {
+                    target: event.target.tagName,
+                    clientX: event.clientX,
+                    clientY: event.clientY,
+                    isDragging: window.dragState.isDragging
+                });
+            }
+        }
+    }, { passive: false });
+    
+    console.log('🔍 Global mousemove detector added for diagnostics');
+    
+    // CRITICAL TEST: Add mousemove listeners to multiple elements to test event propagation
+    console.log('🧪 Adding mousemove test listeners to multiple elements...');
+    
+    // Test on body
+    document.body.addEventListener('mousemove', function(event) {
+        if (window.dragState.isDragging && globalMoveCount <= 3) {
+            console.log('🟢 BODY MOUSEMOVE:', { target: event.target.tagName, x: event.clientX, y: event.clientY });
+        }
+    }, { passive: false });
+    
+    // Test on document.documentElement (html)
+    document.documentElement.addEventListener('mousemove', function(event) {
+        if (window.dragState.isDragging && globalMoveCount <= 3) {
+            console.log('🟠 HTML MOUSEMOVE:', { target: event.target.tagName, x: event.clientX, y: event.clientY });
+        }
+    }, { passive: false });
+    
+    // Test on window
+    window.addEventListener('mousemove', function(event) {
+        if (window.dragState.isDragging && globalMoveCount <= 3) {
+            console.log('🔴 WINDOW MOUSEMOVE:', { target: event.target.tagName, x: event.clientX, y: event.clientY });
+        }
+    }, { passive: false });
+    
+    console.log('🧪 Multi-level mousemove test listeners added');
+    
+    // Configure canvas for optimal interaction
+    canvas.style.touchAction = 'none';
+    canvas.style.pointerEvents = 'auto';
+    
+    // CRITICAL: Force all CSS properties that might block mousemove events
+    canvas.style.userSelect = 'none';
+    canvas.style.webkitUserSelect = 'none';
+    canvas.style.msUserSelect = 'none';
+    canvas.style.mozUserSelect = 'none';
+    canvas.style.webkitUserDrag = 'none';
+    canvas.style.webkitTouchCallout = 'none';
+    canvas.style.webkitTapHighlightColor = 'transparent';
+    
+    // CRITICAL: Force enable all mouse event types on canvas
+    canvas.style.pointerEvents = 'auto';
+    canvas.setAttribute('onmousemove', ''); // Force enable mousemove attribute
+    
+    // CRITICAL: Check for competing event handlers on document/window
+    console.log('🔍 Checking for competing event handlers...');
+    const docListeners = getEventListeners ? getEventListeners(document) : 'DevTools required';
+    const windowListeners = getEventListeners ? getEventListeners(window) : 'DevTools required';
+    console.log('Document event listeners:', docListeners);
+    console.log('Window event listeners:', windowListeners);
+    
+    // CRITICAL: Keep stage interaction DISABLED to prevent conflicts with manual DOM handlers
+    pixiApp.stage.interactive = false;
+    pixiApp.stage.eventMode = 'passive';
+    // Do NOT set hitArea to prevent stage from capturing events
+    
+    console.log('✅ PIXI interaction system fix applied successfully - manual DOM only');
+}
+
+// Add basic PIXI event diagnostics
+function debugPixiEvents() {
+    console.log('🔍 === TESTING BASIC PIXI EVENTS ===');
+    
+    // Debug: let's see what's actually available
+    console.log('🔍 Debugging PIXI app location...');
+    console.log('live2dIntegration object:', window.live2dIntegration);
+    if (window.live2dIntegration) {
+        console.log('live2dIntegration keys:', Object.keys(window.live2dIntegration));
+        console.log('live2dIntegration.core:', window.live2dIntegration.core);
+        if (window.live2dIntegration.core) {
+            console.log('core keys:', Object.keys(window.live2dIntegration.core));
+            console.log('core.app:', window.live2dIntegration.core.app);
+        }
+    }
+    
+    // Test if we can access the PIXI app - try multiple locations
+    let pixiApp = null;
+    
+    // Try integration.core.app (likely correct location)
+    if (window.live2dIntegration?.core?.app) {
+        pixiApp = window.live2dIntegration.core.app;
+        console.log('✅ Found PIXI app via live2dIntegration.core.app');
+    }
+    // Try integration.app 
+    else if (window.live2dIntegration?.app) {
+        pixiApp = window.live2dIntegration.app;
+        console.log('✅ Found PIXI app via live2dIntegration.app');
+    }
+    // Try global pixiApp
+    else if (window.pixiApp) {
+        pixiApp = window.pixiApp;
+        console.log('✅ Found PIXI app via window.pixiApp');
+    }
+    // Try integration.pixiApp (fallback)
+    else if (window.live2dIntegration?.pixiApp) {
+        pixiApp = window.live2dIntegration.pixiApp;
+        console.log('✅ Found PIXI app via live2dIntegration.pixiApp');
+    }
+    
+    if (!pixiApp) {
+        console.error('❌ No PIXI app found in any location');
+        console.log('Debug info:', {
+            'live2dIntegration': !!window.live2dIntegration,
+            'live2dIntegration.app': !!window.live2dIntegration?.app,
+            'live2dIntegration.core': !!window.live2dIntegration?.core,
+            'live2dIntegration.core.app': !!window.live2dIntegration?.core?.app,
+            'live2dIntegration.pixiApp': !!window.live2dIntegration?.pixiApp,
+            'window.pixiApp': !!window.pixiApp
+        });
+        return;
+    }
+    
+    console.log('✅ PIXI app found:', pixiApp);
+    console.log('📱 PIXI stage:', pixiApp.stage);
+    
+    // CRITICAL: Ensure this PIXI app is also set globally for other functions
+    window.pixiApp = pixiApp;
+    
+    // Test stage events
+    console.log('🧪 Adding stage event listeners...');
+    
+    // CRITICAL FIX: Force enable ALL interaction settings
+    pixiApp.stage.interactive = true;
+    pixiApp.stage.eventMode = 'static';
+    pixiApp.stage.hitArea = pixiApp.screen;
+    
+    // ADDITIONAL FIX: Force enable interaction manager
+    const interaction = pixiApp.renderer.plugins?.interaction;
+    if (interaction) {
+        console.log('🔧 Force configuring interaction manager...');
+        interaction.interactionDOMElement = pixiApp.view;
+        if (interaction.setTargetElement) {
+            interaction.setTargetElement(pixiApp.view);
+        }
+        console.log('✅ Interaction manager configured');
+    }
+    
+    const stageDownHandler = (event) => {
+        console.log('🎯 STAGE POINTER DOWN:', {
+            x: event.global.x,
+            y: event.global.y,
+            target: event.target.constructor.name,
+            type: event.type
+        });
+    };
+    
+    const stageUpHandler = (event) => {
+        console.log('🎯 STAGE POINTER UP:', {
+            x: event.global.x,
+            y: event.global.y,
+            target: event.target.constructor.name,
+            type: event.type
+        });
+    };
+    
+    // Remove any existing listeners first
+    pixiApp.stage.off('pointerdown', stageDownHandler);
+    pixiApp.stage.off('pointerup', stageUpHandler);
+    
+    // Add new listeners
+    pixiApp.stage.on('pointerdown', stageDownHandler);
+    pixiApp.stage.on('pointerup', stageUpHandler);
+    
+    console.log('✅ Stage event listeners added. Try clicking anywhere on the canvas.');
+    console.log('📋 Expected: You should see STAGE POINTER events in console');
+}
+
+// Also add a canvas-level test
+function debugCanvasEvents() {
+    console.log('🔍 === TESTING CANVAS EVENTS ===');
+    
+    const canvas = document.querySelector('canvas');
+    if (!canvas) {
+        console.error('❌ No canvas found');
+        return;
+    }
+    
+    console.log('✅ Canvas found:', canvas);
+    
+    const canvasHandler = (event) => {
+        console.log('🎯 CANVAS EVENT:', {
+            type: event.type,
+            x: event.clientX,
+            y: event.clientY,
+            target: event.target.tagName
+        });
+    };
+    
+    // Remove existing listeners
+    canvas.removeEventListener('mousedown', canvasHandler);
+    canvas.removeEventListener('mouseup', canvasHandler);
+    
+    // Add new listeners
+    canvas.addEventListener('mousedown', canvasHandler);
+    canvas.addEventListener('mouseup', canvasHandler);
+    
+    console.log('✅ Canvas event listeners added. Try clicking on the canvas.');
+    console.log('📋 Expected: You should see CANVAS EVENT logs');
+}
+
+// Run all diagnostic tests in sequence
+function runAllEventTests() {
+    console.log('🚀 === RUNNING ALL EVENT DIAGNOSTICS ===');
+    console.log('Testing event system from bottom to top...');
+    
+    // Test 1: Canvas-level DOM events
+    debugCanvasEvents();
+    
+    // Test 2: PIXI stage events  
+    debugPixiEvents();
+    
+    // Test 3: PIXI Interaction Manager test
+    debugPixiInteractionManager();
+    
+    // Test 4: Model-specific events
+    debugModelClickTest();
+    
+    console.log('🏁 All tests setup complete! Try clicking on:');
+    console.log('1️⃣ Anywhere on canvas (should see CANVAS EVENT)');
+    console.log('2️⃣ Empty area on stage (should see STAGE POINTER)');
+    console.log('3️⃣ Directly on model (should see model move + CLICK details)');
+    console.log('📋 Check console for which events fire to identify the issue');
+}
+
+// New diagnostic function to test PIXI's interaction manager
+function debugPixiInteractionManager() {
+    console.log('🔍 === TESTING PIXI INTERACTION MANAGER ===');
+    
+    const pixiApp = window.live2dIntegration?.core?.app || window.pixiApp;
+    if (!pixiApp) {
+        console.error('❌ No PIXI app found for interaction manager test');
+        return;
+    }
+    
+    console.log('🔍 PIXI app renderer:', pixiApp.renderer);
+    console.log('🔍 PIXI app view (canvas):', pixiApp.view);
+    
+    // Check if interaction manager exists
+    const interaction = pixiApp.renderer.plugins?.interaction;
+    console.log('🔍 PIXI interaction manager:', interaction);
+    
+    if (interaction) {
+        console.log('✅ PIXI interaction manager found');
+        console.log('🔍 Interaction manager details:', {
+            eventData: !!interaction.eventData,
+            interactionDOMElement: !!interaction.interactionDOMElement,
+            resolution: interaction.resolution,
+            autoPreventDefault: interaction.autoPreventDefault
+        });
         
-        updateModelInfoDisplay(`🎉 CLICK SUCCESS!\nPosition: (${Math.round(event.data.global.x)}, ${Math.round(event.data.global.y)})\nModel moved to: (${Math.round(model.x)}, ${Math.round(model.y)})\nEvent system working!`);
-    });
-    
-    // Test listener count after adding
-    console.log('🔍 Listeners after adding:', model.listenerCount('pointerdown'));
-    
-    // Force enable interaction with ALL possible properties
-    model.interactive = true;
-    model.eventMode = 'static';
-    model.buttonMode = true;
-    model.cursor = 'pointer';
-    
-    // Try alternative interaction modes
-    if (model.setInteractive) {
-        console.log('🧪 Calling setInteractive(true)...');
-        model.setInteractive(true);
+        // CRITICAL FIX: Force enable interaction manager
+        console.log('🔧 Force enabling PIXI interaction manager...');
+        
+        // Set the interaction DOM element to the canvas
+        interaction.interactionDOMElement = pixiApp.view;
+        
+        // Enable stage interaction with comprehensive settings
+        pixiApp.stage.interactive = true;
+        pixiApp.stage.eventMode = 'static';
+        pixiApp.stage.hitArea = pixiApp.screen;
+        
+        // Force the interaction manager to recognize the stage
+        if (interaction.setTargetElement) {
+            interaction.setTargetElement(pixiApp.view);
+        }
+        
+        // Check if the interaction manager is processing events
+        const originalOnPointerDown = interaction.onPointerDown;
+        interaction.onPointerDown = function(event) {
+            console.log('🎯 PIXI INTERACTION MANAGER - PointerDown received!', event);
+            updateModelInfoDisplay(`🎯 PIXI Interaction Manager detected mouse down!\nInteraction system is working at PIXI level`);
+            if (originalOnPointerDown) {
+                return originalOnPointerDown.call(this, event);
+            }
+        };
+        
+        console.log('✅ PIXI interaction manager test hook installed');
+        console.log('🔧 Stage interaction forced enabled:', {
+            stageInteractive: pixiApp.stage.interactive,
+            stageEventMode: pixiApp.stage.eventMode,
+            hasHitArea: !!pixiApp.stage.hitArea,
+            interactionDOMElement: !!interaction.interactionDOMElement
+        });
+    } else {
+        console.error('❌ PIXI interaction manager not found');
+        console.log('Available renderer plugins:', Object.keys(pixiApp.renderer.plugins || {}));
     }
-    
-    // Check if model has hitArea issues
-    if (!model.hitArea) {
-        console.log('🧪 Model has no hitArea, setting to bounds...');
-        const bounds = model.getBounds();
-        model.hitArea = new PIXI.Rectangle(bounds.x, bounds.y, bounds.width, bounds.height);
-        console.log('🧪 Hit area set to:', model.hitArea);
-    }
-    
-    // Additional diagnostic: test if we can manually emit an event
-    console.log('🧪 Testing manual event emission...');
-    try {
-        model.emit('test-event', { test: true });
-        console.log('✅ Manual event emission works');
-    } catch (error) {
-        console.error('❌ Manual event emission failed:', error);
-    }
-    
-    console.log('🔍 Final model interaction state:', {
-        interactive: model.interactive,
-        eventMode: model.eventMode,
-        buttonMode: model.buttonMode,
-        cursor: model.cursor,
-        hitArea: !!model.hitArea,
-        listenerCount: model.listenerCount('pointerdown'),
-        hasParent: !!model.parent,
-        parentInteractive: model.parent ? model.parent.interactive : 'no parent',
-        visible: model.visible,
-        worldVisible: model.worldVisible,
-        alpha: model.alpha
-    });
-    
-    console.log('✅ SIMPLE Click test listener added. Try CLICKING on the model!');
-    console.log('📋 Expected behavior: Model should move 15px and console should show click details');
-    updateModelInfoDisplay('🧪 SIMPLE CLICK TEST active\n\nTry CLICKING on the model\n(not dragging, just click)\n\nModel should move 15px on each click\nCheck console for detailed diagnostics\n\n✅ Clean test - no complex handlers');
 }
 
 function debugModelInteraction() {
@@ -1430,7 +1918,7 @@ function selectModelFromDialog(modelValue, modelName) {
 
 <!-- Add model info display div -->
 <div id="model-info" style="position: absolute; top: 0px; left: 0px; background: rgba(0,0,0,0.8); color: white; padding: 12px; border-radius: 6px; font-size: 11px; z-index: 1000; max-width: 280px; font-family: monospace;">
-    🔄 Initializing Live2D mouse interaction system...
+    🔄 Initializing Live2D system with interaction fix...
 </div>
 
 <script>
