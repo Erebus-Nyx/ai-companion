@@ -960,36 +960,6 @@ export class AICompanionModelEntity extends ModelEntity {
 
 def main():
     """Main setup function"""
-    setup = Live2DSetup()
-    success = setup.run_setup()
-    
-    if success:
-        print("\n" + "="*60)
-        print("✅ AI Companion Live2D Setup Completed Successfully!")
-        print("="*60)
-        print("\nSetup includes:")
-        print("• Live2D Viewer Web (cloned, built, and integrated)")
-        print("• System-optimized AI models downloaded")
-        print("• Voice/TTS models configured")
-        print("• Databases initialized (Live2D, conversations, personality)")
-        print("• Configuration files (config.yaml, .secrets)")
-        print("• Comprehensive logging system")
-        print("• Integration layer for Flask backend")
-        print("\nNext steps:")
-        print("1. Update .secrets file with your API keys")
-        print("2. Place Live2D models in models/live2d/")
-        print("3. Run: python src/app.py")
-        print("4. Access: http://localhost:5000")
-        print("="*60)
-    else:
-        print("\n❌ AI Companion Live2D setup failed!")
-        print("Check the logs in logs/ directory for detailed error information.")
-        sys.exit(1)
-
-if __name__ == "__main__":
-    main()
-def main():
-    """Main setup function"""
     import argparse
     
     parser = argparse.ArgumentParser(description='AI Companion Live2D Setup')

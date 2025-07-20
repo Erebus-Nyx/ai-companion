@@ -94,9 +94,8 @@ Issues = "https://github.com/Erebus-Nyx/ai2d_chat/issues"
 Documentation = "https://github.com/Erebus-Nyx/ai2d_chat/blob/main/README.md"
 
 [project.scripts]
-ai2d_chat = "ai2d_chat.cli:main"
-ai2d_chat_server = "ai2d_chat.app:main"  
-ai2d_chat_setup = "ai2d_chat.scripts.setup_live2d:main"
+ai2d_chat = "cli:main"
+ai2d_chat_server = "app:main"
 
 [project.optional-dependencies]
 dev = [
@@ -108,15 +107,63 @@ dev = [
     "pre-commit>=3.0.0",
 ]
 
-[tool.setuptools.packages.find]
-where = ["src"]
+# CPU-only optimized (default fallback)
+cpu = [
+    "torch>=2.0.0",
+    "torchaudio>=2.0.0",
+    "llama-cpp-python>=0.2.0",
+    "onnxruntime>=1.15.0",
+]
 
-[tool.setuptools.package-dir]
-"" = "src"
+# NVIDIA CUDA support  
+cuda = [
+    "torch>=2.0.0",
+    "torchaudio>=2.0.0", 
+    "llama-cpp-python>=0.2.0",
+    "onnxruntime-gpu>=1.15.0",
+]
+
+# AMD ROCm support
+rocm = [
+    "torch>=2.0.0",
+    "torchaudio>=2.0.0",
+    "llama-cpp-python>=0.2.0",
+    "onnxruntime>=1.15.0",
+]
+
+# ARM64/Apple Silicon and Single Board Computers (Raspberry Pi 4/5)
+aarch64 = [
+    "torch>=2.0.0",
+    "torchaudio>=2.0.0",
+    "llama-cpp-python>=0.2.0",
+    "onnxruntime>=1.15.0",
+    "numpy>=1.21.0",
+    "pillow>=10.0.0",
+]
+
+# Raspberry Pi specific optimizations
+rpi = [
+    "torch>=2.0.0",
+    "torchaudio>=2.0.0",
+    "llama-cpp-python>=0.2.0",
+    "onnxruntime>=1.15.0",
+    "numpy>=1.21.0",
+    "pillow>=10.0.0",
+    "sounddevice>=0.4.6",
+    "gpiozero>=1.6.0",
+    "RPi.GPIO>=0.7.1; platform_machine == 'armv7l' or platform_machine == 'aarch64'",
+]
+
+[tool.setuptools]
+include-package-data = true
+py-modules = ["cli", "app", "__version__", "app_globals"]
+
+[tool.setuptools.packages.find]
+exclude = ["tests*", "docs*", "examples*", "backups*", "archive*", "node_modules*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.yaml", "*.yml", "*.template", "*.json", "py.typed"]
-"config" = ["*.yaml", "*.yml", "*.template", "*.json"]
+"systemd" = ["*.service", "*.sh"]
 "web.static" = [
     "*.html", "*.css", "*.js", "*.json", "*.yaml", "*.yml", "*.md", "*.txt",
     "*.wasm", "*.map", "*.ts", "*.d.ts",
