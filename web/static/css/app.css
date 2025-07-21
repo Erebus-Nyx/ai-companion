@@ -803,6 +803,91 @@ body {
 .icon-about::before { content: "🔍"; }
 .icon-cross::before { content: "❌"; }
 
+/* Multi-avatar chat styling */
+.avatar-message {
+    position: relative;
+}
+
+.avatar-name {
+    font-weight: bold;
+    color: #667eea;
+    text-decoration: none;
+    display: inline-block;
+    margin-right: 0.5rem;
+}
+
+.message.ai.avatar-message .message-content {
+    background: linear-gradient(135deg, #e8f0ff 0%, #f0f8ff 100%);
+    border-left: 3px solid #667eea;
+    color: #333;
+}
+
+.message.ai.avatar-message[data-avatar-id="haruka"] .message-content {
+    border-left-color: #ff6b6b;
+    background: linear-gradient(135deg, #ffe8e8 0%, #fff0f0 100%);
+}
+
+.message.ai.avatar-message[data-avatar-id="haruka"] .avatar-name {
+    color: #ff6b6b;
+}
+
+.message.ai.avatar-message[data-avatar-id="hiyori"] .message-content {
+    border-left-color: #4ecdc4;
+    background: linear-gradient(135deg, #e8fff8 0%, #f0fffc 100%);
+}
+
+.message.ai.avatar-message[data-avatar-id="hiyori"] .avatar-name {
+    color: #4ecdc4;
+}
+
+.message.ai.avatar-message[data-avatar-id="iori"] .message-content {
+    border-left-color: #45b7d1;
+    background: linear-gradient(135deg, #e8f4ff 0%, #f0f9ff 100%);
+}
+
+.message.ai.avatar-message[data-avatar-id="iori"] .avatar-name {
+    color: #45b7d1;
+}
+
+.message.ai.avatar-message[data-avatar-id="epsilon"] .message-content {
+    border-left-color: #9b59b6;
+    background: linear-gradient(135deg, #f3e8ff 0%, #f8f0ff 100%);
+}
+
+.message.ai.avatar-message[data-avatar-id="epsilon"] .avatar-name {
+    color: #9b59b6;
+}
+
+.message.ai.avatar-message[data-avatar-id="tsumiki"] .message-content {
+    border-left-color: #f39c12;
+    background: linear-gradient(135deg, #fff8e8 0%, #fffcf0 100%);
+}
+
+.message.ai.avatar-message[data-avatar-id="tsumiki"] .avatar-name {
+    color: #f39c12;
+}
+
+.message.ai.avatar-message[data-avatar-id="haru"] .message-content {
+    border-left-color: #2ecc71;
+    background: linear-gradient(135deg, #e8ffe8 0%, #f0fff0 100%);
+}
+
+.message.ai.avatar-message[data-avatar-id="haru"] .avatar-name {
+    color: #2ecc71;
+}
+
+.chat-title {
+    font-size: 1.1rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    color: #333;
+    text-align: center;
+    padding: 0.5rem;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 10px;
+    border: 1px solid #dee2e6;
+}
+
 /* Chat input container */
 .chat-input-container {
     display: flex;

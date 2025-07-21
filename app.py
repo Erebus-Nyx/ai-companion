@@ -127,7 +127,7 @@ except ImportError:
     except ImportError:
         # Minimal fallback
         def get_openapi_spec():
-            return {"openapi": "3.0.0", "info": {"title": "AI Companion API", "version": "0.4.0"}}
+            return {"openapi": "3.0.0", "info": {"title": "AI Companion API", "version": "0.5.0a"}}
         def get_swagger_ui_html():
             return "<html><body><h1>API Documentation</h1><p>Use /api/spec for OpenAPI specification</p></body></html>"
 
@@ -141,7 +141,7 @@ except ImportError:
         live2d_bp = Blueprint('live2d', __name__)
 
 try:
-    from routes.app_routes_chat import chat_bp
+    from routes.app_routes_chat import chat_bp, chat_routes
 except ImportError:
     try:
         from .routes.app_routes_chat import chat_bp
@@ -179,6 +179,30 @@ except ImportError:
         from .routes.app_routes_system import system_bp
     except ImportError:
         system_bp = Blueprint('system', __name__)
+
+try:
+    from routes.app_routes_characters import characters_routes
+except ImportError:
+    try:
+        from .routes.app_routes_characters import characters_routes
+    except ImportError:
+        characters_routes = Blueprint('characters_routes', __name__)
+
+try:
+    from routes.app_routes_users import users_routes
+except ImportError:
+    try:
+        from .routes.app_routes_users import users_routes
+    except ImportError:
+        users_routes = Blueprint('users_routes', __name__)
+
+try:
+    from routes.app_routes_rag import rag_blueprint
+except ImportError:
+    try:
+        from .routes.app_routes_rag import rag_blueprint
+    except ImportError:
+        rag_blueprint = Blueprint('rag', __name__)
 
 try:
     import app_globals
@@ -245,10 +269,22 @@ app_state = {
 # Register the Live2D blueprint
 app.register_blueprint(live2d_bp)
 app.register_blueprint(chat_bp)
+app.register_blueprint(chat_routes)
 app.register_blueprint(tts_bp)
 app.register_blueprint(audio_bp)
 app.register_blueprint(debug_bp)
 app.register_blueprint(system_bp)
+app.register_blueprint(characters_routes)
+app.register_blueprint(users_routes)
+app.register_blueprint(rag_blueprint)
+
+# Register autonomous avatar blueprint
+try:
+    from routes.app_routes_autonomous import autonomous_bp
+    app.register_blueprint(autonomous_bp)
+    print("✅ Autonomous avatar routes registered")
+except ImportError as e:
+    print(f"⚠️ Could not register autonomous routes: {e}")
 
 # Set app_state to globals for blueprint access
 app_globals.app_state = app_state
@@ -300,6 +336,14 @@ def api_status():
 
 # Import SocketIO event handlers to register them
 from routes import socketio_handlers
+
+# Setup autonomous avatar SocketIO handlers
+try:
+    from routes.app_routes_autonomous import setup_autonomous_socketio_handlers
+    setup_autonomous_socketio_handlers(socketio)
+    print("✅ Autonomous avatar SocketIO handlers registered")
+except ImportError as e:
+    print(f"⚠️ Could not setup autonomous SocketIO handlers: {e}")
 
 # =============================================================================
 # Helper Functions

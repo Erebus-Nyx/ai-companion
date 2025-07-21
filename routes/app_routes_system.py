@@ -15,7 +15,7 @@ try:
     from __version__ import get_version_info, get_version_string, __version__, API_VERSION_FULL
 except ImportError:
     # Fallback for development
-    __version__ = "0.4.0"
+    __version__ = "0.5.0a"
     API_VERSION_FULL = "1.0.0"
     def get_version_info():
         return {

@@ -459,7 +459,7 @@ logging:
             'config_version': '1.0',
             'general': {
                 'app_name': 'AI Companion',
-                'app_version': '0.4.0',
+                'app_version': '0.5.0a',
                 'debug_mode': False,
                 'developer_mode': False,
                 'logging_level': 'INFO',

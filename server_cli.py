@@ -21,7 +21,7 @@ except ImportError:
         from .__version__ import __version__, get_version_string
     except ImportError:
         # Fallback for development
-        __version__ = "0.4.0"
+        __version__ = "0.5.0a"
         def get_version_string():
             return f"AI2D Chat v{__version__}"
 

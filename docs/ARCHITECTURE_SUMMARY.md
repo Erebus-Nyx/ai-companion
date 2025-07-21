@@ -1,8 +1,8 @@
-# AI Companion - System Architecture Summary
+# AI Companion - System Architecture Summary v0.5.0a
 
 ## Project Overview
 
-The AI Companion is a production-ready local AI assistant featuring Live2D avatars, local LLM inference, intelligent memory systems, and enhanced voice activity detection. The system is designed for offline operation with comprehensive integration between avatar animations, conversational AI, and audio processing.
+The AI Companion is a production-ready local AI assistant featuring Live2D avatars, local LLM inference, intelligent memory systems with RAG capabilities, enhanced voice activity detection, and dynamic personality systems. The system is designed for offline operation with comprehensive integration between avatar animations, conversational AI, and audio processing.
 
 ## Core Architecture
 
@@ -24,13 +24,14 @@ The AI Companion is a production-ready local AI assistant featuring Live2D avata
 
 #### 2. **Backend - Flask Application** ✅ Production Ready
 - **Main Server**: `src/app.py` - Flask application with SocketIO support
-- **Port**: 19443 (production-ready for Cloudflare/DNS setup)
+- **Port**: 19080 (production) / 19081 (development)
 - **Architecture**: Modular blueprint routing system
 - **Routes**:
   - `routes/app_routes_chat.py` - Chat and conversation handling
   - `routes/app_routes_audio.py` - Audio processing and voice detection
   - `routes/app_routes_live2d.py` - Live2D model management
   - `routes/app_routes_tts.py` - Text-to-speech processing
+  - `routes/app_routes_rag.py` - RAG system management and search
   - `routes/app_routes_debug.py` - Debug and diagnostics
 
 #### 3. **LLM Integration** ✅ Enhanced & Functional
@@ -45,17 +46,46 @@ The AI Companion is a production-ready local AI assistant featuring Live2D avata
 - **Models**: Support for GPTQ, SafeTensor formats with automatic fallback
 - **Memory Integration**: Automatic memory extraction and retrieval
 
-#### 4. **Memory System** ✅ Advanced Implementation
+#### 4. **Enhanced Memory System with RAG** ✅ Advanced Implementation
 - **Location**: `src/models/memory_system.py`
+- **RAG Integration**: `src/models/rag_system.py` (ChromaDB + sentence-transformers)
 - **Features**:
   - Intelligent memory scoring and importance ranking
   - Automatic conversation summarization
-  - Context-aware memory retrieval
+  - Context-aware memory retrieval with keyword and semantic search
   - Memory clustering for efficient organization
+  - RAG (Retrieval-Augmented Generation) integration for semantic search
+  - Traditional memory fallback when RAG unavailable
+  - Dynamic importance scoring based on emotional impact
 - **Database**: SQLite with memory clusters, conversation context, LLM caching
+- **Vector Storage**: ChromaDB for semantic search and conversation indexing
 - **Integration**: Seamless integration with LLM for context-aware responses
 
-#### 5. **Audio Processing** ✅ Enhanced VAD System
+#### 5. **RAG System** ✅ NEW in v0.5.0a
+- **Location**: `src/models/rag_system.py`
+- **Components**:
+  - **ChromaDB**: Vector database for semantic storage
+  - **SentenceTransformers**: Embedding generation (all-MiniLM-L6-v2)
+  - **RAGEnhancedMemorySystem**: Integration wrapper
+- **Features**:
+  - Semantic conversation search and retrieval
+  - Local processing (no external APIs)
+  - Automatic conversation indexing
+  - User-isolated vector storage
+- **API**: Dedicated routes for search, context retrieval, and synchronization
+
+#### 6. **Enhanced Personality System** ✅ NEW in v0.5.0a  
+- **Location**: `src/models/personality.py` and `src/models/autonomous_avatar_manager.py`
+- **Core Innovation**: Dynamic personality traits (not boolean flags)
+- **Features**:
+  - **Contextual Engagement**: Engagement levels based on mood, topics, relationships
+  - **Mood State Management**: Dynamic emotional states affecting behavior
+  - **Relationship Progression**: 5-level bonding system (Stranger → Companion)
+  - **Proactive Conversations**: Avatar-initiated interactions
+  - **Interest Mapping**: Passionate topics driving engagement
+- **Integration**: Seamless connection with memory, chat, and Live2D systems
+
+#### 7. **Audio Processing** ✅ Enhanced VAD System
 - **Enhanced VAD**: `src/audio/enhanced_vad_wrapper.py`
 - **Components**:
   - **PyannoteVAD**: Advanced VAD with speaker diarization
@@ -65,7 +95,7 @@ The AI Companion is a production-ready local AI assistant featuring Live2D avata
 - **Caching**: Dual-layer model caching (disk + memory)
 - **Performance**: Multiple modes (lightweight, balanced, high-accuracy)
 
-#### 6. **TTS Integration** 🔧 Needs Attention
+#### 8. **TTS Integration** 🔧 Needs Attention
 - **Model**: Kokoro TTS (ONNX format)
 - **Issue**: Model download failing (404 error from HuggingFace)
 - **Status**: Foundation implemented, needs model source verification
@@ -74,16 +104,29 @@ The AI Companion is a production-ready local AI assistant featuring Live2D avata
 ### Database Architecture
 
 #### Separated Database Design ✅
-- **conversations.db** - Chat history and conversation management
+- **conversations.db** - Chat history, conversation management, and memory storage
 - **live2d.db** - Avatar models, motions, expressions
 - **personality.db** - User personality traits and bonding mechanics
 - **system.db** - System configuration and cache data
+- **vector_db/** - ChromaDB vector storage for RAG system
 
 #### Schema Features
 - Memory clusters with importance scoring
 - LLM response caching (MD5-based)
 - Conversation context preservation
 - Personality trait evolution tracking
+- RAG conversation indexing and metadata
+
+### Local Directory Structure ✅ NEW in v0.5.0a
+
+#### User Data Isolation
+- **Configuration**: `~/.config/ai2d_chat/config.yaml`
+- **Data Storage**: `~/.local/share/ai2d_chat/`
+  - `databases/` - All SQLite databases and vector storage
+  - `models/` - LLM models, embedding models, TTS models
+  - `live2d_models/` - Live2D avatar assets
+- **Cache**: `~/.cache/ai2d_chat/` - Temporary files and logs
+- **Benefits**: Proper user isolation, no app directory access, clean uninstall
 
 ### Configuration System ✅
 

@@ -472,6 +472,36 @@ def api_live2d_models():
         logger.error(f"Error getting Live2D models: {e}")
         return jsonify({'error': str(e)}), 500
 
+@live2d_bp.route('/api/live2d/models/detailed')
+def api_live2d_models_detailed():
+    """Get detailed model information for chat system integration"""
+    try:
+        live2d_manager = app_globals.live2d_manager
+        if not live2d_manager:
+            return jsonify({'error': 'Live2D manager not available'}), 500
+        
+        models = live2d_manager.get_all_models()
+        detailed_models = []
+        
+        for model in models:
+            model_info = live2d_manager.get_model_info(model['model_name'])
+            if model_info:
+                detailed_models.append(model_info)
+            else:
+                # Fallback to basic info if detailed lookup fails
+                detailed_models.append({
+                    'model_name': model['model_name'],
+                    'description': model.get('description', ''),
+                    'motions': {},
+                    'expressions': {},
+                    'motion_count': 0
+                })
+        
+        return jsonify(detailed_models)
+    except Exception as e:
+        logger.error(f"Error getting detailed Live2D models: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @live2d_bp.route('/api/live2d/model/<model_name>/expressions')
 def api_live2d_model_expressions(model_name):
     """Get expressions for a specific Live2D model"""

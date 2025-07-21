@@ -456,6 +456,93 @@ class Live2DModelManager:
             self.logger.error(f"Error clearing preview for model {model_name}: {e}")
             return False
 
+    def get_model_info(self, model_name: str) -> Optional[Dict]:
+        """
+        Get comprehensive model information for chat system integration.
+        Returns model data with motions and expressions organized for chat use.
+        """
+        try:
+            with get_live2d_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Get basic model info
+                cursor.execute("""
+                    SELECT id, model_name, model_path, config_file, description, preview_image
+                    FROM live2d_models 
+                    WHERE model_name = ?
+                """, (model_name,))
+                
+                model_row = cursor.fetchone()
+                if not model_row:
+                    return None
+                
+                model_data = dict(model_row)
+                
+                # Get all motions for this model
+                cursor.execute("""
+                    SELECT motion_group, motion_index, motion_name, motion_type, file_path
+                    FROM live2d_motions lm
+                    WHERE lm.model_id = ?
+                    ORDER BY lm.motion_group, lm.motion_index
+                """, (model_data['id'],))
+                
+                motion_rows = cursor.fetchall()
+                
+                # Organize motions by group and type
+                motions = {}
+                expressions = {}
+                
+                for motion_row in motion_rows:
+                    motion_data = dict(motion_row)
+                    group = motion_data['motion_group']
+                    motion_name = motion_data['motion_name']
+                    motion_type = motion_data['motion_type']
+                    
+                    if motion_type == 'expression':
+                        expressions[motion_name] = motion_data
+                    else:
+                        if group not in motions:
+                            motions[group] = {}
+                        motions[group][motion_name] = motion_data
+                
+                # Build comprehensive info for chat system
+                return {
+                    'model_name': model_data['model_name'],
+                    'model_path': model_data['model_path'],
+                    'config_file': model_data['config_file'],
+                    'description': model_data.get('description', ''),
+                    'preview_image': model_data.get('preview_image'),
+                    'motions': motions,
+                    'expressions': expressions,
+                    'motion_count': len(motion_rows),
+                    'available_motion_groups': list(motions.keys()),
+                    'available_expressions': list(expressions.keys())
+                }
+                
+        except Exception as e:
+            self.logger.error(f"Error getting model info for {model_name}: {e}")
+            return None
+
     def close(self):
         """Close database connection - No-op since we use context managers."""
         pass  # Context managers handle connection cleanup automatically
+
+# Global instance for backward compatibility and external use
+_live2d_manager = None
+
+def get_live2d_manager():
+    """Get the global Live2D manager instance."""
+    global _live2d_manager
+    if _live2d_manager is None:
+        _live2d_manager = Live2DModelManager()
+    return _live2d_manager
+
+def get_model_info(model_name: str) -> Optional[Dict]:
+    """Convenience function to get model info for chat system."""
+    manager = get_live2d_manager()
+    return manager.get_model_info(model_name)
+
+def get_all_models() -> List[Dict]:
+    """Convenience function to get all models."""
+    manager = get_live2d_manager()
+    return manager.get_all_models()

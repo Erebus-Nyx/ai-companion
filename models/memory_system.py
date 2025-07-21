@@ -1,6 +1,7 @@
 """
 Enhanced Memory System for AI Companion
 Provides intelligent memory storage, retrieval, and context management
+Now includes RAG (Retrieval-Augmented Generation) capabilities for semantic search
 """
 
 import json
@@ -17,6 +18,14 @@ import re
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from databases.database_manager import DatabaseManager as DBManager
+
+# Import RAG system if available
+try:
+    from models.rag_system import RAGEnhancedMemorySystem
+    RAG_AVAILABLE = True
+except ImportError:
+    RAG_AVAILABLE = False
+    RAGEnhancedMemorySystem = None
 
 
 @dataclass
@@ -45,11 +54,26 @@ class MemorySystem:
     """
     Advanced memory system for the AI live2d chat
     Handles memory storage, retrieval, clustering, and context generation
+    Now includes optional RAG capabilities for enhanced semantic search
     """
     
-    def __init__(self, db_manager: DBManager):
+    def __init__(self, db_manager: DBManager, config: Optional[Dict[str, Any]] = None):
         self.db_manager = db_manager
         self.logger = logging.getLogger(__name__)
+        self.config = config or {}
+        
+        # Initialize RAG system if enabled and available
+        self.rag_system = None
+        if RAG_AVAILABLE and self.config.get('rag', {}).get('enabled', False):
+            try:
+                # Pass the full config to RAG system instead of modifying it
+                self.rag_system = RAGEnhancedMemorySystem(self.config)
+                self.logger.info("RAG system enabled and initialized")
+            except Exception as e:
+                self.logger.error(f"Failed to initialize RAG system: {e}")
+                self.rag_system = None
+        else:
+            self.logger.info("RAG system disabled or not available")
         
         # Memory importance thresholds
         self.importance_thresholds = {
@@ -358,6 +382,132 @@ class MemorySystem:
             base_score = min(1.0, base_score + 0.05)
         
         return base_score
+    
+    def get_semantic_context(self, user_id: str, query: str, max_length: int = 2000, 
+                           model_id: str = "default") -> str:
+        """
+        Get contextually relevant information using RAG if available, fallback to keyword search
+        """
+        if self.rag_system:
+            try:
+                # Use RAG system for semantic search
+                context = self.rag_system.get_relevant_context_for_query(query, user_id)
+                if context and len(context.strip()) > 0:
+                    self.logger.debug(f"Retrieved RAG context for query: {query[:50]}...")
+                    return context[:max_length]
+            except Exception as e:
+                self.logger.error(f"Error getting RAG context: {e}")
+        
+        # Fallback to traditional keyword-based search
+        memories = self.get_relevant_memories(user_id, query, limit=5, model_id=model_id)
+        
+        if not memories:
+            return ""
+        
+        context_parts = ["=== Relevant Context ===\n"]
+        current_length = len(context_parts[0])
+        
+        for memory in memories:
+            memory_text = f"Memory ({memory.importance_score:.2f}): {memory.value_content}\n\n"
+            if current_length + len(memory_text) > max_length:
+                break
+            context_parts.append(memory_text)
+            current_length += len(memory_text)
+        
+        context_parts.append("=== End Context ===\n")
+        return "".join(context_parts)
+    
+    def add_conversation_memory(self, user_id: str, user_message: str, assistant_response: str,
+                              model_id: str = "default", importance: str = "medium") -> int:
+        """
+        Add conversation to both traditional memory and RAG system if available
+        """
+        # Add to traditional memory system
+        memory_id = self.add_memory(
+            user_id=user_id,
+            memory_type="conversation",
+            content=f"User: {user_message}\nAssistant: {assistant_response}",
+            topic=self._extract_topic(user_message),
+            importance=importance,
+            model_id=model_id
+        )
+        
+        # Add to RAG system if available
+        if self.rag_system:
+            try:
+                self.rag_system.add_conversation(
+                    user_message=user_message,
+                    assistant_response=assistant_response,
+                    user_id=user_id,
+                    metadata={"model_id": model_id, "memory_id": memory_id}
+                )
+                self.logger.debug(f"Added conversation to RAG system: memory_id={memory_id}")
+            except Exception as e:
+                self.logger.error(f"Error adding conversation to RAG system: {e}")
+        
+        return memory_id
+    
+    def search_conversation_history(self, user_id: str, query: str, limit: int = 5,
+                                  model_id: str = "default") -> List[Dict[str, Any]]:
+        """
+        Search conversation history using RAG if available, fallback to traditional search
+        """
+        if self.rag_system:
+            try:
+                results = self.rag_system.search_conversations(query, user_id, limit)
+                return [
+                    {
+                        'similarity_score': result['similarity_score'],
+                        'user_message': result['metadata'].get('user_message', ''),
+                        'assistant_message': result['metadata'].get('assistant_message', ''),
+                        'conversation_id': result['metadata'].get('conversation_id'),
+                        'timestamp': result['metadata'].get('timestamp')
+                    }
+                    for result in results
+                ]
+            except Exception as e:
+                self.logger.error(f"Error searching with RAG system: {e}")
+        
+        # Fallback to traditional memory search
+        memories = self.get_relevant_memories(user_id, query, limit, model_id)
+        
+        conversation_results = []
+        for memory in memories:
+            if memory.memory_type == "conversation":
+                # Parse conversation content
+                lines = memory.value_content.split('\n')
+                user_msg = next((line[6:] for line in lines if line.startswith('User: ')), '')
+                assistant_msg = next((line[11:] for line in lines if line.startswith('Assistant: ')), '')
+                
+                conversation_results.append({
+                    'similarity_score': memory.importance_score,
+                    'user_message': user_msg,
+                    'assistant_message': assistant_msg,
+                    'conversation_id': memory.id,
+                    'timestamp': memory.created_at
+                })
+        
+        return conversation_results
+    
+    def get_rag_stats(self) -> Dict[str, Any]:
+        """Get statistics about the RAG system"""
+        if self.rag_system:
+            try:
+                return self.rag_system.rag_system.get_collection_stats()
+            except Exception as e:
+                self.logger.error(f"Error getting RAG stats: {e}")
+                return {"error": str(e)}
+        return {"rag_enabled": False}
+    
+    def sync_rag_system(self) -> int:
+        """Sync existing conversations with RAG system"""
+        if self.rag_system:
+            try:
+                return self.rag_system.rag_system.sync_with_conversation_db()
+            except Exception as e:
+                self.logger.error(f"Error syncing RAG system: {e}")
+                return 0
+        return 0
     
     def _extract_topics(self, text: str) -> List[str]:
         """Extract multiple topics from text"""

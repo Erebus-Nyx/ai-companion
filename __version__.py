@@ -1,6 +1,6 @@
 """AI Companion Version Information"""
 
-__version__ = "0.4.0"
+__version__ = "0.5.0a"
 __title__ = "AI Companion"
 __description__ = "An interactive AI live2d chat with Live2D visual avatar, voice capabilities, and advanced AI integration"
 __author__ = "AI Companion Team"
@@ -13,10 +13,13 @@ API_VERSION = "v1"
 API_VERSION_FULL = "1.0.0"
 
 # Component versions
-LIVE2D_INTEGRATION_VERSION = "0.4.0"
-VAD_SYSTEM_VERSION = "0.4.0"
-TTS_SYSTEM_VERSION = "0.4.0"
-LLM_SYSTEM_VERSION = "0.4.0"
+LIVE2D_INTEGRATION_VERSION = "0.5.0a"
+VAD_SYSTEM_VERSION = "0.5.0a"
+TTS_SYSTEM_VERSION = "0.5.0a"
+LLM_SYSTEM_VERSION = "0.5.0a"
+PERSONALITY_SYSTEM_VERSION = "0.5.0a"
+MEMORY_SYSTEM_VERSION = "0.5.0a"
+RAG_SYSTEM_VERSION = "0.5.0a"  # New in 0.5.0a
 
 def get_version_info():
     """Return comprehensive version information."""

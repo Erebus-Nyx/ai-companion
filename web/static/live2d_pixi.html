@@ -31,6 +31,22 @@
                     <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
                 </svg>
             </button>
+            <button class="nav-icon" onclick="openCharacterSheet()" title="Character Sheets" data-tooltip="Character Sheets">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+                    <path d="M8 12h8"/>
+                    <path d="M8 16h6"/>
+                </svg>
+            </button>
+            <button class="nav-icon" onclick="openDrawing()" title="Drawing" data-tooltip="Drawing">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 19l7-7 3 3-7 7-3-3z"/>
+                    <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+                    <path d="M2 2l7.586 7.586"/>
+                    <circle cx="11" cy="11" r="2"/>
+                </svg>
+            </button>
             <div class="nav-divider"></div>
             <button class="nav-icon" onclick="toggleDebugConsole()" title="Debug Console" data-tooltip="Debug">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -57,6 +73,11 @@
         <div class="chat-window" id="chatWindow">
             <div class="chat-header">
                 <span class="chat-title">Chat</span>
+                <div class="chat-history-controls">
+                    <button class="history-btn" onclick="refreshChatHistory()" title="Refresh History">🔄</button>
+                    <button class="history-btn" onclick="clearChatHistory()" title="Clear History">🗑️</button>
+                    <button class="history-btn" onclick="exportChatHistory()" title="Export History">📥</button>
+                </div>
                 <div class="window-controls">
                     <button class="control-btn" onclick="toggleChatSnap()" title="Toggle Snap">📌</button>
                     <button class="close-btn" onclick="closeChat()">×</button>
@@ -67,7 +88,7 @@
                     <!-- Chat messages will be populated here -->
                 </div>
                 <div class="chat-input-container">
-                    <input type="text" class="chat-input" id="chatInput" placeholder="Type a message..." onkeypress="handleChatKeyPress(event)">
+                    <input type="text" class="chat-input" id="user-input" placeholder="Type a message..." onkeypress="handleChatKeyPress(event)">
                     <button class="send-btn" onclick="sendMessage()">Send</button>
                     <button class="voice-btn" id="voiceButton" onclick="toggleVoiceRecording()" title="Voice Recording">🎤</button>
                 </div>
@@ -208,6 +229,298 @@
             </div>
         </div>
         
+        <!-- Character Sheet Panel -->
+        <div class="character-sheet-panel" id="characterSheetPanel">
+            <div class="character-sheet-header">
+                <span class="character-sheet-title">Character Sheets</span>
+                <div class="window-controls">
+                    <button class="control-btn" onclick="toggleCharacterSheetSnap()" title="Toggle Snap">📌</button>
+                    <button class="close-btn" onclick="closeCharacterSheet()">×</button>
+                </div>
+            </div>
+            <div class="character-sheet-content">
+                <!-- Character Selection -->
+                <div class="character-selection-group">
+                    <label for="characterSelect">Select Character:</label>
+                    <select id="characterSelect" onchange="onCharacterChange()">
+                        <option value="">Choose a character...</option>
+                    </select>
+                </div>
+                
+                <!-- User Profile Section -->
+                <div class="user-profile-section">
+                    <button class="btn btn-info" onclick="showUserDialog()" title="Switch user or edit user profile">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; margin-right: 5px;">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                        User Profile
+                    </button>
+                </div>
+                
+                <!-- Character Sheet Form -->
+                <div class="character-form" id="characterForm" style="display: none;">
+                    <!-- Basic Information Section -->
+                    <div class="character-section">
+                        <h4>Basic Information</h4>
+                        <div class="form-group">
+                            <label for="displayName">Display Name:</label>
+                            <input type="text" id="displayName" placeholder="Character name">
+                        </div>
+                        <div class="form-group">
+                            <label for="ageAppearance">Age Appearance:</label>
+                            <select id="ageAppearance">
+                                <option value="child">Child</option>
+                                <option value="teen">Teen</option>
+                                <option value="young_adult">Young Adult</option>
+                                <option value="adult">Adult</option>
+                                <option value="mature">Mature</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="archetype">Archetype:</label>
+                            <input type="text" id="archetype" placeholder="e.g., cheerful_companion">
+                        </div>
+                    </div>
+
+                    <!-- Character Icon Section -->
+                    <div class="character-section">
+                        <h4>Character Icon</h4>
+                        <div class="form-group">
+                            <label for="characterIcon">Upload Character Icon:</label>
+                            <div class="icon-upload-container">
+                                <div class="icon-preview" id="iconPreview">
+                                    <div class="icon-placeholder">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                                            <polyline points="21,15 16,10 5,21"/>
+                                        </svg>
+                                        <span>No icon uploaded</span>
+                                    </div>
+                                </div>
+                                <div class="icon-upload-controls">
+                                    <input type="file" id="characterIconFile" accept="image/*" onchange="handleIconUpload(event)" style="display: none;">
+                                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('characterIconFile').click()">
+                                        Choose Image
+                                    </button>
+                                    <button type="button" class="btn btn-warning" onclick="removeCharacterIcon()" id="removeIconBtn" style="display: none;">
+                                        Remove Icon
+                                    </button>
+                                </div>
+                                <div class="icon-info">
+                                    <small>Recommended: Square image, 256x256 or larger. Will be automatically resized for people list.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Personality Section -->
+                    <div class="character-section">
+                        <h4>Personality</h4>
+                        <div class="form-group">
+                            <label for="contentRating">Content Rating:</label>
+                            <select id="contentRating">
+                                <option value="SFW">Safe for Work (SFW)</option>
+                                <option value="NSFW">Not Safe for Work (NSFW)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="traitCategories">Trait Categories:</label>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" name="traitCategories" value="light"> Light (optimistic)</label>
+                                <label><input type="checkbox" name="traitCategories" value="dark"> Dark (mysterious)</label>
+                                <label><input type="checkbox" name="traitCategories" value="neutral"> Neutral (balanced)</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="interactionStyle">Interaction Style:</label>
+                            <select id="interactionStyle">
+                                <option value="playful">Playful</option>
+                                <option value="serious">Serious</option>
+                                <option value="balanced">Balanced</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="formalityLevel">Formality Level:</label>
+                            <select id="formalityLevel">
+                                <option value="casual">Casual</option>
+                                <option value="formal">Formal</option>
+                                <option value="mixed">Mixed</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="coreTraits">Core Traits (comma-separated):</label>
+                            <textarea id="coreTraits" placeholder="friendly, curious, playful, thoughtful..." rows="3"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Appearance Section -->
+                    <div class="character-section">
+                        <h4>Appearance</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="skinTone">Skin Tone:</label>
+                                <select id="skinTone">
+                                    <option value="light">Light</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="dark">Dark</option>
+                                    <option value="tan">Tan</option>
+                                    <option value="pale">Pale</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="eyeColor">Eye Color:</label>
+                                <input type="text" id="eyeColor" placeholder="blue, brown, green...">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="hairColor">Hair Color:</label>
+                                <input type="text" id="hairColor" placeholder="blonde, brown, pink...">
+                            </div>
+                            <div class="form-group">
+                                <label for="hairLength">Hair Length:</label>
+                                <select id="hairLength">
+                                    <option value="short">Short</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="long">Long</option>
+                                    <option value="very_long">Very Long</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="hairStyle">Hair Style (comma-separated):</label>
+                            <input type="text" id="hairStyle" placeholder="bangs, straight, ponytail...">
+                        </div>
+                        <div class="form-group">
+                            <label for="defaultOutfit">Default Outfit (comma-separated):</label>
+                            <input type="text" id="defaultOutfit" placeholder="school_uniform, casual_dress...">
+                        </div>
+                    </div>
+
+                    <!-- Behavioral Patterns Section -->
+                    <div class="character-section">
+                        <h4>Behavioral Patterns</h4>
+                        <div class="form-group">
+                            <label for="speechFormality">Speech Formality:</label>
+                            <select id="speechFormality">
+                                <option value="casual">Casual</option>
+                                <option value="formal">Formal</option>
+                                <option value="mixed">Mixed</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="commonPhrases">Common Phrases (comma-separated):</label>
+                            <textarea id="commonPhrases" placeholder="That's so cool!, I wonder..., Hehe~" rows="2"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="verbalTics">Verbal Tics (comma-separated):</label>
+                            <input type="text" id="verbalTics" placeholder="~, hehe, nya...">
+                        </div>
+                        <div class="form-group">
+                            <label for="interests">Interests (comma-separated):</label>
+                            <textarea id="interests" placeholder="learning_new_things, creative_activities..." rows="2"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="dislikes">Dislikes (comma-separated):</label>
+                            <textarea id="dislikes" placeholder="conflict, being_ignored..." rows="2"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Backstory Section -->
+                    <div class="character-section">
+                        <h4>Backstory</h4>
+                        <div class="form-group">
+                            <label for="origin">Origin:</label>
+                            <textarea id="origin" placeholder="Character's background and origin story..." rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="motivation">Motivation:</label>
+                            <textarea id="motivation" placeholder="What drives this character..." rows="2"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="character-actions">
+                        <button class="btn btn-primary" onclick="saveCharacterSheet()">Save Changes</button>
+                        <button class="btn btn-secondary" onclick="resetCharacterForm()">Reset</button>
+                        <button class="btn btn-warning" onclick="deleteCharacter()">Delete Character</button>
+                        <button class="btn btn-info" onclick="exportCharacter()">Export</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Drawing Panel -->
+        <div class="drawing-panel" id="drawingPanel">
+            <div class="drawing-header">
+                <span class="drawing-title">Drawing & Sketching</span>
+                <div class="window-controls">
+                    <button class="control-btn" onclick="toggleDrawingSnap()" title="Toggle Snap">📌</button>
+                    <button class="close-btn" onclick="closeDrawing()">×</button>
+                </div>
+            </div>
+            <div class="drawing-content">
+                <!-- Drawing Tools -->
+                <div class="drawing-tools-group">
+                    <h4>Drawing Tools</h4>
+                    <div class="tool-buttons">
+                        <button class="tool-btn active" onclick="selectTool('pen')" title="Pen">✏️</button>
+                        <button class="tool-btn" onclick="selectTool('brush')" title="Brush">🖌️</button>
+                        <button class="tool-btn" onclick="selectTool('eraser')" title="Eraser">🗑️</button>
+                        <button class="tool-btn" onclick="selectTool('line')" title="Line">📏</button>
+                        <button class="tool-btn" onclick="selectTool('circle')" title="Circle">⭕</button>
+                        <button class="tool-btn" onclick="selectTool('rectangle')" title="Rectangle">⬜</button>
+                    </div>
+                </div>
+                
+                <!-- Color Picker -->
+                <div class="drawing-settings-group">
+                    <h4>Color & Size</h4>
+                    <div class="form-group">
+                        <label for="drawingColor">Color:</label>
+                        <input type="color" id="drawingColor" value="#000000" onchange="updateDrawingColor()">
+                    </div>
+                    <div class="form-group">
+                        <label for="brushSize">Brush Size:</label>
+                        <input type="range" id="brushSize" min="1" max="50" value="5" oninput="updateBrushSize()">
+                        <span id="brushSizeValue">5px</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="opacity">Opacity:</label>
+                        <input type="range" id="opacity" min="0" max="100" value="100" oninput="updateOpacity()">
+                        <span id="opacityValue">100%</span>
+                    </div>
+                </div>
+                
+                <!-- Canvas Controls -->
+                <div class="drawing-canvas-group">
+                    <h4>Canvas</h4>
+                    <div class="canvas-buttons">
+                        <button class="btn btn-primary" onclick="clearCanvas()">Clear Canvas</button>
+                        <button class="btn btn-secondary" onclick="saveDrawing()">Save Drawing</button>
+                        <button class="btn btn-info" onclick="loadDrawing()">Load Drawing</button>
+                    </div>
+                </div>
+                
+                <!-- Layer Controls -->
+                <div class="drawing-layers-group">
+                    <h4>Layers</h4>
+                    <div class="layer-list" id="layerList">
+                        <div class="layer-item active" data-layer="0">
+                            <span>Background</span>
+                            <button onclick="toggleLayerVisibility(0)">👁️</button>
+                        </div>
+                    </div>
+                    <div class="layer-buttons">
+                        <button class="btn btn-sm" onclick="addNewLayer()">+ Add Layer</button>
+                        <button class="btn btn-sm" onclick="deleteLayer()">Delete Layer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Enhanced Debug Console -->
         <div class="debug-ui-panel" id="debugUIPanel" style="display: none;">
             <div class="debug-header">
@@ -322,6 +635,103 @@
                         Loading available models...
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Selection Dialog -->
+    <div class="user-selection-dialog" id="userSelectionDialog" style="display: none;">
+        <div class="dialog-overlay" onclick="closeUserDialog()"></div>
+        <div class="dialog-content">
+            <div class="dialog-header">
+                <h3>User Management</h3>
+                <button class="dialog-close" onclick="closeUserDialog()">×</button>
+            </div>
+            <div class="dialog-body">
+                <div class="user-selection-list" id="userSelectionList">
+                    <div style="text-align: center; padding: 20px; color: #aaa;">
+                        Loading users...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Profile Panel -->
+    <div class="user-profile-panel" id="userProfilePanel">
+        <div class="user-profile-header">
+            <span class="user-profile-title">User Profile</span>
+            <div class="window-controls">
+                <button class="control-btn" onclick="toggleUserProfileSnap()" title="Toggle Snap">📌</button>
+                <button class="close-btn" onclick="closeUserProfile()">×</button>
+            </div>
+        </div>
+        <div class="user-profile-content">
+            <!-- Basic User Information Section -->
+            <div class="user-section">
+                <h4>User Information</h4>
+                <div class="form-group">
+                    <label for="userDisplayName">Display Name:</label>
+                    <input type="text" id="userDisplayName" placeholder="Your display name" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="userUsername">Username:</label>
+                    <input type="text" id="userUsername" placeholder="Your username" readonly>
+                </div>
+            </div>
+
+            <!-- Personal Information Section -->
+            <div class="user-section">
+                <h4>Personal Information</h4>
+                <div class="form-group">
+                    <label for="userGender">Gender:</label>
+                    <select id="userGender">
+                        <option value="not_specified">Not Specified</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="non_binary">Non-Binary</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="userAgeRange">Age Range:</label>
+                    <select id="userAgeRange">
+                        <option value="teen">Teen (13-17)</option>
+                        <option value="young_adult">Young Adult (18-25)</option>
+                        <option value="adult">Adult (26-35)</option>
+                        <option value="middle_aged">Middle Aged (36-50)</option>
+                        <option value="mature">Mature (51+)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="userBio">Bio:</label>
+                    <textarea id="userBio" placeholder="Tell us about yourself..." rows="3"></textarea>
+                </div>
+            </div>
+
+            <!-- Content Preferences Section -->
+            <div class="user-section">
+                <h4>Content Preferences</h4>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="userNsfwEnabled">
+                        Enable NSFW Content
+                    </label>
+                    <small class="form-help">Allow not safe for work content and themes</small>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="userExplicitEnabled">
+                        Enable Explicit Content
+                    </label>
+                    <small class="form-help">Allow explicit adult content (requires NSFW enabled)</small>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="user-actions">
+                <button class="btn btn-primary" onclick="saveUserProfile()">Save Profile</button>
+                <button class="btn btn-secondary" onclick="closeUserProfile()">Cancel</button>
             </div>
         </div>
     </div>
@@ -563,8 +973,11 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- AI Companion Additional Functionality -->
 <script src="/static/js/tts-audio.js"></script>
 <script src="/static/js/chat.js"></script>
+<script src="/static/js/autonomous_avatars.js"></script>
 <script src="/static/js/db.js"></script>
 <script src="/static/js/voice-recording.js"></script>
+<script src="/static/js/character-sheet.js"></script>
+<script src="/static/js/user-profile.js"></script>
 
 <!-- SocketIO for real-time communication -->
 <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
@@ -576,6 +989,381 @@ let uiController = null;
 let live2dMultiModelManager = null; // Make available globally for remove buttons
 let currentModel = null; // Add current model reference
 let pixiApp = null; // Add PIXI app reference
+
+// Global chat history management functions
+function refreshChatHistory() {
+    if (avatarChatManager) {
+        avatarChatManager.refreshChatHistory();
+    } else {
+        console.warn('Avatar chat manager not initialized');
+    }
+}
+
+function clearChatHistory() {
+    if (confirm('Are you sure you want to clear the chat history? This will only clear the current session.')) {
+        if (avatarChatManager) {
+            avatarChatManager.clearChatHistory();
+        } else if (window.chatWindow) {
+            window.chatWindow.innerHTML = '';
+            addSystemMessage('Chat history cleared');
+        }
+    }
+}
+
+function exportChatHistory() {
+    if (avatarChatManager) {
+        avatarChatManager.exportChatHistory();
+    } else {
+        console.warn('Avatar chat manager not initialized');
+        alert('Chat export is not available without active avatars');
+    }
+}
+
+// Function to open drawing panel
+function openDrawing() {
+    console.log('Opening drawing panel...');
+    const panel = document.getElementById('drawingPanel');
+    if (panel) {
+        panel.classList.add('open');
+        initializeDrawingCanvas();
+    }
+}
+
+// Function to close drawing panel
+function closeDrawing() {
+    const panel = document.getElementById('drawingPanel');
+    if (panel) {
+        panel.classList.remove('open');
+    }
+}
+
+// Function to toggle drawing panel snap
+function toggleDrawingSnap() {
+    const panel = document.getElementById('drawingPanel');
+    if (panel) {
+        if (panel.classList.contains('snapped-left')) {
+            panel.classList.remove('snapped-left');
+            panel.classList.add('snapped-right');
+        } else {
+            panel.classList.remove('snapped-right');
+            panel.classList.add('snapped-left');
+        }
+    }
+}
+
+// Function to toggle user profile panel snap
+function toggleUserProfileSnap() {
+    const panel = document.getElementById('userProfilePanel');
+    if (panel) {
+        if (panel.classList.contains('snapped-left')) {
+            panel.classList.remove('snapped-left');
+            panel.classList.add('snapped-right');
+        } else {
+            panel.classList.remove('snapped-right');
+            panel.classList.add('snapped-left');
+        }
+    }
+}
+
+// Drawing state
+let drawingState = {
+    isDrawing: false,
+    currentTool: 'pen',
+    currentColor: '#000000',
+    brushSize: 5,
+    opacity: 1.0,
+    drawingCanvas: null,
+    drawingContext: null,
+    layers: ['Background']
+};
+
+// Initialize drawing canvas
+function initializeDrawingCanvas() {
+    console.log('Initializing drawing canvas...');
+    
+    // For now, we'll use a basic implementation
+    // This can be expanded to create an actual drawing canvas overlay
+    updateBrushSizeDisplay();
+    updateOpacityDisplay();
+}
+
+// Drawing tool functions
+function selectTool(tool) {
+    drawingState.currentTool = tool;
+    
+    // Update active tool button
+    document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    console.log('Selected tool:', tool);
+}
+
+function updateDrawingColor() {
+    const colorInput = document.getElementById('drawingColor');
+    if (colorInput) {
+        drawingState.currentColor = colorInput.value;
+        console.log('Drawing color updated to:', drawingState.currentColor);
+    }
+}
+
+function updateBrushSize() {
+    const sizeInput = document.getElementById('brushSize');
+    if (sizeInput) {
+        drawingState.brushSize = parseInt(sizeInput.value);
+        updateBrushSizeDisplay();
+        console.log('Brush size updated to:', drawingState.brushSize);
+    }
+}
+
+function updateBrushSizeDisplay() {
+    const display = document.getElementById('brushSizeValue');
+    if (display) {
+        display.textContent = `${drawingState.brushSize}px`;
+    }
+}
+
+function updateOpacity() {
+    const opacityInput = document.getElementById('opacity');
+    if (opacityInput) {
+        drawingState.opacity = parseInt(opacityInput.value) / 100;
+        updateOpacityDisplay();
+        console.log('Opacity updated to:', drawingState.opacity);
+    }
+}
+
+function updateOpacityDisplay() {
+    const display = document.getElementById('opacityValue');
+    if (display) {
+        display.textContent = `${Math.round(drawingState.opacity * 100)}%`;
+    }
+}
+
+// Canvas control functions
+function clearCanvas() {
+    if (confirm('Are you sure you want to clear the canvas? This action cannot be undone.')) {
+        console.log('Clearing drawing canvas...');
+        // Implementation for clearing canvas
+        alert('Canvas cleared! (Drawing functionality is in development)');
+    }
+}
+
+function saveDrawing() {
+    console.log('Saving drawing...');
+    alert('Save functionality coming soon! This will export your drawing as an image.');
+}
+
+function loadDrawing() {
+    console.log('Loading drawing...');
+    alert('Load functionality coming soon! This will allow you to import an image to draw over.');
+}
+
+// Layer management functions
+function addNewLayer() {
+    const layerName = prompt('Enter layer name:', `Layer ${drawingState.layers.length + 1}`);
+    if (layerName) {
+        drawingState.layers.push(layerName);
+        updateLayerList();
+        console.log('Added new layer:', layerName);
+    }
+}
+
+function deleteLayer() {
+    if (drawingState.layers.length <= 1) {
+        alert('Cannot delete the last layer!');
+        return;
+    }
+    
+    const activeLayer = document.querySelector('.layer-item.active');
+    if (activeLayer && confirm('Are you sure you want to delete this layer?')) {
+        const layerIndex = parseInt(activeLayer.dataset.layer);
+        drawingState.layers.splice(layerIndex, 1);
+        updateLayerList();
+        console.log('Deleted layer at index:', layerIndex);
+    }
+}
+
+function toggleLayerVisibility(layerIndex) {
+    console.log('Toggling visibility for layer:', layerIndex);
+    // Implementation for layer visibility toggle
+}
+
+function updateLayerList() {
+    const layerList = document.getElementById('layerList');
+    if (!layerList) return;
+    
+    layerList.innerHTML = '';
+    drawingState.layers.forEach((layerName, index) => {
+        const layerItem = document.createElement('div');
+        layerItem.className = 'layer-item';
+        if (index === 0) layerItem.classList.add('active');
+        layerItem.dataset.layer = index;
+        
+        layerItem.innerHTML = `
+            <span>${layerName}</span>
+            <button onclick="toggleLayerVisibility(${index})">👁️</button>
+        `;
+        
+        layerItem.addEventListener('click', () => {
+            document.querySelectorAll('.layer-item').forEach(item => item.classList.remove('active'));
+            layerItem.classList.add('active');
+        });
+        
+        layerList.appendChild(layerItem);
+    });
+}
+
+// Character Icon Upload Functions
+let currentCharacterIcon = null; // Store the processed icon data
+
+function handleIconUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file.');
+        return;
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+        alert('Image file is too large. Please select an image smaller than 5MB.');
+        return;
+    }
+    
+    console.log('Processing character icon upload:', file.name);
+    
+    // Create FileReader to read the image
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        processCharacterIcon(e.target.result, file.name);
+    };
+    reader.readAsDataURL(file);
+}
+
+function processCharacterIcon(imageDataUrl, fileName) {
+    const img = new Image();
+    img.onload = function() {
+        // Create canvas for image processing
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size for people list icon (64x64 for high quality)
+        const iconSize = 64;
+        canvas.width = iconSize;
+        canvas.height = iconSize;
+        
+        // Calculate dimensions to maintain aspect ratio
+        let sourceX = 0, sourceY = 0, sourceWidth = img.width, sourceHeight = img.height;
+        
+        // Crop to square if not already square
+        if (img.width > img.height) {
+            sourceX = (img.width - img.height) / 2;
+            sourceWidth = img.height;
+        } else if (img.height > img.width) {
+            sourceY = (img.height - img.width) / 2;
+            sourceHeight = img.width;
+        }
+        
+        // Draw the image scaled and cropped to square
+        ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, iconSize, iconSize);
+        
+        // Get the processed image data
+        const processedImageData = canvas.toDataURL('image/png', 0.9);
+        
+        // Store the icon data
+        currentCharacterIcon = {
+            original: imageDataUrl,
+            processed: processedImageData,
+            fileName: fileName,
+            timestamp: new Date().toISOString()
+        };
+        
+        // Update the preview
+        updateIconPreview(processedImageData);
+        
+        console.log('Character icon processed successfully:', fileName);
+    };
+    
+    img.onerror = function() {
+        alert('Error loading image. Please try a different file.');
+        console.error('Failed to load image for processing');
+    };
+    
+    img.src = imageDataUrl;
+}
+
+function updateIconPreview(imageDataUrl) {
+    const preview = document.getElementById('iconPreview');
+    const removeBtn = document.getElementById('removeIconBtn');
+    
+    if (imageDataUrl && preview) {
+        preview.innerHTML = `<img src="${imageDataUrl}" alt="Character Icon">`;
+        preview.classList.add('has-image');
+        
+        if (removeBtn) {
+            removeBtn.style.display = 'inline-block';
+        }
+    } else {
+        // Reset to placeholder
+        preview.innerHTML = `
+            <div class="icon-placeholder">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21,15 16,10 5,21"/>
+                </svg>
+                <span>No icon uploaded</span>
+            </div>
+        `;
+        preview.classList.remove('has-image');
+        
+        if (removeBtn) {
+            removeBtn.style.display = 'none';
+        }
+    }
+}
+
+function removeCharacterIcon() {
+    if (confirm('Are you sure you want to remove the character icon?')) {
+        currentCharacterIcon = null;
+        updateIconPreview(null);
+        
+        // Clear the file input
+        const fileInput = document.getElementById('characterIconFile');
+        if (fileInput) {
+            fileInput.value = '';
+        }
+        
+        console.log('Character icon removed');
+    }
+}
+
+// Function to get character icon data for saving
+function getCharacterIconData() {
+    return currentCharacterIcon;
+}
+
+// Function to load character icon when editing existing character
+function loadCharacterIcon(iconData) {
+    if (iconData) {
+        currentCharacterIcon = iconData;
+        updateIconPreview(iconData.processed || iconData.original);
+        console.log('Loaded existing character icon');
+    } else {
+        // Clear icon without confirmation when loading character (not user-initiated)
+        currentCharacterIcon = null;
+        updateIconPreview(null);
+        
+        // Clear the file input
+        const fileInput = document.getElementById('characterIconFile');
+        if (fileInput) {
+            fileInput.value = '';
+        }
+        
+        console.log('Character icon cleared (no icon set for this character)');
+    }
+}
 
 // Function to update current model reference when active model changes
 function updateCurrentModelReference() {
@@ -705,7 +1493,7 @@ async function initializeLive2D() {
         live2dMultiModelManager.setUIController(uiController);
         
         // Initialize the People panel with actual loaded models (clear any hardcoded data)
-        populatePeopleModels();
+        debouncedPopulatePeopleModels();
         
         console.log('Live2D system initialized successfully!');
         
@@ -1818,7 +2606,7 @@ function selectModelFromDialog(modelValue, modelName) {
         
         // Refresh people panel if using multi-model manager
         if (live2dMultiModelManager) {
-            setTimeout(() => populatePeopleModels(), 100);
+            debouncedPopulatePeopleModels(200);
         }
     }).catch(error => {
         console.error('Failed to load model from dialog:', error);
@@ -2234,7 +3022,7 @@ function openPeople() {
     
     if (peopleOpen) {
         peoplePanel.classList.add('open');
-        populatePeopleModels();
+        debouncedPopulatePeopleModels();
     } else {
         peoplePanel.classList.remove('open');
     }
@@ -2249,7 +3037,7 @@ function showPeople() {
         peopleOpen = true;
         const peoplePanel = document.getElementById('peoplePanel');
         peoplePanel.classList.add('open');
-        populatePeopleModels();
+        debouncedPopulatePeopleModels();
         updateNavIconStates();
         saveWindowLayout();
     }
@@ -2358,8 +3146,24 @@ function toggleHelp() {
 }
 
 // People panel functionality
-function populatePeopleModels() {
+let populatePeopleModelsTimeout = null; // Debounce timeout
+
+// Debounced version to prevent multiple rapid calls
+function debouncedPopulatePeopleModels(delay = 100) {
+    if (populatePeopleModelsTimeout) {
+        clearTimeout(populatePeopleModelsTimeout);
+    }
+    
+    populatePeopleModelsTimeout = setTimeout(() => {
+        populatePeopleModels();
+        populatePeopleModelsTimeout = null;
+    }, delay);
+}
+
+async function populatePeopleModels() {
     const modelsList = document.getElementById('peopleModelsList');
+    
+    console.log('📋 populatePeopleModels called - clearing existing models');
     
     // Clear existing models
     modelsList.innerHTML = '';
@@ -2371,19 +3175,60 @@ function populatePeopleModels() {
     }
     
     const loadedModels = live2dMultiModelManager.getAllModels();
+    console.log(`📋 Found ${loadedModels.length} loaded models:`, loadedModels.map(m => m.id));
     
     if (loadedModels.length === 0) {
         modelsList.innerHTML = '<div style="text-align: center; padding: 20px; color: #aaa;">No models loaded</div>';
         return;
     }
     
+    // Load character data to get icons (only once)
+    let charactersData = null;
+    try {
+        const response = await fetch('/api/characters');
+        if (response.ok) {
+            charactersData = await response.json();
+        }
+    } catch (error) {
+        console.log('Could not load character data for icons:', error.message);
+    }
+    
+    // Create a Set to track unique model IDs and prevent duplicates
+    const addedModelIds = new Set();
+    
     loadedModels.forEach(modelData => {
+        // Skip if this model ID was already added
+        if (addedModelIds.has(modelData.id)) {
+            console.warn('⚠️ Skipping duplicate model:', modelData.id);
+            return;
+        }
+        
+        addedModelIds.add(modelData.id);
+        console.log('➕ Adding model to people panel:', modelData.id, modelData.name);
+        
         const isActive = live2dMultiModelManager.activeModelId === modelData.id;
+        
+        // Try to get character icon from character data
+        let characterIcon = null;
+        if (charactersData && charactersData.characters && charactersData.characters[modelData.name]) {
+            const charData = charactersData.characters[modelData.name];
+            if (charData.basic_info && charData.basic_info.icon) {
+                characterIcon = charData.basic_info.icon.processed || charData.basic_info.icon.original;
+            }
+        }
         
         const modelItem = document.createElement('div');
         modelItem.className = `people-model-item ${isActive ? 'active' : ''}`;
         modelItem.innerHTML = `
-            <div class="people-model-avatar">${modelData.characterImage ? `<img src="${modelData.characterImage}" alt="${modelData.name}">` : '👤'}</div>
+            <div class="people-model-avatar">
+                ${characterIcon ? 
+                    `<img src="${characterIcon}" alt="${modelData.name}" class="character-icon">` : 
+                    (modelData.characterImage ? 
+                        `<img src="${modelData.characterImage}" alt="${modelData.name}">` : 
+                        '👤'
+                    )
+                }
+            </div>
             <div class="people-model-info">
                 <div class="people-model-name">${modelData.name}</div>
                 <div class="people-model-status">${isActive ? 'Active' : 'Inactive'}</div>
@@ -2409,7 +3254,7 @@ function populatePeopleModels() {
                     }, 200);
                     
                     // Refresh the panel to update active states
-                    setTimeout(() => populatePeopleModels(), 100);
+                    debouncedPopulatePeopleModels(150);
                 } else {
                     console.log('✅ Model already active:', modelData.id);
                     
@@ -2422,6 +3267,8 @@ function populatePeopleModels() {
         
         modelsList.appendChild(modelItem);
     });
+    
+    console.log(`✅ People panel populated with ${addedModelIds.size} unique models`);
 }
 
 function selectModel(modelId) {
@@ -2448,7 +3295,7 @@ function removeModel(modelId) {
     if (live2dMultiModelManager) {
         live2dMultiModelManager.removeModel(modelId);
         // Refresh the people panel after a short delay to allow cleanup
-        setTimeout(() => populatePeopleModels(), 200);
+        debouncedPopulatePeopleModels(250);
     }
     
     // Prevent event bubbling
@@ -2940,14 +3787,35 @@ function handleChatKeyPress(event) {
 }
 
 async function sendMessage() {
-    const chatInput = document.getElementById('chatInput');
+    // Delegate to the enhanced multi-avatar chat system in chat.js
+    if (window.sendMessage && typeof window.sendMessage === 'function') {
+        try {
+            await window.sendMessage();
+        } catch (error) {
+            console.error('Enhanced chat system error:', error);
+            // Fallback to legacy system
+            await sendMessageLegacy();
+        }
+    } else {
+        // Fallback if chat.js not loaded yet
+        await sendMessageLegacy();
+    }
+}
+
+async function sendMessageLegacy() {
+    // Legacy chat function as fallback
+    const chatInput = document.getElementById('user-input') || document.getElementById('chatInput');
     const chatMessages = document.getElementById('chatMessages');
     const text = chatInput.value.trim();
     
     if (!text) return;
     
-    // Add user message to chat
-    addChatMessage('user', text);
+    // Add user message to chat using the enhanced system if available
+    if (window.addMessage) {
+        window.addMessage('user', text);
+    } else {
+        addChatMessage('user', text);
+    }
     chatInput.value = '';
     
     try {
@@ -2966,8 +3834,12 @@ async function sendMessage() {
                 if (response.ok) {
                     const data = await response.json();
                     
-                    // Add AI response to chat
-                    addChatMessage('ai', data.reply || '[No reply]');
+                    // Add AI response to chat using enhanced system if available
+                    if (window.addMessage) {
+                        window.addMessage('ai', data.reply || '[No reply]');
+                    } else {
+                        addChatMessage('ai', data.reply || '[No reply]');
+                    }
                     
                     // Play TTS if available
                     if (data.tts_data) {
@@ -2981,7 +3853,7 @@ async function sendMessage() {
                     return;
                 }
             } catch (error) {
-                console.warn(`Enhanced chat API failed with primary URL ${apiBaseUrl}:`, error.message);
+                console.warn(`Chat API failed with primary URL ${apiBaseUrl}:`, error.message);
             }
         }
         
@@ -2989,20 +3861,24 @@ async function sendMessage() {
         const fallbackUrls = window.ai2d_chat_CONFIG?.FALLBACK_URLS || [];
         for (const fallbackUrl of fallbackUrls) {
             try {
-                console.log(`Trying enhanced chat API fallback URL: ${fallbackUrl}`);
+                console.log(`Trying chat API fallback URL: ${fallbackUrl}`);
                 response = await fetch(`${fallbackUrl}/api/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: text })
                 });
                 if (response.ok) {
-                    console.log(`Enhanced chat API successful with fallback URL: ${fallbackUrl}`);
+                    console.log(`Chat API successful with fallback URL: ${fallbackUrl}`);
                     // Update the working URL for future requests
                     window.ai2d_chat_CONFIG.API_BASE_URL = fallbackUrl;
                     const data = await response.json();
                     
-                    // Add AI response to chat
-                    addChatMessage('ai', data.reply || '[No reply]');
+                    // Add AI response to chat using enhanced system if available
+                    if (window.addMessage) {
+                        window.addMessage('ai', data.reply || '[No reply]');
+                    } else {
+                        addChatMessage('ai', data.reply || '[No reply]');
+                    }
                     
                     // Play TTS if available
                     if (data.tts_data) {
@@ -3016,16 +3892,20 @@ async function sendMessage() {
                     return;
                 }
             } catch (error) {
-                console.warn(`Enhanced chat API fallback failed with ${fallbackUrl}:`, error.message);
+                console.warn(`Chat API fallback failed with ${fallbackUrl}:`, error.message);
             }
         }
         
         // If all URLs failed, throw error
-        throw new Error('All enhanced chat API endpoints failed');
+        throw new Error('All chat API endpoints failed');
         
     } catch (error) {
         console.error('Error sending message:', error);
-        addChatMessage('system', `Failed to send message: ${error.message}`, 'error');
+        if (window.addSystemMessage) {
+            window.addSystemMessage(`Failed to send message: ${error.message}`, 'error');
+        } else {
+            addChatMessage('system', `Failed to send message: ${error.message}`, 'error');
+        }
     }
 }
 

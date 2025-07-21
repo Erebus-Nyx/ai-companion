@@ -1,12 +1,12 @@
-# AI Companion API Documentation v0.4.0
+# AI Companion API Documentation v0.5.0a
 
 ## Overview
 
-The AI Companion API provides RESTful endpoints and WebSocket communication for interacting with an AI live2d chat featuring Live2D visual avatars, voice processing, and advanced conversational AI.
+The AI Companion API provides RESTful endpoints and WebSocket communication for interacting with an AI live2d chat featuring Live2D visual avatars, voice processing, advanced conversational AI, and RAG (Retrieval-Augmented Generation) capabilities.
 
-**Base URL**: `http://localhost:19443`  
+**Base URL**: `http://localhost:19080`  
 **API Version**: `1.0.0`  
-**Application Version**: `0.4.0`
+**Application Version**: `0.5.0a`
 
 ## Quick Start
 
@@ -44,15 +44,18 @@ Get detailed version information.
 **Response:**
 ```json
 {
-  "version": "0.4.0",
+  "version": "0.5.0a",
   "api_version": "1.0.0", 
   "title": "AI Companion",
   "description": "An interactive AI live2d chat with Live2D visual avatar...",
   "components": {
-    "live2d": "0.4.0",
-    "vad": "0.4.0", 
-    "tts": "0.4.0",
-    "llm": "0.4.0"
+    "live2d": "0.5.0a",
+    "vad": "0.5.0a", 
+    "tts": "0.5.0a",
+    "llm": "0.5.0a",
+    "personality": "0.5.0a",
+    "memory": "0.5.0a",
+    "rag": "0.5.0a"
   }
 }
 ```
@@ -192,6 +195,99 @@ Upload audio file for speech-to-text processing.
 }
 ```
 
+### RAG (Retrieval-Augmented Generation)
+
+#### GET /api/rag/status
+Get RAG system status and configuration.
+
+**Response:**
+```json
+{
+  "enabled": true,
+  "vector_database": {
+    "type": "chroma",
+    "collection_name": "ai2d_chat_knowledge",
+    "total_documents": 156
+  },
+  "embedding_model": "all-MiniLM-L6-v2",
+  "last_sync": "2025-07-21T10:30:00Z"
+}
+```
+
+#### POST /api/rag/search
+Perform semantic search across conversation history.
+
+**Request Body:**
+```json
+{
+  "query": "machine learning discussions",
+  "user_id": "user123",
+  "limit": 5,
+  "similarity_threshold": 0.7
+}
+```
+
+**Response:**
+```json
+{
+  "results": [
+    {
+      "similarity_score": 0.92,
+      "conversation_id": 123,
+      "user_message": "What do you think about machine learning?",
+      "assistant_message": "Machine learning is fascinating! It's about...",
+      "timestamp": "2025-07-20T15:30:00Z",
+      "metadata": {
+        "model_id": "haru",
+        "emotion": "excited"
+      }
+    }
+  ],
+  "query_time": 0.045
+}
+```
+
+#### POST /api/rag/context
+Get relevant context for a user query.
+
+**Request Body:**
+```json
+{
+  "query": "tell me about our previous AI discussions",
+  "user_id": "user123",
+  "max_length": 2000
+}
+```
+
+**Response:**
+```json
+{
+  "context": "=== Relevant Context ===\nPrevious discussion about AI...",
+  "sources_count": 3,
+  "context_length": 1456
+}
+```
+
+#### POST /api/rag/sync
+Synchronize existing conversations with vector database.
+
+**Request Body:**
+```json
+{
+  "user_id": "user123",
+  "force_resync": false
+}
+```
+
+**Response:**
+```json
+{
+  "synced_conversations": 42,
+  "total_documents": 156,
+  "sync_time": 2.34
+}
+```
+
 ## WebSocket Events
 
 Connect to: `ws://localhost:19443/socket.io/`
@@ -204,10 +300,12 @@ Connect to: `ws://localhost:19443/socket.io/`
 
 ### Server Events
 
-- `chat_response` - Receive AI responses
+- `chat_response` - Receive AI responses with enhanced metadata
 - `motion_trigger` - Live2D motion updates
 - `audio_status` - Audio processing status
 - `system_status` - System health updates
+- `rag_update` - RAG system status changes
+- `avatar_mood_change` - Avatar personality/mood updates
 
 ## Error Handling
 
@@ -243,7 +341,15 @@ ai2d_chat status
 
 ## Version History
 
-### v0.4.0 (Current)
+### v0.5.0a (Current)
+- **NEW: RAG System Integration** - Semantic search and enhanced memory
+- **Enhanced Autonomous Avatars** - Dynamic personality and contextual engagement
+- **Improved Chat System** - Multi-modal communication with voice/text
+- **Local Directory Structure** - Proper user data isolation (~/.local/share/ai2d_chat/)
+- **Enhanced Memory System** - RAG integration with fallback to traditional search
+- **Configuration Management** - Comprehensive config system with local/production modes
+
+### v0.4.0
 - Enhanced CLI interface with comprehensive API documentation
 - Improved version management and component tracking
 - Updated Live2D integration with motion system
