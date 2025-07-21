@@ -148,6 +148,130 @@ def load_characters_from_json():
         logging.error(f"Error loading characters from JSON: {e}")
         return {'characters': {}}
 
+def load_avatar_framework():
+    """Load avatar framework from the JSON file"""
+    try:
+        json_path = os.path.join(os.path.dirname(__file__), '..', 'databases', 'avatar_framework.json')
+        json_path = os.path.abspath(json_path)
+        
+        if os.path.exists(json_path):
+            with open(json_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        else:
+            logging.warning(f"Avatar framework JSON file not found: {json_path}")
+            return {}
+            
+    except Exception as e:
+        logging.error(f"Error loading avatar framework from JSON: {e}")
+        return {}
+
+def save_avatar_framework(framework_data):
+    """Save avatar framework to the JSON file"""
+    try:
+        json_path = os.path.join(os.path.dirname(__file__), '..', 'databases', 'avatar_framework.json')
+        json_path = os.path.abspath(json_path)
+        
+        # Update timestamp
+        if 'metadata' in framework_data:
+            framework_data['metadata']['last_updated'] = datetime.now().isoformat()
+        
+        with open(json_path, 'w', encoding='utf-8') as f:
+            json.dump(framework_data, f, indent=2, ensure_ascii=False)
+            
+        logging.info("Avatar framework saved successfully")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Error saving avatar framework: {e}")
+        return False
+
+def update_framework_for_character(character_id, character_data):
+    """Update framework with new character information for trigger phrases and content enforcement"""
+    try:
+        framework = load_avatar_framework()
+        
+        if not framework:
+            logging.warning("Could not load avatar framework for update")
+            return False
+        
+        # Extract character info
+        content_rating = character_data.get('personality', {}).get('content_rating', 'SFW')
+        core_traits = character_data.get('personality', {}).get('core_traits', [])
+        archetype = character_data.get('basic_info', {}).get('archetype', '')
+        
+        # Update content rating enforcement
+        if 'usage_guidelines' in framework and 'content_rating_enforcement' in framework['usage_guidelines']:
+            enforcement = framework['usage_guidelines']['content_rating_enforcement']
+            
+            # Remove character from both lists first
+            if character_id in enforcement.get('sfw_only_characters', []):
+                enforcement['sfw_only_characters'].remove(character_id)
+            if character_id in enforcement.get('nsfw_capable_characters', []):
+                enforcement['nsfw_capable_characters'].remove(character_id)
+            
+            # Add to appropriate list
+            if content_rating == 'NSFW':
+                if 'nsfw_capable_characters' not in enforcement:
+                    enforcement['nsfw_capable_characters'] = []
+                enforcement['nsfw_capable_characters'].append(character_id)
+            else:
+                if 'sfw_only_characters' not in enforcement:
+                    enforcement['sfw_only_characters'] = []
+                enforcement['sfw_only_characters'].append(character_id)
+        
+        # Update trigger phrases
+        if 'usage_guidelines' in framework and 'character_switching' in framework['usage_guidelines']:
+            switching = framework['usage_guidelines']['character_switching']
+            
+            if 'trigger_phrases' not in switching:
+                switching['trigger_phrases'] = {}
+            
+            # Generate trigger phrases from traits and archetype
+            trigger_phrases = [character_id]  # Always include the character name
+            
+            # Add relevant traits as triggers
+            trait_keywords = {
+                'cheerful': 'cheerful', 'happy': 'happy', 'optimistic': 'optimistic',
+                'mysterious': 'mysterious', 'enigmatic': 'mysterious', 'dark': 'dark',
+                'seductive': 'seductive', 'flirtatious': 'flirtatious',
+                'gentle': 'gentle', 'calming': 'calming', 'peaceful': 'peaceful',
+                'intellectual': 'intellectual', 'analytical': 'books', 'thoughtful': 'thoughtful',
+                'studious': 'studying', 'curious': 'learning',
+                'playful': 'playful', 'mischievous': 'playful',
+                'athletic': 'athletic', 'energetic': 'sports', 'competitive': 'sports',
+                'elegant': 'elegant', 'serene': 'calm'
+            }
+            
+            for trait in core_traits:
+                if trait.lower() in trait_keywords:
+                    keyword = trait_keywords[trait.lower()]
+                    if keyword not in trigger_phrases:
+                        trigger_phrases.append(keyword)
+            
+            # Add archetype-based triggers
+            archetype_keywords = {
+                'fox_spirit': 'fox', 'fox_maiden': 'fox',
+                'athlete': 'sports', 'energetic_athlete': 'sports',
+                'student': 'studying', 'gentle_student': 'studying',
+                'intellectual': 'books', 'calm_intellectual': 'books',
+                'seductress': 'seductive', 'mysterious_seductress': 'seductive',
+                'sensualist': 'gentle', 'gentle_sensualist': 'gentle'
+            }
+            
+            if archetype and archetype.lower() in archetype_keywords:
+                keyword = archetype_keywords[archetype.lower()]
+                if keyword not in trigger_phrases:
+                    trigger_phrases.append(keyword)
+            
+            switching['trigger_phrases'][character_id] = trigger_phrases[:3]  # Limit to 3 triggers
+        
+        # Save updated framework
+        return save_avatar_framework(framework)
+        
+    except Exception as e:
+        logging.error(f"Error updating framework for character {character_id}: {e}")
+        return False
+
 def get_characters_from_database():
     """Get characters from database"""
     try:
@@ -246,7 +370,13 @@ def update_character_in_database(character_id, character_data):
             """, (character_id, json.dumps(character_data)))
             
             conn.commit()
-            return True
+        
+        # Update framework with new character information
+        framework_updated = update_framework_for_character(character_id, character_data)
+        if not framework_updated:
+            logging.warning(f"Failed to update framework for character {character_id}")
+            
+        return True
             
     except Exception as e:
         logging.error(f"Error updating character {character_id}: {e}")
@@ -261,8 +391,46 @@ def delete_character_from_database(character_id):
             cursor = conn.cursor()
             cursor.execute("DELETE FROM characters WHERE character_id = ?", (character_id,))
             conn.commit()
-            return cursor.rowcount > 0
+            deleted = cursor.rowcount > 0
+        
+        if deleted:
+            # Remove character from framework
+            remove_character_from_framework(character_id)
+            
+        return deleted
             
     except Exception as e:
         logging.error(f"Error deleting character {character_id}: {e}")
+        return False
+
+def remove_character_from_framework(character_id):
+    """Remove character from framework lists and trigger phrases"""
+    try:
+        framework = load_avatar_framework()
+        
+        if not framework:
+            logging.warning("Could not load avatar framework for character removal")
+            return False
+        
+        # Remove from content rating enforcement
+        if 'usage_guidelines' in framework and 'content_rating_enforcement' in framework['usage_guidelines']:
+            enforcement = framework['usage_guidelines']['content_rating_enforcement']
+            
+            if character_id in enforcement.get('sfw_only_characters', []):
+                enforcement['sfw_only_characters'].remove(character_id)
+            if character_id in enforcement.get('nsfw_capable_characters', []):
+                enforcement['nsfw_capable_characters'].remove(character_id)
+        
+        # Remove trigger phrases
+        if 'usage_guidelines' in framework and 'character_switching' in framework['usage_guidelines']:
+            switching = framework['usage_guidelines']['character_switching']
+            
+            if 'trigger_phrases' in switching and character_id in switching['trigger_phrases']:
+                del switching['trigger_phrases'][character_id]
+        
+        # Save updated framework
+        return save_avatar_framework(framework)
+        
+    except Exception as e:
+        logging.error(f"Error removing character {character_id} from framework: {e}")
         return False

@@ -1,8 +1,32 @@
 # AI Companion Project - Comprehensive To-Do List
 
-## 🎉 Major Achievements: RAG System Implementation & Dynamic Personality System!
-
 **Latest Completion (v0.5.0a)**: Complete RAG (Retrieval-Augmented Generation) system implementation with semantic search, dynamic personality system with contextual engagement, and enhanced local directory structure for proper user data isolation!
+
+### 🚨 CRITICAL: HTML Modularization (IN PROGRESS) 
+- [ ] **URGENT: Complete HTML Debloat** - Extract remaining inline code from live2d_pixi.html (4079 lines)
+  - [ ] **Live2D Mouse Interaction System** - Extract mouse interaction and dragging logic
+  - [ ] **Model Loading & Management** - Extract fallback model loading systems
+  - [ ] **Configuration & API Helpers** - Extract server config and API utility functions
+  - [ ] **Chat History Management** - Extract chat function globals  
+  - [ ] **User Profile Management** - Extract user profile snap and management functions
+  - [ ] **Debug Console Functions** - Extract debug and console functionality
+  - [ ] **Update HTML** - Replace inline code with modular script imports
+  - [ ] **Test Integration** - Ensure all modular components work together
+## 🚨 High Priority Issues (Current Status: July 21, 2025)
+
+### 🌐 CRITICAL: Web Access & Search Functionality
+- [ ] **External Web Search Integration** - Enable AI to search and access current web information
+  - [ ] **Search API Integration** - DuckDuckGo, Bing, or Google search API integration
+  - [ ] **Web Scraping System** - Safe and respectful web content extraction
+  - [ ] **Content Processing** - HTML parsing, text extraction, and summarization
+  - [ ] **Search Context Integration** - Integrate web results with RAG system and memory
+  - [ ] **Real-time Information** - Current events, weather, news integration
+  - [ ] **Citation and Sources** - Proper attribution of web-sourced information
+- [ ] **Web Content RAG Enhancement** - Extend RAG system for web content
+  - [ ] **Web Content Indexing** - Add web pages to vector database
+  - [ ] **Dynamic Content Updates** - Refresh web content periodically
+  - [ ] **Search History** - Track and learn from search patterns
+  - [ ] **Content Filtering** - Safe search and content validation
 
 ### ✅ RAG System Implementation Completed (July 21, 2025):
 - [x] **Complete RAG Architecture** - ChromaDB vector database with sentence-transformers
@@ -106,51 +130,6 @@
 - [x] **Create organized file structure** - Complete reorganization with logical directory structure
 - [ ] **Create logging system** - Implement structured logging for debugging and monitoring
 
-## 🚨 High Priority Issues (Current Status: July 18, 2025)
-
-## 🚨 High Priority Issues (Current Status: July 18, 2025)
-
-### 🎯 New Priority Items (Updated July 18, 2025)
-- [ ] **Fix TTS Model Download** - Kokoro ONNX model download failing (404 error from HuggingFace)
-  - Error: `404 Client Error. Entry Not Found for url: https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/kokoro-v0_19.onnx`
-  - Model not found at `models/tts/kokoro/onnx/model.onnx`
-  - Need to verify correct download URL or find alternative TTS model
-  - Update configuration to use working TTS model paths
-- [ ] **LLM Performance Optimization** - Target response time of 3-5 seconds
-  - Current model may be too large for real-time interaction
-  - Consider switching to smaller, faster model (7B or smaller)
-  - Profile current inference times and memory usage
-  - Update default model selection in ConfigManager
-- [x] **Clean Live2D HTML TODO Comments** - Removed extensive TODO sections from live2d_pixi.html
-  - Removed over 200 lines of outdated TODO comments 
-  - Features previously marked as TODO were already completed (phases 1-6 complete)
-  - Updated status to reflect current production-ready state
-  - Cleaned up commented-out code sections
-- [x] **Update Configuration TODO Items** - Addressed remaining config.yaml TODO comments
-  - Removed TODO comments for SafeTensor-specific configuration options
-  - Removed TODO for GPTQ compatibility fallback mechanism  
-  - Removed TODO for voice selection and configuration options
-  - Configuration file is now clean and production-ready
-
-### 🎯 Enhancement & Feature Priorities
-- [ ] **Cross-Avatar Interactions** - Implement multi-avatar conversation system where avatars can:
-  - Discuss topics with each other when user asks questions
-  - Disagree and debate different viewpoints autonomously  
-  - Interact with each other even in absence of user input
-  - Create appearance of self-awareness through inter-avatar communication
-  - Establish unique personalities and relationship dynamics between avatars
-
-- [ ] **RAG Implementation** - Now that production build is working, implement vector-based RAG system:
-  - Integrate sentence-transformers for semantic search
-  - Create vector database for conversation history and knowledge
-  - Implement context-aware response generation
-  - Add document ingestion and retrieval system
-
-- [ ] **Systemd Service Enhancement** - Update pipx design for deployment independence:
-- [ ] **Service should run without git repository being present on system**
-  - Package all necessary files in distributable format
-  - Create standalone installation process
-  - Ensure proper dependency management for production deployment
 
 - [ ] **Lipsync Integration** - Connect TTS output with Live2D mouth movements
   - Implement audio analysis for mouth shape detection
@@ -270,24 +249,12 @@
 - [x] **CLI Setup Command** - Complete setup workflow with --clean and --force options
 - [x] **Installation Validation** - Checks for existing configurations and handles updates
 
-## Current Development Status (v0.5.0a)
 
-### 🚨 High Priority Issues Resolved
-- [x] **RAG Local Directory Configuration** - Fixed config path resolution for proper local storage
-- [x] **Version Consistency** - Updated all components to v0.5.0a
-- [x] **Documentation Overhaul** - Created comprehensive system summaries
 
-### 🎯 Immediate Next Steps
-- [ ] **TTS Model Download** - Kokoro ONNX model download failing (404 error from HuggingFace)
-  - Error: `404 Client Error. Entry Not Found for url: https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/kokoro-v0_19.onnx`
-  - Model not found at `models/tts/kokoro/onnx/model.onnx`
-  - Need to verify correct download URL or find alternative TTS model
-  - Update configuration to use working TTS model paths
-- [ ] **LLM Performance Optimization** - Target response time of 3-5 seconds
-  - Current model may be too large for real-time interaction
-  - Consider switching to smaller, faster model (7B or smaller)
-  - Profile current inference times and memory usage
-  - Update default model selection in ConfigManager
+
+
+
+
 
 ## Development Workflow & Standards
 
@@ -333,11 +300,11 @@ The codebase uses a fallback import strategy to handle:
 - Dynamic personality system enabling contextual conversations
 - Well-organized codebase with comprehensive documentation
 - Stable database schema with migration support
-- Production-ready components awaiting Live2D Viewer Web integration
+
 
 ### 📈 Development Focus (v0.6.0)
 The project has successfully implemented advanced AI capabilities and is ready for Live2D Viewer Web integration to create a complete interactive avatar experience with professional UI and enhanced user interaction.
 
 **Current Version**: v0.5.0a - RAG System & Dynamic Personality Complete
-**Next Milestone**: v0.6.0 - Live2D Viewer Web Integration
+**Next Milestone**: v0.6.0 - Live2D Viewer lipsync complete tts and emotional Integration
 **Target Date**: August 2025

@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live2D AI Companion - Dual Architecture Testing Interface</title>
     <link rel="stylesheet" href="/static/css/live2d_test.css">
-    <!-- Live2D AI Companion - Production-ready avatar system with dual runtime support -->
-</head>
 </head>
 <body>
     <div class="app-container">
@@ -736,1078 +734,330 @@
         </div>
     </div>
 
-<!-- Load PIXI.js and Live2D libraries in correct order -->
-<!-- Step 1: Load PIXI.js 6.5.10 from dist folder -->
-<script src="/static/dist/pixi-6.5.10.min.js"></script>
+    <!-- Load PIXI.js and Live2D libraries in correct order -->
+    <script src="/static/dist/pixi-6.5.10.min.js"></script>
+    <script src="/static/js/eventemitter-preloader-v6.js"></script>
+    <script src="/static/dist/live2d_bundle.js"></script>
+    <script src="/static/dist/CubismSdkForWeb-5-r.4/Core/live2dcubismcore.min.js"></script>
 
-<!-- Step 2: Load EventEmitter compatibility for PIXI v6 -->
-<script src="/static/js/eventemitter-preloader-v6.js"></script>
+    <!-- Dual architecture verification -->
+    <script>
+    console.log('=== Dual Architecture Verification ===');
+    console.log('PIXI version:', typeof PIXI !== 'undefined' ? PIXI.VERSION : 'Not loaded');
+    console.log('EventEmitter available:', typeof EventEmitter !== 'undefined');
+    console.log('Live2D v2 Bundle loaded:', typeof window.Live2D !== 'undefined');
+    console.log('Cubism 5 Core loaded:', typeof window.Live2DCubismCore !== 'undefined');
 
-<!-- Step 3: Load Live2D v2 Bundle for Cubism 2.x models -->
-<script src="/static/dist/live2d_bundle.js"></script>
-
-<!-- Step 4: Load Cubism 5 Core for modern models -->
-<script src="/static/dist/CubismSdkForWeb-5-r.4/Core/live2dcubismcore.min.js"></script>
-
-<!-- Step 6: Verify dual architecture setup -->
-<script>
-console.log('=== Dual Architecture Verification ===');
-console.log('PIXI version:', typeof PIXI !== 'undefined' ? PIXI.VERSION : 'Not loaded');
-console.log('EventEmitter available:', typeof EventEmitter !== 'undefined');
-console.log('Live2D v2 Bundle loaded:', typeof window.Live2D !== 'undefined');
-console.log('Cubism 5 Core loaded:', typeof window.Live2DCubismCore !== 'undefined');
-
-// Debug Live2D v2 Bundle
-if (typeof window.Live2D !== 'undefined') {
-    console.log('✓ Live2D v2 Bundle ready for Cubism 2.x models');
-    console.log('- window.Live2D:', typeof window.Live2D);
-    console.log('- window.Live2DModelWebGL:', typeof window.Live2DModelWebGL);
-    console.log('- window.live2dv2:', typeof window.live2dv2);
-}
-
-// Debug Cubism 5 Core
-if (typeof window.Live2DCubismCore !== 'undefined') {
-    console.log('✓ Cubism 5 Core ready for modern models');
-    console.log('- Core version:', window.Live2DCubismCore.Version ? window.Live2DCubismCore.Version.csmGetVersion() : 'unknown');
-}
-
-console.log('=== End Verification ===');
-</script>
-
-<!-- Step 5: Load pixi-live2d-display (local for offline installation) -->
-<script src="/static/dist/pixi-live2d-display-0.4.0.min.js"></script>
-
-<!-- Step 5: Verify Live2D plugin initialization -->
-<script>
-// AI Companion API Configuration - Dynamic configuration loading
-window.ai2d_chat_CONFIG = {
-    // Default fallback configuration
-    API_BASE_URL: (() => {
-        const protocol = window.location.protocol;
-        const hostname = window.location.hostname;
-        const port = window.location.port;
-        
-        // Use current protocol and host
-        if (port) {
-            return `${protocol}//${hostname}:${port}`;
-        }
-        return `${protocol}//${hostname}`;
-    })(),
-    
-    // Configuration loading status
-    _configLoaded: false,
-    _configPromise: null
-};
-
-// Function to load server configuration dynamically
-async function loadServerConfig() {
-    if (window.ai2d_chat_CONFIG._configLoaded) {
-        return window.ai2d_chat_CONFIG;
+    if (typeof window.Live2D !== 'undefined') {
+        console.log('✓ Live2D v2 Bundle ready for Cubism 2.x models');
     }
-    
-    if (window.ai2d_chat_CONFIG._configPromise) {
-        return window.ai2d_chat_CONFIG._configPromise;
+
+    if (typeof window.Live2DCubismCore !== 'undefined') {
+        console.log('✓ Cubism 5 Core ready for modern models');
+        console.log('- Core version:', window.Live2DCubismCore.Version ? window.Live2DCubismCore.Version.csmGetVersion() : 'unknown');
     }
-    
-    window.ai2d_chat_CONFIG._configPromise = (async () => {
-        try {
-            console.log('Loading server configuration from API...');
+    console.log('=== End Verification ===');
+    </script>
+
+    <script src="/static/dist/pixi-live2d-display-0.4.0.min.js"></script>
+
+    <!-- Live2D plugin initialization -->
+    <script>
+    console.log('Initializing Live2D plugin (Live2D Viewer Web compatible)...');
+
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            console.log('Checking library compatibility...');
             
-            // Try to fetch configuration from the server
-            const configResponse = await fetch('/api/system/config');
-            if (configResponse.ok) {
-                const serverConfig = await configResponse.json();
+            if (typeof PIXI === 'undefined') {
+                console.error('PIXI.js not loaded');
+                return;
+            }
+            
+            if (typeof EventEmitter === 'undefined') {
+                console.error('EventEmitter not available');
+                return;
+            }
+            
+            console.log('✓ PIXI version:', PIXI.VERSION);
+            console.log('✓ EventEmitter type:', typeof EventEmitter);
+            
+            if (PIXI.utils && PIXI.utils.EventEmitter) {
+                console.log('✓ PIXI.utils.EventEmitter available (Live2D Viewer Web compatible)');
+            }
+            
+            if (typeof PIXI.live2d === 'undefined') {
+                console.error('✗ PIXI.live2d not loaded - pixi-live2d-display may not be compatible');
+                console.log('Available PIXI properties:', Object.keys(PIXI));
                 
-                // Update the configuration
-                window.ai2d_chat_CONFIG.API_BASE_URL = serverConfig.server.base_url;
-                window.ai2d_chat_CONFIG.serverConfig = serverConfig;
-                window.ai2d_chat_CONFIG._configLoaded = true;
-                
-                console.log('✅ Server configuration loaded successfully:', serverConfig.server.base_url);
-                return window.ai2d_chat_CONFIG;
+                if (window.pixiLive2DLoadError) {
+                    console.error('Library loading error detected - check network tab');
+                }
             } else {
-                throw new Error(`Config API returned ${configResponse.status}`);
-            }
-        } catch (error) {
-            console.warn('⚠️ Failed to load server config from API, using fallback:', error.message);
-            
-            // Fallback: use current location as base
-            const protocol = window.location.protocol;
-            const hostname = window.location.hostname;
-            const port = window.location.port;
-            
-            window.ai2d_chat_CONFIG.API_BASE_URL = port ? 
-                `${protocol}//${hostname}:${port}` : 
-                `${protocol}//${hostname}`;
-            
-            window.ai2d_chat_CONFIG._configLoaded = true;
-            
-            console.log('Using fallback configuration:', window.ai2d_chat_CONFIG.API_BASE_URL);
-            return window.ai2d_chat_CONFIG;
-        }
-    })();
-    
-    return window.ai2d_chat_CONFIG._configPromise;
-}
-
-// Initialize configuration
-console.log('AI Companion API Config (initial):', window.ai2d_chat_CONFIG.API_BASE_URL);
-console.log('Protocol detected:', window.location.protocol);
-
-// Helper function for making API calls with proper config loading
-window.makeApiCall = async function(endpoint, options = {}) {
-    // Ensure config is loaded
-    await loadServerConfig();
-    
-    const url = `${window.ai2d_chat_CONFIG.API_BASE_URL}${endpoint}`;
-    console.log(`Making API call to: ${url}`);
-    
-    return fetch(url, options);
-};
-</script>
-
-<script>
-// Initialize Live2D plugin following Live2D Viewer Web pattern
-console.log('Initializing Live2D plugin (Live2D Viewer Web compatible)...');
-
-// Wait for all scripts to load
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(function() {
-        console.log('Checking library compatibility...');
-        
-        // Verify libraries are loaded
-        if (typeof PIXI === 'undefined') {
-            console.error('PIXI.js not loaded');
-            return;
-        }
-        
-        if (typeof EventEmitter === 'undefined') {
-            console.error('EventEmitter not available');
-            return;
-        }
-        
-        console.log('✓ PIXI version:', PIXI.VERSION);
-        console.log('✓ EventEmitter type:', typeof EventEmitter);
-        
-        // Check if PIXI.utils.EventEmitter exists (Live2D Viewer Web pattern)
-        if (PIXI.utils && PIXI.utils.EventEmitter) {
-            console.log('✓ PIXI.utils.EventEmitter available (Live2D Viewer Web compatible)');
-        }
-        
-        // Check if Live2D plugin is available
-        if (typeof PIXI.live2d === 'undefined') {
-            console.error('✗ PIXI.live2d not loaded - pixi-live2d-display may not be compatible');
-            console.log('Available PIXI properties:', Object.keys(PIXI));
-            
-            // Try to diagnose the issue
-            if (window.pixiLive2DLoadError) {
-                console.error('Library loading error detected - check network tab');
-            }
-        } else {
-            console.log('✓ PIXI.live2d loaded successfully');
-            console.log('Available PIXI.live2d properties:', Object.keys(PIXI.live2d));
-            
-            // Check for Live2DModel
-            if (PIXI.live2d.Live2DModel) {
-                console.log('✓ Live2DModel class available');
-                window.Live2DModel = PIXI.live2d.Live2DModel;
+                console.log('✓ PIXI.live2d loaded successfully');
+                console.log('Available PIXI.live2d properties:', Object.keys(PIXI.live2d));
                 
-                // Test if it has the expected methods
-                if (typeof PIXI.live2d.Live2DModel.from === 'function') {
-                    console.log('✓ Live2DModel.from() method available');
+                if (PIXI.live2d.Live2DModel) {
+                    console.log('✓ Live2DModel class available');
+                    window.Live2DModel = PIXI.live2d.Live2DModel;
+                    
+                    if (typeof PIXI.live2d.Live2DModel.from === 'function') {
+                        console.log('✓ Live2DModel.from() method available');
+                    } else {
+                        console.warn('Live2DModel.from() method not found');
+                    }
                 } else {
-                    console.warn('Live2DModel.from() method not found');
+                    console.warn('Live2DModel not found in PIXI.live2d');
                 }
-            } else {
-                console.warn('Live2DModel not found in PIXI.live2d');
-            }
-            
-            // Check for Live2DFactory
-            if (PIXI.live2d.Live2DFactory) {
-                console.log('✓ Live2DFactory available');
-                window.Live2DFactory = PIXI.live2d.Live2DFactory;
-            } else {
-                console.warn('Live2DFactory not found in PIXI.live2d');
-            }
-        }
-        
-        console.log('Live2D plugin initialization check complete');
-        console.log('System ready for Live2D model loading');
-        
-        // NOW INITIALIZE THE LIVE2D SYSTEM
-        if (typeof initializeLive2D === 'function') {
-            console.log('Starting Live2D modular system initialization...');
-            
-            // Load server configuration before initializing Live2D
-            loadServerConfig().then(() => {
-                console.log('Server configuration loaded, initializing Live2D...');
-                return initializeLive2D();
-            }).then(() => {
-                console.log('Live2D system initialization complete!');
-            }).catch(error => {
-                console.error('Live2D system initialization failed:', error);
-            });
-        } else {
-            console.error('initializeLive2D function not found!');
-        }
-        
-    }, 500); // Increased delay to ensure all libraries are loaded
-});
-</script>
-
-<!-- Step 5: Load Live2D modular system -->
-<!-- AI Companion Core Functionality -->
-<script src="/static/js/debug.js"></script>
-<script src="/static/js/live2d_config.js"></script>
-<script src="/static/js/live2d_logger.js"></script>
-<script src="/static/js/live2d_tester.js"></script>
-<script src="/static/js/live2d_interaction.js"></script>
-<script src="/static/js/live2d_core.js"></script>
-<script src="/static/js/live2d_model_manager.js"></script>
-<script src="/static/js/live2d_multi_model_manager.js"></script>
-<script src="/static/js/live2d_motion_manager.js"></script>
-<script src="/static/js/live2d_integration.js"></script>
-<script src="/static/js/live2d_ui_controller.js"></script>
-<script src="/static/js/live2d_simple_fix.js"></script>
-
-<!-- AI Companion Additional Functionality -->
-<script src="/static/js/tts-audio.js"></script>
-<script src="/static/js/chat.js"></script>
-<script src="/static/js/autonomous_avatars.js"></script>
-<script src="/static/js/db.js"></script>
-<script src="/static/js/voice-recording.js"></script>
-<script src="/static/js/character-sheet.js"></script>
-<script src="/static/js/user-profile.js"></script>
-
-<!-- SocketIO for real-time communication -->
-<script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
-
-<script>
-// Global variables for the modular system
-let live2dIntegration = null;
-let uiController = null;
-let live2dMultiModelManager = null; // Make available globally for remove buttons
-let currentModel = null; // Add current model reference
-let pixiApp = null; // Add PIXI app reference
-
-// Global chat history management functions
-function refreshChatHistory() {
-    if (avatarChatManager) {
-        avatarChatManager.refreshChatHistory();
-    } else {
-        console.warn('Avatar chat manager not initialized');
-    }
-}
-
-function clearChatHistory() {
-    if (confirm('Are you sure you want to clear the chat history? This will only clear the current session.')) {
-        if (avatarChatManager) {
-            avatarChatManager.clearChatHistory();
-        } else if (window.chatWindow) {
-            window.chatWindow.innerHTML = '';
-            addSystemMessage('Chat history cleared');
-        }
-    }
-}
-
-function exportChatHistory() {
-    if (avatarChatManager) {
-        avatarChatManager.exportChatHistory();
-    } else {
-        console.warn('Avatar chat manager not initialized');
-        alert('Chat export is not available without active avatars');
-    }
-}
-
-// Function to open drawing panel
-function openDrawing() {
-    console.log('Opening drawing panel...');
-    const panel = document.getElementById('drawingPanel');
-    if (panel) {
-        panel.classList.add('open');
-        initializeDrawingCanvas();
-    }
-}
-
-// Function to close drawing panel
-function closeDrawing() {
-    const panel = document.getElementById('drawingPanel');
-    if (panel) {
-        panel.classList.remove('open');
-    }
-}
-
-// Function to toggle drawing panel snap
-function toggleDrawingSnap() {
-    const panel = document.getElementById('drawingPanel');
-    if (panel) {
-        if (panel.classList.contains('snapped-left')) {
-            panel.classList.remove('snapped-left');
-            panel.classList.add('snapped-right');
-        } else {
-            panel.classList.remove('snapped-right');
-            panel.classList.add('snapped-left');
-        }
-    }
-}
-
-// Function to toggle user profile panel snap
-function toggleUserProfileSnap() {
-    const panel = document.getElementById('userProfilePanel');
-    if (panel) {
-        if (panel.classList.contains('snapped-left')) {
-            panel.classList.remove('snapped-left');
-            panel.classList.add('snapped-right');
-        } else {
-            panel.classList.remove('snapped-right');
-            panel.classList.add('snapped-left');
-        }
-    }
-}
-
-// Drawing state
-let drawingState = {
-    isDrawing: false,
-    currentTool: 'pen',
-    currentColor: '#000000',
-    brushSize: 5,
-    opacity: 1.0,
-    drawingCanvas: null,
-    drawingContext: null,
-    layers: ['Background']
-};
-
-// Initialize drawing canvas
-function initializeDrawingCanvas() {
-    console.log('Initializing drawing canvas...');
-    
-    // For now, we'll use a basic implementation
-    // This can be expanded to create an actual drawing canvas overlay
-    updateBrushSizeDisplay();
-    updateOpacityDisplay();
-}
-
-// Drawing tool functions
-function selectTool(tool) {
-    drawingState.currentTool = tool;
-    
-    // Update active tool button
-    document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    
-    console.log('Selected tool:', tool);
-}
-
-function updateDrawingColor() {
-    const colorInput = document.getElementById('drawingColor');
-    if (colorInput) {
-        drawingState.currentColor = colorInput.value;
-        console.log('Drawing color updated to:', drawingState.currentColor);
-    }
-}
-
-function updateBrushSize() {
-    const sizeInput = document.getElementById('brushSize');
-    if (sizeInput) {
-        drawingState.brushSize = parseInt(sizeInput.value);
-        updateBrushSizeDisplay();
-        console.log('Brush size updated to:', drawingState.brushSize);
-    }
-}
-
-function updateBrushSizeDisplay() {
-    const display = document.getElementById('brushSizeValue');
-    if (display) {
-        display.textContent = `${drawingState.brushSize}px`;
-    }
-}
-
-function updateOpacity() {
-    const opacityInput = document.getElementById('opacity');
-    if (opacityInput) {
-        drawingState.opacity = parseInt(opacityInput.value) / 100;
-        updateOpacityDisplay();
-        console.log('Opacity updated to:', drawingState.opacity);
-    }
-}
-
-function updateOpacityDisplay() {
-    const display = document.getElementById('opacityValue');
-    if (display) {
-        display.textContent = `${Math.round(drawingState.opacity * 100)}%`;
-    }
-}
-
-// Canvas control functions
-function clearCanvas() {
-    if (confirm('Are you sure you want to clear the canvas? This action cannot be undone.')) {
-        console.log('Clearing drawing canvas...');
-        // Implementation for clearing canvas
-        alert('Canvas cleared! (Drawing functionality is in development)');
-    }
-}
-
-function saveDrawing() {
-    console.log('Saving drawing...');
-    alert('Save functionality coming soon! This will export your drawing as an image.');
-}
-
-function loadDrawing() {
-    console.log('Loading drawing...');
-    alert('Load functionality coming soon! This will allow you to import an image to draw over.');
-}
-
-// Layer management functions
-function addNewLayer() {
-    const layerName = prompt('Enter layer name:', `Layer ${drawingState.layers.length + 1}`);
-    if (layerName) {
-        drawingState.layers.push(layerName);
-        updateLayerList();
-        console.log('Added new layer:', layerName);
-    }
-}
-
-function deleteLayer() {
-    if (drawingState.layers.length <= 1) {
-        alert('Cannot delete the last layer!');
-        return;
-    }
-    
-    const activeLayer = document.querySelector('.layer-item.active');
-    if (activeLayer && confirm('Are you sure you want to delete this layer?')) {
-        const layerIndex = parseInt(activeLayer.dataset.layer);
-        drawingState.layers.splice(layerIndex, 1);
-        updateLayerList();
-        console.log('Deleted layer at index:', layerIndex);
-    }
-}
-
-function toggleLayerVisibility(layerIndex) {
-    console.log('Toggling visibility for layer:', layerIndex);
-    // Implementation for layer visibility toggle
-}
-
-function updateLayerList() {
-    const layerList = document.getElementById('layerList');
-    if (!layerList) return;
-    
-    layerList.innerHTML = '';
-    drawingState.layers.forEach((layerName, index) => {
-        const layerItem = document.createElement('div');
-        layerItem.className = 'layer-item';
-        if (index === 0) layerItem.classList.add('active');
-        layerItem.dataset.layer = index;
-        
-        layerItem.innerHTML = `
-            <span>${layerName}</span>
-            <button onclick="toggleLayerVisibility(${index})">👁️</button>
-        `;
-        
-        layerItem.addEventListener('click', () => {
-            document.querySelectorAll('.layer-item').forEach(item => item.classList.remove('active'));
-            layerItem.classList.add('active');
-        });
-        
-        layerList.appendChild(layerItem);
-    });
-}
-
-// Character Icon Upload Functions
-let currentCharacterIcon = null; // Store the processed icon data
-
-function handleIconUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-        alert('Please select a valid image file.');
-        return;
-    }
-    
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-        alert('Image file is too large. Please select an image smaller than 5MB.');
-        return;
-    }
-    
-    console.log('Processing character icon upload:', file.name);
-    
-    // Create FileReader to read the image
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        processCharacterIcon(e.target.result, file.name);
-    };
-    reader.readAsDataURL(file);
-}
-
-function processCharacterIcon(imageDataUrl, fileName) {
-    const img = new Image();
-    img.onload = function() {
-        // Create canvas for image processing
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        // Set canvas size for people list icon (64x64 for high quality)
-        const iconSize = 64;
-        canvas.width = iconSize;
-        canvas.height = iconSize;
-        
-        // Calculate dimensions to maintain aspect ratio
-        let sourceX = 0, sourceY = 0, sourceWidth = img.width, sourceHeight = img.height;
-        
-        // Crop to square if not already square
-        if (img.width > img.height) {
-            sourceX = (img.width - img.height) / 2;
-            sourceWidth = img.height;
-        } else if (img.height > img.width) {
-            sourceY = (img.height - img.width) / 2;
-            sourceHeight = img.width;
-        }
-        
-        // Draw the image scaled and cropped to square
-        ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, iconSize, iconSize);
-        
-        // Get the processed image data
-        const processedImageData = canvas.toDataURL('image/png', 0.9);
-        
-        // Store the icon data
-        currentCharacterIcon = {
-            original: imageDataUrl,
-            processed: processedImageData,
-            fileName: fileName,
-            timestamp: new Date().toISOString()
-        };
-        
-        // Update the preview
-        updateIconPreview(processedImageData);
-        
-        console.log('Character icon processed successfully:', fileName);
-    };
-    
-    img.onerror = function() {
-        alert('Error loading image. Please try a different file.');
-        console.error('Failed to load image for processing');
-    };
-    
-    img.src = imageDataUrl;
-}
-
-function updateIconPreview(imageDataUrl) {
-    const preview = document.getElementById('iconPreview');
-    const removeBtn = document.getElementById('removeIconBtn');
-    
-    if (imageDataUrl && preview) {
-        preview.innerHTML = `<img src="${imageDataUrl}" alt="Character Icon">`;
-        preview.classList.add('has-image');
-        
-        if (removeBtn) {
-            removeBtn.style.display = 'inline-block';
-        }
-    } else {
-        // Reset to placeholder
-        preview.innerHTML = `
-            <div class="icon-placeholder">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                    <circle cx="8.5" cy="8.5" r="1.5"/>
-                    <polyline points="21,15 16,10 5,21"/>
-                </svg>
-                <span>No icon uploaded</span>
-            </div>
-        `;
-        preview.classList.remove('has-image');
-        
-        if (removeBtn) {
-            removeBtn.style.display = 'none';
-        }
-    }
-}
-
-function removeCharacterIcon() {
-    if (confirm('Are you sure you want to remove the character icon?')) {
-        currentCharacterIcon = null;
-        updateIconPreview(null);
-        
-        // Clear the file input
-        const fileInput = document.getElementById('characterIconFile');
-        if (fileInput) {
-            fileInput.value = '';
-        }
-        
-        console.log('Character icon removed');
-    }
-}
-
-// Function to get character icon data for saving
-function getCharacterIconData() {
-    return currentCharacterIcon;
-}
-
-// Function to load character icon when editing existing character
-function loadCharacterIcon(iconData) {
-    if (iconData) {
-        currentCharacterIcon = iconData;
-        updateIconPreview(iconData.processed || iconData.original);
-        console.log('Loaded existing character icon');
-    } else {
-        // Clear icon without confirmation when loading character (not user-initiated)
-        currentCharacterIcon = null;
-        updateIconPreview(null);
-        
-        // Clear the file input
-        const fileInput = document.getElementById('characterIconFile');
-        if (fileInput) {
-            fileInput.value = '';
-        }
-        
-        console.log('Character icon cleared (no icon set for this character)');
-    }
-}
-
-// Function to update current model reference when active model changes
-function updateCurrentModelReference() {
-    if (live2dMultiModelManager) {
-        const activeModelData = live2dMultiModelManager.getActiveModel();
-        console.log('🔍 Active model check:', {
-            hasActiveModelData: !!activeModelData,
-            activeModelDataKeys: activeModelData ? Object.keys(activeModelData) : null,
-            hasModel: activeModelData ? !!activeModelData.model : false,
-            modelType: activeModelData && activeModelData.model ? typeof activeModelData.model : null,
-            modelName: activeModelData ? activeModelData.name : null
-        });
-        
-        if (activeModelData && activeModelData.model) {
-            currentModel = activeModelData.model;
-            console.log('🔄 Updated currentModel reference to:', activeModelData.name);
-            
-            // Update PIXI app reference from integration
-            if (live2dIntegration && live2dIntegration.app) {
-                pixiApp = live2dIntegration.app;
-                console.log('🔄 Updated pixiApp reference from integration');
-            }
-            
-            // Set up mouse interaction for the new current model (only if not already set up)
-            if (currentModel && pixiApp && !currentModel._interactionSetup) {
-                setupLive2DMouseInteraction(currentModel);
-                currentModel._interactionSetup = true; // Mark as set up to prevent duplicates
-            }
-            
-            return true;
-        } else {
-            // Try alternative method - get all models and find the active one
-            const allModels = live2dMultiModelManager.getAllModels();
-            console.log('🔍 Trying alternative method - all models:', allModels.length);
-            
-            for (let modelData of allModels) {
-                if (modelData.model && modelData.model.visible) {
-                    currentModel = modelData.model;
-                    console.log('🔄 Found visible model:', modelData.name);
-                    
-                    // Update PIXI app reference
-                    if (live2dIntegration && live2dIntegration.app) {
-                        pixiApp = live2dIntegration.app;
-                    }
-                    
-                    // Set up mouse interaction (only if not already set up)
-                    if (currentModel && pixiApp && !currentModel._interactionSetup) {
-                        setupLive2DMouseInteraction(currentModel);
-                        currentModel._interactionSetup = true;
-                    }
-                    
-                    return true;
+                
+                if (PIXI.live2d.Live2DFactory) {
+                    console.log('✓ Live2DFactory available');
+                    window.Live2DFactory = PIXI.live2d.Live2DFactory;
+                } else {
+                    console.warn('Live2DFactory not found in PIXI.live2d');
                 }
             }
             
-            currentModel = null;
-            console.log('❌ No active model found');
-            return false;
-        }
-    }
-    currentModel = null;
-    return false;
-}
-
-// Initialize the modular Live2D system
-async function initializeLive2D() {
-    try {
-        console.log('Initializing Live2D modular system...');
-        
-        // Check if modular classes are available, if not use fallback
-        if (typeof Live2DIntegration === 'undefined') {
-            console.warn('Live2DIntegration class not found, using fallback initialization');
-            await initializeFallbackLive2D();
-            return;
-        }
-        
-        // Create integration instance
-        live2dIntegration = new Live2DIntegration();
-        
-        // Initialize integration (canvas container)
-        const success = await live2dIntegration.initialize('pixiContainer');
-        
-        if (!success) {
-            throw new Error('Failed to initialize Live2D integration');
-        }
-        
-        // Create UI controller
-        uiController = new Live2DUIController(live2dIntegration);
-        
-        // Initialize UI controller
-        await uiController.initialize();
-        
-        // Store reference to multi-model manager for global access
-        live2dMultiModelManager = live2dIntegration.modelManager;
-        
-        // Store PIXI app reference from integration.core.app (correct location)
-        pixiApp = live2dIntegration.core.app;
-        
-        // CRITICAL: Make globals available to debug console and other scripts
-        window.live2dIntegration = live2dIntegration;
-        window.live2dMultiModelManager = live2dMultiModelManager;
-        window.uiController = uiController;
-        window.pixiApp = pixiApp;
-        
-        // Additional debug: verify PIXI app is correctly assigned
-        console.log('🔍 PIXI app assignment check:', {
-            'live2dIntegration.app': !!live2dIntegration.app,
-            'live2dIntegration.core.app': !!live2dIntegration.core.app,
-            'assigned pixiApp': !!pixiApp,
-            'window.pixiApp': !!window.pixiApp
-        });
-        
-        // CRITICAL: Also expose the interaction manager for debug functions
-        if (live2dIntegration && live2dIntegration.core && live2dIntegration.core.interactionManager) {
-            window.interactionManager = live2dIntegration.core.interactionManager;
-            console.log('✅ Interaction manager exposed globally');
-        }
-        
-        // Also expose the SDK for debug console
-        window.LIVE2DCUBISMCORE = window.Live2DCubismCore;
-        
-        // CRITICAL: Apply interaction fix immediately after initialization
-        console.log('🔧 Applying PIXI interaction fix...');
-        fixPixiInteractionSystem();
-        
-        // Set up connection between multi-model manager and UI controller
-        live2dMultiModelManager.setUIController(uiController);
-        
-        // Initialize the People panel with actual loaded models (clear any hardcoded data)
-        debouncedPopulatePeopleModels();
-        
-        console.log('Live2D system initialized successfully!');
-        
-    } catch (error) {
-        console.error('Failed to initialize Live2D system:', error);
-        console.log('Attempting fallback initialization...');
-        await initializeFallbackLive2D();
-    }
-}
-
-// Fallback initialization with Direct Mouse Interaction Implementation
-async function initializeFallbackLive2D() {
-    try {
-        console.log('Initializing fallback Live2D system with mouse interaction...');
-        
-        // Create basic PIXI application
-        pixiApp = new PIXI.Application({
-            width: window.innerWidth,
-            height: window.innerHeight,
-            backgroundColor: 0x000000, // Black background instead of blue
-            transparent: true,
-            antialias: true,
-            resolution: window.devicePixelRatio || 1,
-            autoDensity: true
-        });
-        
-        // Add canvas to container
-        const container = document.getElementById('pixiContainer');
-        container.appendChild(pixiApp.view);
-        
-        // Set up stage interaction (CRITICAL for mouse events)
-        pixiApp.stage.interactive = true;
-        pixiApp.stage.hitArea = pixiApp.screen;
-        
-        // Make globals available
-        window.pixiApp = pixiApp;
-        window.currentModel = null;
-        
-        console.log('✅ Fallback Live2D system with mouse interaction initialized');
-        
-        // Set up model info display
-        updateModelInfoDisplay('System ready - load a model to test mouse interaction');
-        
-        // Try to load a test model if available
-        await tryLoadTestModel();
-        
-    } catch (error) {
-        console.error('Failed to initialize fallback Live2D system:', error);
-        updateModelInfoDisplay('❌ Failed to initialize Live2D system');
-    }
-}
-
-// Try to load a test model for interaction testing
-async function tryLoadTestModel() {
-    try {
-        // This would attempt to load a model from the server
-        const response = await fetch('/api/live2d/models');
-        if (response.ok) {
-            const models = await response.json();
-            if (models && models.length > 0) {
-                console.log(`Found ${models.length} models available for testing`);
-                updateModelInfoDisplay(`Found ${models.length} models - use People panel to load one`);
+            console.log('Live2D plugin initialization check complete');
+            console.log('System ready for Live2D model loading');
+            
+            if (typeof initializeLive2D === 'function') {
+                console.log('Starting Live2D modular system initialization...');
+                
+                loadServerConfig().then(() => {
+                    console.log('Server configuration loaded, initializing Live2D...');
+                    return initializeLive2D();
+                }).then(() => {
+                    console.log('Live2D system initialization complete!');
+                }).catch(error => {
+                    console.error('Live2D system initialization failed:', error);
+                });
+            } else {
+                console.error('initializeLive2D function not found!');
             }
-        }
-    } catch (error) {
-        console.log('Could not fetch models for testing:', error.message);
-        updateModelInfoDisplay('System ready - add models via People panel');
-    }
-}
+        }, 500);
+    });
+    </script>
 
-// Live2D Viewer Web Mouse Interaction Implementation
-function setupLive2DMouseInteraction(model) {
-    if (!model || !pixiApp) {
-        console.warn('Cannot setup mouse interaction: missing model or PIXI app');
-        return;
-    }
-    
-    console.log('🖱️ Setting up Live2D Viewer Web mouse interaction for model:', model.internalModel?.settings?.name || 'Unknown');
-    
-    // Enable interaction on the model (Live2D Viewer Web pattern)
-    model.interactive = true;
-    model.buttonMode = true;
-    
-    // Set up dragging variables
-    let isDragging = false;
-    let dragStart = { x: 0, y: 0 };
-    let modelStart = { x: 0, y: 0 };
-    
-    // Mouse down - start dragging (Live2D Viewer Web pattern)
-    model.removeAllListeners('pointerdown'); // Prevent duplicate listeners
-    model.on('pointerdown', (event) => {
-        isDragging = true;
-        const position = event.data.global;
-        dragStart.x = position.x;
-        dragStart.y = position.y;
-        modelStart.x = model.x;
-        modelStart.y = model.y;
-        
-        // Prevent event bubbling
-        event.stopPropagation();
-        console.log('🖱️ Model drag started at:', position);
-        
-        // Update model info
-        updateModelInfoDisplay(`Dragging model from (${Math.round(modelStart.x)}, ${Math.round(modelStart.y)})`);
-    });
-    
-    // Mouse move - drag the model (use app stage for global movement)
-    pixiApp.stage.removeAllListeners('pointermove'); // Prevent duplicate listeners
-    pixiApp.stage.on('pointermove', (event) => {
-        if (!isDragging) return;
-        
-        const position = event.data.global;
-        const deltaX = position.x - dragStart.x;
-        const deltaY = position.y - dragStart.y;
-        
-        model.x = modelStart.x + deltaX;
-        model.y = modelStart.y + deltaY;
-        
-        // Update model info during drag
-        updateModelInfoDisplay(`Position: (${Math.round(model.x)}, ${Math.round(model.y)}) Scale: ${model.scale.x.toFixed(2)}`);
-    });
-    
-    // Mouse up - stop dragging
-    pixiApp.stage.removeAllListeners('pointerup'); // Prevent duplicate listeners
-    pixiApp.stage.on('pointerup', () => {
-        if (isDragging) {
-            isDragging = false;
-            console.log('🖱️ Model drag ended at:', { x: model.x, y: model.y });
-            updateModelInfoDisplay(`✅ Model positioned at (${Math.round(model.x)}, ${Math.round(model.y)})`);
-        }
-    });
-    
-    // Handle mouse leave canvas
-    pixiApp.stage.removeAllListeners('pointerupoutside'); // Prevent duplicate listeners
-    pixiApp.stage.on('pointerupoutside', () => {
-        if (isDragging) {
-            isDragging = false;
-            console.log('🖱️ Model drag ended (outside canvas)');
-            updateModelInfoDisplay(`✅ Model positioned at (${Math.round(model.x)}, ${Math.round(model.y)})`);
-        }
-    });
-    
-    // Set up mouse wheel scaling (Live2D Viewer Web pattern)
-    setupModelScaling(model);
-    
-    // Set up hit area testing if available
-    setupModelHitAreas(model);
-    
-    console.log('✅ Mouse interaction setup complete for model');
-}
+    <!-- Load Live2D modular system -->
+    <script src="/static/js/live2d_config.js"></script>
+    <script src="/static/js/live2d_core.js"></script>  
+    <script src="/static/js/live2d_core_simple.js"></script>
+    <script src="/static/js/live2d_integration.js"></script>
+    <script src="/static/js/live2d_interaction.js"></script>
+    <script src="/static/js/live2d_logger.js"></script>
+    <script src="/static/js/live2d_model_loader.js"></script>
+    <script src="/static/js/live2d_model_manager.js"></script>
+    <script src="/static/js/live2d_motion_manager.js"></script>
+    <script src="/static/js/live2d_motions.js"></script>
+    <script src="/static/js/live2d_mouse_interaction.js"></script>    
+    <script src="/static/js/live2d_multi_model_manager.js"></script>    
+    <script src="/static/js/live2d_simple_fix.js"></script>    
+    <script src="/static/js/live2d_tester.js"></script>
+    <script src="/static/js/live2d_ui_controller.js"></script>
 
-// Live2D Viewer Web scaling pattern implementation
-function setupModelScaling(model) {
-    if (!pixiApp?.view) {
-        console.warn('Cannot setup model scaling: no canvas available');
-        return;
-    }
-    
-    const canvas = pixiApp.view;
-    
-    // Remove any existing wheel listeners to prevent duplicates
-    const existingHandler = canvas._live2dWheelHandler;
-    if (existingHandler) {
-        canvas.removeEventListener('wheel', existingHandler);
-    }
-    
-    // Create wheel handler
-    function handleModelWheel(event) {
-        event.preventDefault();
+    <!-- UI components -->
+    <script src="/static/js/ui_debug_logger.js"></script> 
+    <script src="/static/js/ui_console_manager.js"></script>
+    <script src="/static/js/ui_drawing_system.js"></script>
+    <script src="/static/js/ui_icon_manager.js"></script>     
+    <script src="/static/js/ui_panel_management.js"></script>
+    <script src="/static/js/ui_people_panel.js"></script>
+    <script src="/static/js/ui_panel_manager.js"></script>
+    <script src="/static/js/ui_debug_console.js"></script>
+
+    <!-- Audio Processing -->
+    <script src="/static/js/audio_voice_recording.js"></script>
+    <script src="/static/js/audio_tts.js"></script> 
+
+    <!-- Additional Functionality -->
+    <script src="/static/js/autonomous_avatars.js"></script>
+    <script src="/static/js/chat_manager.js"></script>
+    <script src="/static/js/db_manager.js"></script>
+    <script src="/static/js/user_profile_manager.js"></script>
+    <script src="/static/js/config_api_helpers.js"></script>
+    <script src="/static/js/eventemitter_preloader_v6.js"></script>
+
+    <!-- SocketIO for real-time communication -->
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+
+    <!-- Model info display div -->
+    <div id="model-info" style="position: absolute; top: 0px; left: 0px; background: rgba(0,0,0,0.8); color: white; padding: 12px; border-radius: 6px; font-size: 11px; z-index: 1000; max-width: 280px; font-family: monospace;">
+        🔄 Initializing Live2D system with interaction fix...
+    </div>
+
+    <!-- Application initialization -->
+    <script>
+    // Initialize when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        // Update initial status
+        updateModelInfoDisplay('🔄 Loading Live2D system...\nInitializing libraries and components');
         
-        if (!model || !model.scale) return;
+        // Load and apply saved window layout
+        loadWindowLayout();
         
-        const scaleFactor = event.deltaY > 0 ? 0.9 : 1.1;
-        const newScale = model.scale.x * scaleFactor;
+        // Initialize draggable functionality
+        initializeDraggable();
         
-        // Limit scale between 0.1 and 5.0 (Live2D Viewer Web limits)
-        if (newScale >= 0.1 && newScale <= 5.0) {
-            model.scale.set(newScale);
-            console.log('🔍 Model scaled to:', newScale.toFixed(2));
+        // Initialize navigation states
+        updateNavIconStates();
+        
+        // Add emergency keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+Shift+R to reset window layout
+            if (e.ctrlKey && e.shiftKey && e.key === 'R') {
+                e.preventDefault();
+                console.log('Emergency layout reset triggered');
+                resetWindowLayout();
+            }
             
-            // Update UI slider if available
-            const slider = document.getElementById('zoomSlider');
-            const display = document.getElementById('zoomValue');
-            if (slider) slider.value = newScale;
-            if (display) display.textContent = newScale.toFixed(2);
+            // Ctrl+Shift+B to rescue off-screen windows
+            if (e.ctrlKey && e.shiftKey && e.key === 'B') {
+                e.preventDefault();
+                console.log('Emergency rescue mode triggered');
+                rescueOffScreenWindows();
+            }
             
-            // Update model info
-            updateModelInfoDisplay(`Position: (${Math.round(model.x)}, ${Math.round(model.y)}) Scale: ${newScale.toFixed(2)}`);
-        }
-    }
-    
-    // Store handler reference for cleanup
-    canvas._live2dWheelHandler = handleModelWheel;
-    
-    // Add wheel event listener
-    canvas.addEventListener('wheel', handleModelWheel, { passive: false });
-    
-    console.log('🔍 Mouse wheel scaling set up for model');
-}
-
-// Live2D Viewer Web hit area pattern implementation
-function setupModelHitAreas(model) {
-    if (!model?.internalModel) {
-        console.log('Hit areas not available for this model');
-        return;
-    }
-    
-    model.removeAllListeners('pointerdown'); // Remove previous listeners
-    model.on('pointerdown', (event) => {
-        const point = event.data.global;
+            // Escape key to close model selection dialog
+            if (e.key === 'Escape') {
+                const dialog = document.getElementById('modelSelectionDialog');
+                if (dialog && dialog.style.display === 'flex') {
+                    closeAddModelDialog();
+                }
+            }
+        });
         
-        // Convert global coordinates to model local coordinates
-        const localPoint = model.toLocal(point);
-        
-        console.log('🎯 Hit test at:', localPoint);
-        
-        // Test hit areas if available (Live2D Viewer Web pattern)
-        if (model.internalModel.hitTest) {
+        // Wait for all libraries to load properly
+        setTimeout(async function() {
+            console.log('Libraries loaded, checking availability...');
+            
+            // Check library availability
+            if (typeof PIXI === 'undefined') {
+                console.error('PIXI.js not loaded');
+                updateModelInfoDisplay('❌ PIXI.js not loaded\nCheck that PIXI library loaded correctly');
+                return;
+            }
+            
+            if (typeof EventEmitter === 'undefined') {
+                console.error('EventEmitter not available');
+                updateModelInfoDisplay('❌ EventEmitter not available\nCheck browser compatibility');
+                return;
+            }
+            
+            // Check Live2D SDK availability
+            if (typeof Live2DCubismCore === 'undefined') {
+                console.error('Live2D Cubism Core SDK not loaded');
+                updateModelInfoDisplay('❌ Live2D SDK not loaded\nCheck browser console for errors');
+                return;
+            }
+            
+            // Make SDK available globally for debug console
+            window.LIVE2DCUBISMCORE = Live2DCubismCore;
+            
+            console.log('PIXI version:', PIXI.VERSION);
+            console.log('EventEmitter available:', typeof EventEmitter !== 'undefined');
+            console.log('Live2D SDK available:', typeof Live2DCubismCore !== 'undefined');
+            
+            // Initialize the Live2D system with timeout fallback
+            console.log('Starting Live2D initialization...');
+            
             try {
-                const hitAreas = model.internalModel.hitTest(localPoint.x, localPoint.y);
+                await Promise.race([
+                    initializeLive2D(),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Initialization timeout')), 10000)
+                    )
+                ]);
+                console.log('Live2D initialization completed!');
                 
-                if (hitAreas && hitAreas.length > 0) {
-                    console.log('🎯 Hit areas detected:', hitAreas);
-                    updateModelInfoDisplay(`🎯 Hit: ${hitAreas.join(', ')}`);
-                    
-                    // Trigger motions based on hit areas
-                    hitAreas.forEach(hitArea => {
-                        console.log(`🎭 Hit area: ${hitArea}`);
-                        // Add motion triggers here if needed
-                    });
-                } else {
-                    console.log('🎯 No hit areas at this location');
-                }
+                // Update status display after initialization
+                updateModelInfoDisplay('✅ Live2D system initialized\nLoad a model from People panel to test interaction');
+                
+                // Set up initial model reference if available
+                setTimeout(() => {
+                    updateCurrentModelReference();
+                }, 1000);
             } catch (error) {
-                console.warn('Hit test failed:', error);
+                console.error('Live2D initialization failed:', error);
+                updateModelInfoDisplay(`❌ Live2D initialization failed\n${error.message}\nCheck browser console for details`);
             }
-        } else {
-            console.log('🎯 Hit testing not available for this model');
-        }
+            
+            // Verify globals are available
+            console.log('Global check - window.live2dIntegration:', typeof window.live2dIntegration);
+            console.log('Global check - window.live2dMultiModelManager:', typeof window.live2dMultiModelManager);
+            console.log('Global check - window.LIVE2DCUBISMCORE:', typeof window.LIVE2DCUBISMCORE);
+        }, 1000);
     });
-}
 
-// Enhanced model loading function with mouse interaction
-async function loadLive2DModel(modelPath) {
-    try {
-        console.log('🎭 Loading Live2D model from:', modelPath);
-        
-        if (!pixiApp) {
-            throw new Error('PIXI application not available');
-        }
-        
-        updateModelInfoDisplay('Loading model...');
-        
-        // Clear existing model
-        if (currentModel) {
-            pixiApp.stage.removeChild(currentModel);
-            currentModel.destroy();
-            currentModel = null;
-        }
-        
-        // Load new model using Live2D Viewer Web pattern
-        currentModel = await Live2DModel.from(modelPath);
-        
-        if (!currentModel) {
-            throw new Error('Failed to create Live2D model');
-        }
-        
-        // Add to stage
-        pixiApp.stage.addChild(currentModel);
-        
-        // Center the model
-        currentModel.x = pixiApp.screen.width / 2;
-        currentModel.y = pixiApp.screen.height / 2;
-        
-        // Set initial scale
-        currentModel.scale.set(0.3);
-        
-        // CRITICAL: Enable mouse interactions using Live2D Viewer Web patterns
-        setupLive2DMouseInteraction(currentModel);
-        
-        // Store globally
-        window.currentModel = currentModel;
-        
-        console.log('✅ Model loaded successfully with mouse interaction:', currentModel);
-        
-        // Update model info display
-        const modelName = currentModel.internalModel?.settings?.name || 'Unknown Model';
-        updateModelInfoDisplay(`✅ ${modelName} loaded - drag to move, scroll to scale`);
-        
-        return currentModel;
-        
-    } catch (error) {
-        console.error('❌ Error loading model:', error);
-        updateModelInfoDisplay(`❌ Failed to load model: ${error.message}`);
-        throw error;
-    }
-}
+    // Save layout on window resize and before page unload
+    window.addEventListener('resize', function() {
+        // Debounce resize events to avoid excessive saves
+        clearTimeout(window.resizeTimeout);
+        window.resizeTimeout = setTimeout(saveWindowLayout, 500);
+    });
 
-// Helper function to update model info display (disabled)
-function updateModelInfoDisplay(message) {
-    // Overlay display disabled - function is now a no-op
-}
+    window.addEventListener('beforeunload', function() {
+        saveWindowLayout();
+    });
 
-// Global drag state variables (make accessible across all functions)
-window.dragState = {
-    isDragging: false,
-    dragStart: null,
-    modelStart: null,
-    activeModel: null,
-    moveCount: 0,
-    pointerId: undefined
-};
+    // Initialize enhanced features when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('🚀 Initializing AI Companion enhanced features...');
+        
+        // Initialize SocketIO after a short delay
+        setTimeout(() => {
+            if (typeof io !== 'undefined') {
+                const socket = io();
+                
+                socket.on('connect', function() {
+                    console.log('🔌 Connected to server via SocketIO');
+                    addSystemMessage('Connected to AI live2d chat server', 'success');
+                });
+                
+                socket.on('disconnect', function() {
+                    console.log('🔌 Disconnected from server');
+                    addSystemMessage('Disconnected from server', 'warning');
+                });
+                
+                socket.on('ai_response', function(data) {
+                    console.log('📨 Received AI response via SocketIO:', data);
+                    if (typeof addChatMessage === 'function') {
+                        addChatMessage('ai', data.message);
+                    }
+                    
+                    if (data.tts_data && typeof playEmotionalTTSAudio === 'function') {
+                        playEmotionalTTSAudio(data.tts_data);
+                    }
+                    
+                    if (data.emotion) {
+                        triggerEmotionalResponse(data.emotion, data.intensity);
+                    }
+                });
+                
+                socket.on('motion_trigger', function(data) {
+                    console.log('🎭 Received motion trigger:', data);
+                    if (data.motion_type && typeof window.triggerMotion === 'function') {
+                        window.triggerMotion(data.motion_type);
+                    }
+                });
+                
+                console.log('🔌 SocketIO initialized');
+                window.socket = socket;
+            } else {
+                console.warn('⚠️ SocketIO not available');
+            }
+        }, 2000);
+        
+        console.log('✅ AI Companion enhanced features initialized');
+    });
+    </script>
 
-// Integrated PIXI interaction system fix
+    <!-- Application initialization -->
+    <script>
+    // Initialize when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        // Update initial status
+        updateModelInfoDisplay('🔄 Loading Live2D system...\nInitializing libraries and components');
 function fixPixiInteractionSystem() {
     const pixiApp = window.live2dIntegration?.core?.app || window.pixiApp;
     if (!pixiApp) {
@@ -2215,358 +1465,6 @@ function fixPixiInteractionSystem() {
 }
 
 // Add basic PIXI event diagnostics
-function debugPixiEvents() {
-    console.log('🔍 === TESTING BASIC PIXI EVENTS ===');
-    
-    // Debug: let's see what's actually available
-    console.log('🔍 Debugging PIXI app location...');
-    console.log('live2dIntegration object:', window.live2dIntegration);
-    if (window.live2dIntegration) {
-        console.log('live2dIntegration keys:', Object.keys(window.live2dIntegration));
-        console.log('live2dIntegration.core:', window.live2dIntegration.core);
-        if (window.live2dIntegration.core) {
-            console.log('core keys:', Object.keys(window.live2dIntegration.core));
-            console.log('core.app:', window.live2dIntegration.core.app);
-        }
-    }
-    
-    // Test if we can access the PIXI app - try multiple locations
-    let pixiApp = null;
-    
-    // Try integration.core.app (likely correct location)
-    if (window.live2dIntegration?.core?.app) {
-        pixiApp = window.live2dIntegration.core.app;
-        console.log('✅ Found PIXI app via live2dIntegration.core.app');
-    }
-    // Try integration.app 
-    else if (window.live2dIntegration?.app) {
-        pixiApp = window.live2dIntegration.app;
-        console.log('✅ Found PIXI app via live2dIntegration.app');
-    }
-    // Try global pixiApp
-    else if (window.pixiApp) {
-        pixiApp = window.pixiApp;
-        console.log('✅ Found PIXI app via window.pixiApp');
-    }
-    // Try integration.pixiApp (fallback)
-    else if (window.live2dIntegration?.pixiApp) {
-        pixiApp = window.live2dIntegration.pixiApp;
-        console.log('✅ Found PIXI app via live2dIntegration.pixiApp');
-    }
-    
-    if (!pixiApp) {
-        console.error('❌ No PIXI app found in any location');
-        console.log('Debug info:', {
-            'live2dIntegration': !!window.live2dIntegration,
-            'live2dIntegration.app': !!window.live2dIntegration?.app,
-            'live2dIntegration.core': !!window.live2dIntegration?.core,
-            'live2dIntegration.core.app': !!window.live2dIntegration?.core?.app,
-            'live2dIntegration.pixiApp': !!window.live2dIntegration?.pixiApp,
-            'window.pixiApp': !!window.pixiApp
-        });
-        return;
-    }
-    
-    console.log('✅ PIXI app found:', pixiApp);
-    console.log('📱 PIXI stage:', pixiApp.stage);
-    
-    // CRITICAL: Ensure this PIXI app is also set globally for other functions
-    window.pixiApp = pixiApp;
-    
-    // Test stage events
-    console.log('🧪 Adding stage event listeners...');
-    
-    // CRITICAL FIX: Force enable ALL interaction settings
-    pixiApp.stage.interactive = true;
-    pixiApp.stage.eventMode = 'static';
-    pixiApp.stage.hitArea = pixiApp.screen;
-    
-    // ADDITIONAL FIX: Force enable interaction manager
-    const interaction = pixiApp.renderer.plugins?.interaction;
-    if (interaction) {
-        console.log('🔧 Force configuring interaction manager...');
-        interaction.interactionDOMElement = pixiApp.view;
-        if (interaction.setTargetElement) {
-            interaction.setTargetElement(pixiApp.view);
-        }
-        console.log('✅ Interaction manager configured');
-    }
-    
-    const stageDownHandler = (event) => {
-        console.log('🎯 STAGE POINTER DOWN:', {
-            x: event.global.x,
-            y: event.global.y,
-            target: event.target.constructor.name,
-            type: event.type
-        });
-    };
-    
-    const stageUpHandler = (event) => {
-        console.log('🎯 STAGE POINTER UP:', {
-            x: event.global.x,
-            y: event.global.y,
-            target: event.target.constructor.name,
-            type: event.type
-        });
-    };
-    
-    // Remove any existing listeners first
-    pixiApp.stage.off('pointerdown', stageDownHandler);
-    pixiApp.stage.off('pointerup', stageUpHandler);
-    
-    // Add new listeners
-    pixiApp.stage.on('pointerdown', stageDownHandler);
-    pixiApp.stage.on('pointerup', stageUpHandler);
-    
-    console.log('✅ Stage event listeners added. Try clicking anywhere on the canvas.');
-    console.log('📋 Expected: You should see STAGE POINTER events in console');
-}
-
-// Also add a canvas-level test
-function debugCanvasEvents() {
-    console.log('🔍 === TESTING CANVAS EVENTS ===');
-    
-    const canvas = document.querySelector('canvas');
-    if (!canvas) {
-        console.error('❌ No canvas found');
-        return;
-    }
-    
-    console.log('✅ Canvas found:', canvas);
-    
-    const canvasHandler = (event) => {
-        console.log('🎯 CANVAS EVENT:', {
-            type: event.type,
-            x: event.clientX,
-            y: event.clientY,
-            target: event.target.tagName
-        });
-    };
-    
-    // Remove existing listeners
-    canvas.removeEventListener('mousedown', canvasHandler);
-    canvas.removeEventListener('mouseup', canvasHandler);
-    
-    // Add new listeners
-    canvas.addEventListener('mousedown', canvasHandler);
-    canvas.addEventListener('mouseup', canvasHandler);
-    
-    console.log('✅ Canvas event listeners added. Try clicking on the canvas.');
-    console.log('📋 Expected: You should see CANVAS EVENT logs');
-}
-
-// Run all diagnostic tests in sequence
-function runAllEventTests() {
-    console.log('🚀 === RUNNING ALL EVENT DIAGNOSTICS ===');
-    console.log('Testing event system from bottom to top...');
-    
-    // Test 1: Canvas-level DOM events
-    debugCanvasEvents();
-    
-    // Test 2: PIXI stage events  
-    debugPixiEvents();
-    
-    // Test 3: PIXI Interaction Manager test
-    debugPixiInteractionManager();
-    
-    // Test 4: Model-specific events
-    debugModelClickTest();
-    
-    console.log('🏁 All tests setup complete! Try clicking on:');
-    console.log('1️⃣ Anywhere on canvas (should see CANVAS EVENT)');
-    console.log('2️⃣ Empty area on stage (should see STAGE POINTER)');
-    console.log('3️⃣ Directly on model (should see model move + CLICK details)');
-    console.log('📋 Check console for which events fire to identify the issue');
-}
-
-// New diagnostic function to test PIXI's interaction manager
-function debugPixiInteractionManager() {
-    console.log('🔍 === TESTING PIXI INTERACTION MANAGER ===');
-    
-    const pixiApp = window.live2dIntegration?.core?.app || window.pixiApp;
-    if (!pixiApp) {
-        console.error('❌ No PIXI app found for interaction manager test');
-        return;
-    }
-    
-    console.log('🔍 PIXI app renderer:', pixiApp.renderer);
-    console.log('🔍 PIXI app view (canvas):', pixiApp.view);
-    
-    // Check if interaction manager exists
-    const interaction = pixiApp.renderer.plugins?.interaction;
-    console.log('🔍 PIXI interaction manager:', interaction);
-    
-    if (interaction) {
-        console.log('✅ PIXI interaction manager found');
-        console.log('🔍 Interaction manager details:', {
-            eventData: !!interaction.eventData,
-            interactionDOMElement: !!interaction.interactionDOMElement,
-            resolution: interaction.resolution,
-            autoPreventDefault: interaction.autoPreventDefault
-        });
-        
-        // CRITICAL FIX: Force enable interaction manager
-        console.log('🔧 Force enabling PIXI interaction manager...');
-        
-        // Set the interaction DOM element to the canvas
-        interaction.interactionDOMElement = pixiApp.view;
-        
-        // Enable stage interaction with comprehensive settings
-        pixiApp.stage.interactive = true;
-        pixiApp.stage.eventMode = 'static';
-        pixiApp.stage.hitArea = pixiApp.screen;
-        
-        // Force the interaction manager to recognize the stage
-        if (interaction.setTargetElement) {
-            interaction.setTargetElement(pixiApp.view);
-        }
-        
-        // Check if the interaction manager is processing events
-        const originalOnPointerDown = interaction.onPointerDown;
-        interaction.onPointerDown = function(event) {
-            console.log('🎯 PIXI INTERACTION MANAGER - PointerDown received!', event);
-            updateModelInfoDisplay(`🎯 PIXI Interaction Manager detected mouse down!\nInteraction system is working at PIXI level`);
-            if (originalOnPointerDown) {
-                return originalOnPointerDown.call(this, event);
-            }
-        };
-        
-        console.log('✅ PIXI interaction manager test hook installed');
-        console.log('🔧 Stage interaction forced enabled:', {
-            stageInteractive: pixiApp.stage.interactive,
-            stageEventMode: pixiApp.stage.eventMode,
-            hasHitArea: !!pixiApp.stage.hitArea,
-            interactionDOMElement: !!interaction.interactionDOMElement
-        });
-    } else {
-        console.error('❌ PIXI interaction manager not found');
-        console.log('Available renderer plugins:', Object.keys(pixiApp.renderer.plugins || {}));
-    }
-}
-
-function debugModelInteraction() {
-    console.log('🔍 === TESTING MODEL MOUSE EVENTS ===');
-    
-    const activeModel = live2dMultiModelManager?.getActiveModel();
-    if (!activeModel?.pixiModel) {
-        console.error('❌ No active model with pixiModel');
-        updateModelInfoDisplay('❌ No active model found');
-        return;
-    }
-    
-    const model = activeModel.pixiModel;
-    console.log('🎯 Testing model:', activeModel.name);
-    
-    // Log current model state
-    console.log('Model state:', {
-        interactive: model.interactive,
-        eventMode: model.eventMode,
-        buttonMode: model.buttonMode,
-        cursor: model.cursor,
-        visible: model.visible,
-        worldVisible: model.worldVisible,
-        alpha: model.alpha,
-        position: { x: model.x, y: model.y },
-        scale: { x: model.scale.x, y: model.scale.y },
-        bounds: model.getBounds()
-    });
-    
-    // Remove existing test listeners
-    model.removeAllListeners('pointerdown');
-    model.removeAllListeners('pointermove');
-    model.removeAllListeners('pointerup');
-    
-    // Add test event listeners (NO MOVE EVENTS)
-    console.log('🧪 Adding test event listeners (NO MOVE EVENTS)...');
-    
-    model.on('pointerdown', (event) => {
-        console.log('🎉 MODEL POINTERDOWN EVENT RECEIVED!', {
-            x: event.data.global.x,
-            y: event.data.global.y,
-            button: event.data.button,
-            pointerId: event.data.pointerId,
-            target: event.target.constructor.name,
-            currentTarget: event.currentTarget.constructor.name
-        });
-        updateModelInfoDisplay(`🎉 MOUSE DOWN detected!\nPosition: (${Math.round(event.data.global.x)}, ${Math.round(event.data.global.y)})\nTarget: ${event.target.constructor.name}\nModel is receiving events!`);
-    });
-    
-    model.on('pointerup', (event) => {
-        console.log('� MODEL POINTERUP EVENT RECEIVED!', {
-            x: event.data.global.x,
-            y: event.data.global.y,
-            target: event.target.constructor.name
-        });
-        updateModelInfoDisplay(`🔼 MOUSE UP detected!\nModel interaction working!`);
-    });
-    
-    // Force enable interaction
-    model.interactive = true;
-    model.eventMode = 'static';
-    model.buttonMode = true;
-    model.cursor = 'pointer';
-    
-    console.log('✅ Test event listeners added (NO MOVE EVENTS). Try clicking on the model!');
-    updateModelInfoDisplay('🧪 Test listeners added (NO MOVE EVENTS)\nTry clicking the model\nCheck console for event logs');
-}
-
-function debugModelSystem() {
-    console.log('🔍 === MODEL SYSTEM DEBUG ===');
-    
-    // Check global variables
-    console.log('Global variables:', {
-        live2dIntegration: !!window.live2dIntegration,
-        live2dMultiModelManager: !!window.live2dMultiModelManager,
-        uiController: !!window.uiController,
-        pixiApp: !!window.pixiApp,
-        currentModel: !!window.currentModel
-    });
-    
-    // Check multi-model manager
-    if (live2dMultiModelManager) {
-        const allModels = live2dMultiModelManager.getAllModels();
-        const activeModel = live2dMultiModelManager.getActiveModel();
-        
-        console.log('Multi-model manager:', {
-            totalModels: allModels.length,
-            hasActiveModel: !!activeModel,
-            activeModelName: activeModel ? activeModel.name : 'none'
-        });
-        
-        console.log('All models:', allModels.map(m => ({
-            name: m.name,
-            hasModel: !!m.model,
-            visible: m.model ? m.model.visible : false,
-            interactive: m.model ? m.model.interactive : false
-        })));
-    }
-    
-    // Check PIXI app
-    if (pixiApp) {
-        console.log('PIXI app:', {
-            hasStage: !!pixiApp.stage,
-            hasView: !!pixiApp.view,
-            stageChildren: pixiApp.stage ? pixiApp.stage.children.length : 0,
-            stageInteractive: pixiApp.stage ? pixiApp.stage.interactive : false
-        });
-    }
-    
-    console.log('=== END DEBUG ===');
-    
-    // Update display with debug info
-    let debugInfo = 'System Debug:\n';
-    debugInfo += `Manager: ${!!live2dMultiModelManager}\n`;
-    debugInfo += `PIXI App: ${!!pixiApp}\n`;
-    debugInfo += `Current Model: ${!!currentModel}\n`;
-    
-    if (live2dMultiModelManager) {
-        const allModels = live2dMultiModelManager.getAllModels();
-        debugInfo += `Total Models: ${allModels.length}`;
-    }
-    
-    updateModelInfoDisplay(debugInfo);
-}
-
 // Override onModelChange to use new loading function
 function onModelChange() {
     console.log('onModelChange called');
@@ -2586,38 +1484,6 @@ function onModelChange() {
     });
 }
 
-// People panel functionality - Update to use new loading function
-function selectModelFromDialog(modelValue, modelName) {
-    console.log('Selected model from dialog:', modelName, modelValue);
-    
-    // Close dialog first
-    closeAddModelDialog();
-    
-    // Load the selected model with mouse interaction
-    const modelPath = `/static/live2d_models/${modelValue}/${modelValue}.model3.json`;
-    loadLive2DModel(modelPath).then(() => {
-        console.log('Model loaded successfully from dialog:', modelName);
-        
-        // Update the model select dropdown
-        const modelSelect = document.getElementById('modelSelect');
-        if (modelSelect) {
-            modelSelect.value = modelValue;
-        }
-        
-        // Refresh people panel if using multi-model manager
-        if (live2dMultiModelManager) {
-            debouncedPopulatePeopleModels(200);
-        }
-    }).catch(error => {
-        console.error('Failed to load model from dialog:', error);
-        updateModelInfoDisplay(`❌ Failed to load ${modelName}\nError: ${error.message}`);
-    });
-}
-
-// ...existing code...
-</script>
-
-<script>
 // Global state variables for UI panels
 let chatOpen = false;
 let peopleOpen = false;
@@ -2743,123 +1609,6 @@ function clearSavedLayout() {
     console.log('Saved layout cleared');
 }
 
-// Save window layout to localStorage
-function saveWindowLayout() {
-    try {
-        const layout = {
-            chat: {
-                open: chatOpen,
-                snapped: chatSnapped,
-                position: getElementPosition('chatWindow'),
-                size: getElementSize('chatWindow')
-            },
-            people: {
-                open: peopleOpen,
-                snapped: peopleSnapped,
-                position: getElementPosition('peoplePanel'),
-                size: getElementSize('peoplePanel')
-            },
-            settings: {
-                open: settingsOpen,
-                snapped: settingsSnapped,
-                position: getElementPosition('settingsPanel'),
-                size: getElementSize('settingsPanel')
-            }
-        };
-        
-        localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layout));
-        console.log('Window layout saved');
-    } catch (error) {
-        console.warn('Failed to save layout:', error);
-    }
-}
-
-// Load window layout from localStorage
-function loadWindowLayout() {
-    try {
-        const layoutData = localStorage.getItem(LAYOUT_STORAGE_KEY);
-        if (!layoutData) return;
-        
-        const layout = JSON.parse(layoutData);
-        
-        // Restore chat window
-        if (layout.chat) {
-            chatOpen = layout.chat.open;
-            chatSnapped = layout.chat.snapped;
-            const chatWindow = document.getElementById('chatWindow');
-            if (chatWindow) {
-                if (chatOpen) chatWindow.classList.add('open');
-                if (layout.chat.position) applyElementLayout(chatWindow, layout.chat);
-            }
-        }
-        
-        // Restore people panel
-        if (layout.people) {
-            peopleOpen = layout.people.open;
-            peopleSnapped = layout.people.snapped;
-            const peoplePanel = document.getElementById('peoplePanel');
-            if (peoplePanel) {
-                if (peopleOpen) peoplePanel.classList.add('open');
-                if (layout.people.position) applyElementLayout(peoplePanel, layout.people);
-            }
-        }
-        
-        // Restore settings panel
-        if (layout.settings) {
-            settingsOpen = layout.settings.open;
-            settingsSnapped = layout.settings.snapped;
-            const settingsPanel = document.getElementById('settingsPanel');
-            if (settingsPanel) {
-                if (settingsOpen) settingsPanel.classList.add('open');
-                if (layout.settings.position) applyElementLayout(settingsPanel, layout.settings);
-            }
-        }
-        
-        updateNavIconStates();
-        console.log('Window layout loaded');
-    } catch (error) {
-        console.warn('Failed to load layout:', error);
-    }
-}
-
-// Reset window layout to defaults
-function resetWindowLayout() {
-    console.log('Resetting window layout to defaults...');
-    
-    // Reset state variables
-    chatOpen = false;
-    peopleOpen = false;
-    settingsOpen = false;
-    chatSnapped = false;
-    peopleSnapped = false;
-    settingsSnapped = false;
-    
-    // Reset chat window
-    const chatWindow = document.getElementById('chatWindow');
-    if (chatWindow) {
-        chatWindow.classList.remove('open', 'pinned');
-        chatWindow.style.cssText = ''; // Clear all inline styles
-    }
-    
-    // Reset people panel
-    const peoplePanel = document.getElementById('peoplePanel');
-    if (peoplePanel) {
-        peoplePanel.classList.remove('open', 'pinned');
-        peoplePanel.style.cssText = ''; // Clear all inline styles
-    }
-    
-    // Reset settings panel
-    const settingsPanel = document.getElementById('settingsPanel');
-    if (settingsPanel) {
-        settingsPanel.classList.remove('open', 'pinned');
-        settingsPanel.style.cssText = ''; // Clear all inline styles
-    }
-    
-    updateNavIconStates();
-    clearSavedLayout();
-    console.log('Window layout reset complete');
-}
-
 // Add emergency reset functionality for off-screen windows
 document.addEventListener('keydown', function(e) {
     // Ctrl+Shift+R to reset window layout
@@ -2935,216 +1684,6 @@ function rescueOffScreenWindows() {
 }
 
 // Navigation functions
-function updateNavIconStates() {
-    const navIcons = document.querySelectorAll('.nav-icon');
-    navIcons.forEach(icon => {
-        icon.classList.remove('active');
-    });
-    
-    if (chatOpen) {
-        const chatIcon = document.querySelector('.nav-icon[onclick="openChat()"]');
-        if (chatIcon) chatIcon.classList.add('active');
-    }
-    
-    if (peopleOpen) {
-        const peopleIcon = document.querySelector('.nav-icon[onclick="openPeople()"]');
-        if (peopleIcon) peopleIcon.classList.add('active');
-    }
-    
-    if (settingsOpen) {
-        const settingsIcon = document.querySelector('.nav-icon[onclick="openSettings()"]');
-        if (settingsIcon) settingsIcon.classList.add('active');
-    }
-}
-
-// Chat functions
-function openChat() {
-    // Toggle chat window
-    chatOpen = !chatOpen;
-    const chatWindow = document.getElementById('chatWindow');
-    
-    if (chatOpen) {
-        chatWindow.classList.add('open');
-    } else {
-        chatWindow.classList.remove('open');
-    }
-    
-    updateNavIconStates();
-    saveWindowLayout(); // Save layout when window opens/closes
-}
-
-function showChat() {
-    // Only open chat window, don't toggle
-    if (!chatOpen) {
-        chatOpen = true;
-        const chatWindow = document.getElementById('chatWindow');
-        chatWindow.classList.add('open');
-        updateNavIconStates();
-        saveWindowLayout();
-    }
-}
-
-function closeChat() {
-    chatOpen = false;
-    const chatWindow = document.getElementById('chatWindow');
-    chatWindow.classList.remove('open');
-    updateNavIconStates();
-    saveWindowLayout(); // Save layout when window closes
-}
-
-function toggleChatSnap() {
-    const chatWindow = document.getElementById('chatWindow');
-    const pinButton = chatWindow.querySelector('.control-btn[onclick="toggleChatSnap()"]');
-    chatSnapped = !chatSnapped;
-    
-    if (chatSnapped) {
-        // Pin the window in its current position instead of snapping to bottom
-        chatWindow.style.position = 'fixed';
-        chatWindow.style.transform = 'none'; // Remove any transform
-        chatWindow.classList.add('pinned'); // Add visual indicator
-        if (pinButton) pinButton.classList.add('pinned');
-    } else {
-        // Unpin the window
-        chatWindow.style.position = 'fixed';
-        chatWindow.classList.remove('pinned'); // Remove visual indicator
-        if (pinButton) pinButton.classList.remove('pinned');
-    }
-    
-    // Save layout when snap state changes
-    saveWindowLayout();
-}
-
-// People functions
-function openPeople() {
-    // Toggle people panel
-    peopleOpen = !peopleOpen;
-    const peoplePanel = document.getElementById('peoplePanel');
-    
-    if (peopleOpen) {
-        peoplePanel.classList.add('open');
-        debouncedPopulatePeopleModels();
-    } else {
-        peoplePanel.classList.remove('open');
-    }
-    
-    updateNavIconStates();
-    saveWindowLayout(); // Save layout when window opens/closes
-}
-
-function showPeople() {
-    // Only open people panel, don't toggle
-    if (!peopleOpen) {
-        peopleOpen = true;
-        const peoplePanel = document.getElementById('peoplePanel');
-        peoplePanel.classList.add('open');
-        debouncedPopulatePeopleModels();
-        updateNavIconStates();
-        saveWindowLayout();
-    }
-}
-
-function closePeople() {
-    peopleOpen = false;
-    const peoplePanel = document.getElementById('peoplePanel');
-    peoplePanel.classList.remove('open');
-    updateNavIconStates();
-    saveWindowLayout(); // Save layout when window closes
-}
-
-function togglePeopleSnap() {
-    const peoplePanel = document.getElementById('peoplePanel');
-    const pinButton = peoplePanel.querySelector('.control-btn[onclick="togglePeopleSnap()"]');
-    peopleSnapped = !peopleSnapped;
-    
-    if (peopleSnapped) {
-        // Pin the window in its current position
-        peoplePanel.style.position = 'fixed';
-        peoplePanel.classList.add('pinned'); // Add visual indicator
-        if (pinButton) pinButton.classList.add('pinned');
-    } else {
-        // Unpin the window
-        peoplePanel.style.position = 'fixed';
-        peoplePanel.classList.remove('pinned'); // Remove visual indicator
-        if (pinButton) pinButton.classList.remove('pinned');
-    }
-    
-    // Save layout when snap state changes
-    saveWindowLayout();
-}
-
-// Settings functions
-function openSettings() {
-    // Toggle settings panel
-    settingsOpen = !settingsOpen;
-    const settingsPanel = document.getElementById('settingsPanel');
-    
-    if (settingsOpen) {
-        settingsPanel.classList.add('open');
-    } else {
-        settingsPanel.classList.remove('open');
-    }
-    
-    updateNavIconStates();
-    saveWindowLayout(); // Save layout when window opens/closes
-}
-
-function showSettings() {
-    // Only open settings panel, don't toggle
-    if (!settingsOpen) {
-        settingsOpen = true;
-        const settingsPanel = document.getElementById('settingsPanel');
-        settingsPanel.classList.add('open');
-        updateNavIconStates();
-        saveWindowLayout();
-    }
-}
-
-function closeSettings() {
-    settingsOpen = false;
-    const settingsPanel = document.getElementById('settingsPanel');
-    settingsPanel.classList.remove('open');
-    updateNavIconStates();
-    saveWindowLayout(); // Save layout when window closes
-}
-
-function toggleSettingsSnap() {
-    const settingsPanel = document.getElementById('settingsPanel');
-    const pinButton = settingsPanel.querySelector('.control-btn[onclick="toggleSettingsSnap()"]');
-    settingsSnapped = !settingsSnapped;
-    
-    if (settingsSnapped) {
-        // Pin the window in its current position
-        settingsPanel.style.position = 'fixed';
-        settingsPanel.classList.add('pinned'); // Add visual indicator
-        if (pinButton) pinButton.classList.add('pinned');
-    } else {
-        // Unpin the window
-        settingsPanel.style.position = 'fixed';
-        settingsPanel.classList.remove('pinned'); // Remove visual indicator
-        if (pinButton) pinButton.classList.remove('pinned');
-    }
-    
-    // Save layout when snap state changes
-    saveWindowLayout();
-}
-
-// Additional navigation functions
-function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-    } else {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        }
-    }
-}
-
-function toggleHelp() {
-    // Show help modal or tooltip
-    console.log('Help functionality - to be implemented');
-    // This could open a help panel or show keyboard shortcuts
-}
-
 // People panel functionality
 let populatePeopleModelsTimeout = null; // Debounce timeout
 
@@ -3269,174 +1808,6 @@ async function populatePeopleModels() {
     });
     
     console.log(`✅ People panel populated with ${addedModelIds.size} unique models`);
-}
-
-function selectModel(modelId) {
-    // Update active model
-    document.querySelectorAll('.people-model-item').forEach(item => {
-        item.classList.remove('active');
-    });
-    
-    // Set the clicked model as active
-    event.currentTarget.classList.add('active');
-    
-    // Update model name in settings
-    const modelSelect = document.getElementById('modelSelect');
-    if (modelSelect) {
-        modelSelect.value = modelId;
-        onModelChange();
-    }
-}
-
-function removeModel(modelId) {
-    console.log('Removing model:', modelId);
-    
-    // Remove model from multi-model manager
-    if (live2dMultiModelManager) {
-        live2dMultiModelManager.removeModel(modelId);
-        // Refresh the people panel after a short delay to allow cleanup
-        debouncedPopulatePeopleModels(250);
-    }
-    
-    // Prevent event bubbling
-    return false;
-}
-
-function showAddModelDialog() {
-    console.log('Opening add model dialog...');
-    const dialog = document.getElementById('modelSelectionDialog');
-    if (dialog) {
-        dialog.style.display = 'flex';
-        loadAvailableModelsForDialog();
-    }
-}
-
-function closeAddModelDialog() {
-    console.log('Closing add model dialog...');
-    const dialog = document.getElementById('modelSelectionDialog');
-    if (dialog) {
-        dialog.style.display = 'none';
-    }
-}
-
-async function loadAvailableModelsForDialog() {
-    console.log('Loading available models for dialog...');
-    const modelGrid = document.getElementById('modelGrid');
-    
-    try {
-        // Use the already-loaded model list from the multi-model manager
-        if (!live2dMultiModelManager || !live2dMultiModelManager.modelList || live2dMultiModelManager.modelList.length === 0) {
-            // If not loaded yet, try to load
-            await live2dMultiModelManager.loadAvailableModels();
-        }
-        
-        const availableModels = live2dMultiModelManager.modelList;
-        
-        if (!availableModels || availableModels.length === 0) {
-            modelGrid.innerHTML = '<div style="text-align: center; padding: 20px; color: #aaa;">No models available. Please check your model directory.</div>';
-            return;
-        }
-        
-        // Create model cards
-        modelGrid.innerHTML = '';
-        availableModels.forEach(model => {
-            const modelCard = document.createElement('div');
-            modelCard.className = 'model-card';
-            modelCard.onclick = () => selectModelFromDialog(model.name, model.name);
-            
-            modelCard.innerHTML = `
-                <div class="model-preview">
-                    <div class="model-icon">🎭</div>
-                </div>
-                <div class="model-info">
-                    <div class="model-name">${model.name}</div>
-                    <div class="model-description">Live2D Model</div>
-                </div>
-            `;
-            
-            modelGrid.appendChild(modelCard);
-        });
-        
-    } catch (error) {
-        console.error('Error loading models for dialog:', error);
-        modelGrid.innerHTML = '<div style="text-align: center; padding: 20px; color: #f44;">Error loading models. Please try again.</div>';
-    }
-}
-
-function selectModelFromDialog(modelValue, modelName) {
-    console.log('Selected model from dialog:', modelName, modelValue);
-    
-    // Add model using the multi-model manager
-    if (live2dMultiModelManager) {
-        live2dMultiModelManager.addModel(modelName).then(() => {
-            console.log('Model added successfully:', modelName);
-            // The people panel will be refreshed automatically by the multi-model manager
-        }).catch(error => {
-            console.error('Failed to add model:', error);
-            addSystemMessage(`Failed to add model: ${error.message}`, 'error');
-        });
-    } else {
-        console.error('Multi-model manager not available');
-        addSystemMessage('Live2D system not ready', 'error');
-    }
-    
-    // Close dialog
-    closeAddModelDialog();
-}
-
-function addModelToPeoplePanel(modelValue, modelName) {
-    const modelsList = document.getElementById('peopleModelsList');
-    
-    // Check if model already exists
-    const existingModels = modelsList.querySelectorAll('.people-model-item');
-    for (let model of existingModels) {
-        if (model.dataset.modelValue === modelValue) {
-            console.log('Model already in people panel');
-            return;
-        }
-    }
-    
-    // Create new model item
-    const modelItem = document.createElement('div');
-    modelItem.className = 'people-model-item';
-    modelItem.dataset.modelValue = modelValue;
-    modelItem.onclick = () => {
-        // Remove active class from all models
-        const allModels = modelsList.querySelectorAll('.people-model-item');
-        allModels.forEach(m => m.classList.remove('active'));
-        
-        // Add active class to clicked model
-        modelItem.classList.add('active');
-        
-        // Load the model
-        const modelSelect = document.getElementById('modelSelect');
-        modelSelect.value = modelValue;
-        onModelChange();
-    };
-    
-    modelItem.innerHTML = `
-        <div class="people-model-avatar">🎭</div>
-        <div class="people-model-info">
-            <div class="people-model-name">${modelName}</div>
-            <div class="people-model-status">Ready</div>
-        </div>
-        <button class="people-model-remove" onclick="removeModelFromPeoplePanel(event, '${modelValue}')" title="Remove model">×</button>
-    `;
-    
-    modelsList.appendChild(modelItem);
-    console.log('Added model to people panel:', modelName);
-}
-
-function removeModelFromPeoplePanel(event, modelValue) {
-    event.stopPropagation(); // Prevent triggering the model selection
-    
-    const modelsList = document.getElementById('peopleModelsList');
-    const modelItem = modelsList.querySelector(`.people-model-item[data-model-value="${modelValue}"]`);
-    
-    if (modelItem) {
-        modelItem.remove();
-        console.log('Removed model from people panel:', modelValue);
-    }
 }
 
 // Draggable functionality
@@ -4072,6 +2443,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('✅ AI Companion enhanced features initialized');
 });
+
+}); // Close the main DOMContentLoaded function from line 1058
 </script>
 
 </body>

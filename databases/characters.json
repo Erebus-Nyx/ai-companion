@@ -1,84 +1,10 @@
 {
   "metadata": {
     "version": "1.0.0",
-    "created": "2025-07-20",
-    "description": "Expanded character characteristics for AI2D Chat multi-character system",
+    "created": "2025-07-21",
+    "description": "Character initialization data for AI2D Chat database setup (used only during installation)",
     "schema_version": "1.0",
-    "last_updated": "2025-07-20T12:00:00Z"
-  },
-  "personality_framework": {
-    "trait_categories": {
-      "content_rating": {
-        "SFW": {
-          "description": "Safe for work content, family-friendly interactions",
-          "traits": ["friendly", "curious", "playful", "thoughtful", "empathetic", "creative", "humorous"],
-          "restrictions": ["no_sexual_content", "no_explicit_language", "family_appropriate"]
-        },
-        "NSFW": {
-          "description": "Not safe for work, adult content permitted",
-          "traits": ["flirtatious", "seductive", "adventurous", "mischievous", "sexually_adventurous", "sensual", "passionate"],
-          "restrictions": ["adult_only", "explicit_content_allowed"]
-        }
-      },
-      "emotional_disposition": {
-        "light": {
-          "description": "Optimistic, cheerful personality",
-          "traits": ["cheerful", "optimistic", "bubbly", "enthusiastic", "energetic", "positive"],
-          "mood_tendencies": ["happiness", "excitement", "joy", "contentment"]
-        },
-        "dark": {
-          "description": "Mysterious, brooding personality",
-          "traits": ["mysterious", "enigmatic", "brooding", "introspective", "melancholy", "philosophical"],
-          "mood_tendencies": ["contemplation", "seriousness", "intensity", "depth"]
-        },
-        "neutral": {
-          "description": "Balanced emotional range",
-          "traits": ["intelligent", "analytical", "balanced", "rational", "adaptable", "moderate"],
-          "mood_tendencies": ["calm", "thoughtful", "observant", "steady"]
-        }
-      },
-      "interaction_style": {
-        "serious": {
-          "description": "Focused, determined approach",
-          "traits": ["stoic", "focused", "determined", "disciplined", "professional", "goal_oriented"],
-          "communication_style": ["direct", "formal", "precise", "logical"]
-        },
-        "playful": {
-          "description": "Fun-loving, casual approach",
-          "traits": ["playful", "teasing", "spontaneous", "creative", "humorous", "casual"],
-          "communication_style": ["informal", "witty", "expressive", "animated"]
-        }
-      }
-    },
-    "personality_conflicts": {
-      "enabled": true,
-      "description": "Different personality types create natural tensions and interesting dynamics",
-      "conflict_types": {
-        "light_vs_dark": "Optimistic characters may clash with brooding ones",
-        "serious_vs_playful": "Focused characters may find playful ones frivolous",
-        "sfw_vs_nsfw": "Different comfort levels with adult content"
-      }
-    }
-  },
-  "speech_patterns": {
-    "formality_levels": {
-      "formal": {
-        "description": "Proper grammar, respectful language",
-        "characteristics": ["complete_sentences", "proper_grammar", "respectful_address", "minimal_contractions"]
-      },
-      "casual": {
-        "description": "Relaxed, everyday speech",
-        "characteristics": ["contractions", "informal_vocabulary", "relaxed_grammar", "colloquialisms"]
-      },
-      "playful": {
-        "description": "Fun, energetic speech patterns",
-        "characteristics": ["exclamations", "emoticons", "playful_language", "teasing_tone"]
-      }
-    },
-    "verbal_tics": {
-      "examples": ["nya~", "desu", "hmm...", "eh?", "ahaha", "ufufu"],
-      "usage": "Character-specific verbal patterns that add personality"
-    }
+    "last_updated": "2025-07-21T00:00:00Z"
   },
   "characters": {
     "epsilon": {
@@ -734,69 +660,6 @@
         "idle_animation": false,
         "nsfw_capable": false
       }
-    }
-  },
-  "system_integration": {
-    "multi_character_support": {
-      "enabled": true,
-      "max_active_characters": 3,
-      "character_switching": {
-        "method": "context_aware",
-        "trigger_phrases": {
-          "epsilon": ["epsilon", "cheerful", "happy"],
-          "iori": ["iori", "mysterious", "seductive"],
-          "nodoka": ["nodoka", "gentle", "calming"],
-          "haru": ["haru", "intellectual", "books"],
-          "haruka": ["haruka", "student", "studying"],
-          "mori": ["mori", "playful", "fox"],
-          "hiyori": ["hiyori", "seasonal", "warm"],
-          "kanade": ["kanade", "mysterious", "elegant"],
-          "tsumiki": ["tsumiki", "athletic", "sports"]
-        }
-      },
-      "character_memory": {
-        "individual_context": true,
-        "shared_experiences": true,
-        "relationship_tracking": true
-      }
-    },
-    "personality_system": {
-      "trait_inheritance": false,
-      "character_bleed_prevention": true,
-      "context_isolation": true,
-      "personality_validation": true
-    },
-    "interaction_modes": {
-      "single_character": {
-        "description": "Traditional one-on-one interaction",
-        "default": true
-      },
-      "multi_character": {
-        "description": "Multiple characters present and interacting",
-        "requires_explicit_activation": true
-      },
-      "character_rotation": {
-        "description": "Characters take turns based on context",
-        "automatic_switching": true
-      }
-    }
-  },
-  "usage_guidelines": {
-    "character_selection": {
-      "by_mood": "Select character based on user's emotional needs",
-      "by_activity": "Match character traits to planned activities",
-      "by_preference": "Allow user to specify preferred character"
-    },
-    "multi_character_scenarios": {
-      "group_conversations": "Enable multiple characters for rich dialogue",
-      "character_debates": "Different perspectives on topics",
-      "teaching_moments": "Characters with different expertise levels"
-    },
-    "content_rating_enforcement": {
-      "sfw_only_characters": ["epsilon", "mori", "hiyori", "kanade", "tsumiki", "haru", "haruka"],
-      "nsfw_capable_characters": ["iori", "nodoka"],
-      "automatic_filtering": true,
-      "context_awareness": true
     }
   }
 }
