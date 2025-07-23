@@ -128,54 +128,165 @@ class Live2DModelManager:
     def scan_and_register_motions(self, model_name: str, model_path: str):
         """
         Scan a model directory for motion files and register them in the database.
+        First tries to parse motions from .model3.json, then falls back to file scanning.
         """
         try:
             model_dir = Path(model_path)
-            
-            # Find all .motion3.json files recursively (not just in motions/ directory)
-            motion_files = list(model_dir.glob("**/*.motion3.json"))
-            
-            if not motion_files:
-                self.logger.info(f"No motion files found for model: {model_name}")
-                return
-            
             motions_data = []
             
-            for motion_file in motion_files:
-                # Extract motion name from filename
-                motion_name = motion_file.stem
+            # First try to extract motions from .model3.json file
+            model3_files = list(model_dir.glob("**/*.model3.json"))
+            if model3_files:
+                motions_from_json = self._parse_motions_from_model3_json(model3_files[0])
+                if motions_from_json:
+                    motions_data.extend(motions_from_json)
+                    self.logger.info(f"Extracted {len(motions_from_json)} motions from model3.json for: {model_name}")
                 
-                # Try to determine motion group from directory structure
-                motion_group = "default"
-                # Use the immediate parent directory as the group
-                if motion_file.parent.name != model_dir.name:
-                    motion_group = motion_file.parent.name
+                # Also extract expressions from .model3.json
+                expressions_from_json = self._parse_expressions_from_model3_json(model3_files[0])
+                if expressions_from_json:
+                    motions_data.extend(expressions_from_json)
+                    self.logger.info(f"Extracted {len(expressions_from_json)} expressions from model3.json for: {model_name}")
+            
+            # Fallback: Find all .motion3.json files recursively (if no motions found in model3.json)
+            if not motions_data:
+                motion_files = list(model_dir.glob("**/*.motion3.json"))
                 
-                # Determine motion type based on filename patterns
-                motion_type = "body"  # default
-                if any(keyword in motion_name.lower() for keyword in ["face", "eye", "blink"]):
-                    motion_type = "face"
-                elif any(keyword in motion_name.lower() for keyword in ["head", "nod", "shake"]):
-                    motion_type = "head"
-                elif any(keyword in motion_name.lower() for keyword in ["expression", "emotion"]):
-                    motion_type = "expression"
-                elif any(keyword in motion_name.lower() for keyword in ["idle"]):
-                    motion_type = "idle"
-                
-                motions_data.append({
-                    "group": motion_group,
-                    "index": len(motions_data),  # Simple indexing
-                    "name": motion_name,
-                    "type": motion_type
-                })
+                if motion_files:
+                    for motion_file in motion_files:
+                        # Extract motion name from filename
+                        motion_name = motion_file.stem
+                        
+                        # Try to determine motion group from directory structure
+                        motion_group = "default"
+                        # Use the immediate parent directory as the group
+                        if motion_file.parent.name != model_dir.name:
+                            motion_group = motion_file.parent.name
+                        
+                        # Determine motion type based on filename patterns
+                        motion_type = "body"  # default
+                        if any(keyword in motion_name.lower() for keyword in ["face", "eye", "blink"]):
+                            motion_type = "face"
+                        elif any(keyword in motion_name.lower() for keyword in ["head", "nod", "shake"]):
+                            motion_type = "head"
+                        elif any(keyword in motion_name.lower() for keyword in ["expression", "emotion"]):
+                            motion_type = "expression"
+                        elif any(keyword in motion_name.lower() for keyword in ["idle"]):
+                            motion_type = "idle"
+                        
+                        motions_data.append({
+                            "group": motion_group,
+                            "index": len(motions_data),  # Simple indexing
+                            "name": motion_name,
+                            "type": motion_type
+                        })
+                    
+                    self.logger.info(f"Found {len(motion_files)} individual motion files for: {model_name}")
             
             # Register all found motions
             if motions_data:
                 self.register_motions_for_model(model_name, motions_data)
-                self.logger.info(f"Registered {len(motions_data)} motions for model: {model_name}")
+                self.logger.info(f"Registered {len(motions_data)} total motions/expressions for model: {model_name}")
+            else:
+                self.logger.info(f"No motion files found for model: {model_name}")
             
         except Exception as e:
             self.logger.error(f"Error scanning motions for model {model_name}: {e}")
+    
+    def _parse_motions_from_model3_json(self, model3_file: Path) -> List[Dict]:
+        """Parse motion information from .model3.json file"""
+        try:
+            import json
+            with open(model3_file, 'r', encoding='utf-8') as f:
+                model_data = json.load(f)
+            
+            motions_data = []
+            file_refs = model_data.get('FileReferences', {})
+            motions = file_refs.get('Motions', {})
+            
+            for group_name, motion_list in motions.items():
+                for index, motion_info in enumerate(motion_list):
+                    motion_file = motion_info.get('File', '')
+                    motion_name = Path(motion_file).stem if motion_file else f"{group_name}_{index}"
+                    
+                    # Determine motion type based on group name and filename
+                    motion_type = self._determine_motion_type(group_name, motion_name)
+                    
+                    motions_data.append({
+                        "group": group_name,
+                        "index": index,
+                        "name": motion_name,
+                        "type": motion_type
+                    })
+            
+            return motions_data
+            
+        except Exception as e:
+            self.logger.error(f"Error parsing motions from model3.json {model3_file}: {e}")
+            return []
+    
+    def _parse_expressions_from_model3_json(self, model3_file: Path) -> List[Dict]:
+        """Parse expression information from .model3.json file"""
+        try:
+            import json
+            with open(model3_file, 'r', encoding='utf-8') as f:
+                model_data = json.load(f)
+            
+            expressions_data = []
+            file_refs = model_data.get('FileReferences', {})
+            expressions = file_refs.get('Expressions', [])
+            
+            for index, expression_info in enumerate(expressions):
+                expression_name = expression_info.get('Name', f'expression_{index}')
+                expression_file = expression_info.get('File', '')
+                
+                # Clean up the name (remove .exp3.json extension if present)
+                if expression_name.endswith('.exp3.json'):
+                    expression_name = expression_name[:-10]
+                
+                expressions_data.append({
+                    "group": "expressions",
+                    "index": index,
+                    "name": expression_name,
+                    "type": "expression"
+                })
+            
+            return expressions_data
+            
+        except Exception as e:
+            self.logger.error(f"Error parsing expressions from model3.json {model3_file}: {e}")
+            return []
+    
+    def _determine_motion_type(self, group_name: str, motion_name: str) -> str:
+        """Determine motion type based on group name and motion filename"""
+        group_lower = group_name.lower()
+        motion_lower = motion_name.lower()
+        
+        # Check group name first
+        if group_lower in ['idle', 'breathing']:
+            return 'idle'
+        elif group_lower in ['tap', 'touch', 'click']:
+            return 'interaction'
+        elif group_lower in ['flick', 'swipe', 'drag']:
+            return 'gesture'
+        elif group_lower in ['shake', 'pinch']:
+            return 'gesture'
+        elif 'face' in group_lower or 'eye' in group_lower:
+            return 'face'
+        elif 'head' in group_lower:
+            return 'head'
+        
+        # Check motion filename patterns
+        if any(keyword in motion_lower for keyword in ["face", "eye", "blink"]):
+            return "face"
+        elif any(keyword in motion_lower for keyword in ["head", "nod", "shake"]):
+            return "head"
+        elif any(keyword in motion_lower for keyword in ["idle", "breath"]):
+            return "idle"
+        elif any(keyword in motion_lower for keyword in ["tap", "touch", "click"]):
+            return "interaction"
+        
+        return "body"  # default
     
     def register_model(self, model_name: str, model_path: str, config_file: str, description: str = None):
         """Register a new Live2D model in the database, avoiding duplicates."""

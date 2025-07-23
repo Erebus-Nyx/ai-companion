@@ -1,10 +1,19 @@
 # Live2D Models Directory
 
-This directory contains Live2D models that will be installed to the user's data directory (`~/.local/share/ai2d_chat/live2d_models/`) during setup.
+**Note:** Live2D models are now distributed as ZIP packages in `live2d_models_packaged/` instead of unpacked directories here.
 
-## Directory Structure
+This directory structure is maintained for reference, but the actual model directories are excluded from the repository to reduce size. During installation, models are extracted from ZIP packages in `live2d_models_packaged/` to the user's data directory.
 
-Each model should be in its own subdirectory with the following structure:
+## Current Approach
+
+- **Distribution**: Models packaged as ZIP files in `live2d_models_packaged/`
+- **Installation**: Automatic extraction during setup via `scripts/install_packaged_models.py`
+- **User Location**: `~/.local/share/ai2d_chat/live2d_models/`
+- **Repository**: Only README.md tracked here, model directories excluded via .gitignore
+
+## Directory Structure (Reference)
+
+When extracted, each model maintains this structure:
 
 ```
 live2d_models/

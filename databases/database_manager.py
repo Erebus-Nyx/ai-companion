@@ -246,7 +246,7 @@ class DatabaseManager:
     
     # Model-specific personality methods
     def get_model_personality(self, model_id: str):
-        """Get personality data for a specific model"""
+        """Get personality data for a specific model - creates if missing"""
         with get_personality_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -267,6 +267,31 @@ class DatabaseManager:
                     "personality_notes": row[6],
                     "appearance_notes": row[7]
                 }
+            else:
+                # Personality doesn't exist - create it dynamically
+                logger.info(f"Creating missing personality for model: {model_id}")
+                self.create_model_personality(model_id)
+                
+                # Try again after creation
+                cursor.execute("""
+                    SELECT name, base_traits, current_traits, description, background_story,
+                           favorite_things, personality_notes, appearance_notes
+                    FROM model_personalities WHERE model_id = ?
+                """, (model_id,))
+                row = cursor.fetchone()
+                if row:
+                    import json
+                    return {
+                        "name": row[0],
+                        "base_traits": json.loads(row[1]),
+                        "current_traits": json.loads(row[2]),
+                        "description": row[3],
+                        "background_story": row[4],
+                        "favorite_things": row[5],
+                        "personality_notes": row[6],
+                        "appearance_notes": row[7]
+                    }
+                
             return None
     
     def update_model_personality(self, model_id: str, **kwargs):
@@ -443,6 +468,257 @@ class DatabaseManager:
             """, (user_id, model_id, current["current_mood"], current["energy_level"],
                  current["happiness_level"], current["stress_level"]))
             conn.commit()
+
+    def create_model_personality(self, model_id: str, character_data: dict = None):
+        """Create personality data for a new model dynamically"""
+        import json
+        
+        with get_personality_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Check if personality already exists
+            cursor.execute("SELECT id FROM model_personalities WHERE model_id = ?", (model_id,))
+            if cursor.fetchone():
+                logger.info(f"Personality for {model_id} already exists")
+                return
+            
+            if character_data:
+                # Use provided character data (from characters.json structure)
+                basic_info = character_data.get('basic_info', {})
+                character_name = basic_info.get('display_name', model_id.title())
+                
+                # Extract personality traits
+                personality = character_data.get('personality', {})
+                core_traits = personality.get('core_traits', [])
+                trait_categories = personality.get('trait_categories', [])
+                
+                # Build base traits
+                base_traits = {}
+                current_traits = {}
+                for trait in core_traits:
+                    base_traits[trait] = 0.8
+                    current_traits[trait] = 0.8
+                
+                # Add trait category bonuses
+                for category in trait_categories:
+                    base_traits[f"{category}_affinity"] = 0.7
+                    current_traits[f"{category}_affinity"] = 0.7
+                
+                # Extract other information
+                backstory = character_data.get('backstory', {})
+                background_story = backstory.get('origin', '')
+                if backstory.get('motivation'):
+                    background_story += f" {backstory['motivation']}"
+                
+                behavioral = character_data.get('behavioral_patterns', {})
+                interests = behavioral.get('interests', [])
+                favorite_things = ', '.join(interests) if interests else ''
+                
+                # Extract personality notes from speech style
+                speech_style = behavioral.get('speech_style', {})
+                personality_notes = []
+                if speech_style.get('formality'):
+                    personality_notes.append(f"Speaks {speech_style['formality']}ly")
+                if speech_style.get('common_phrases'):
+                    personality_notes.append(f"Often says: {', '.join(speech_style['common_phrases'][:3])}")
+                
+                appearance = character_data.get('appearance', {})
+                appearance_notes = self._extract_appearance_notes(appearance)
+                
+                description = personality.get('archetype', f"AI companion {character_name}")
+                config_source = "characters.json"
+                
+            else:
+                # Create default personality for unknown model
+                character_name = model_id.title()
+                base_traits = {
+                    'friendly': 0.7,
+                    'helpful': 0.8,
+                    'curious': 0.6,
+                    'empathetic': 0.7
+                }
+                current_traits = base_traits.copy()
+                description = f"AI companion {character_name}"
+                background_story = f"An AI assistant companion named {character_name}"
+                favorite_things = "helping users, learning new things"
+                personality_notes = "Dynamically created personality"
+                appearance_notes = "Virtual AI companion"
+                config_source = "runtime_creation"
+            
+            # Insert personality data
+            cursor.execute("""
+                INSERT INTO model_personalities 
+                (model_id, name, base_traits, current_traits, description, 
+                 background_story, favorite_things, personality_notes, appearance_notes, config_source)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                model_id,
+                character_name,
+                json.dumps(base_traits),
+                json.dumps(current_traits),
+                description,
+                background_story,
+                favorite_things,
+                '; '.join(personality_notes) if isinstance(personality_notes, list) else personality_notes,
+                appearance_notes,
+                config_source
+            ))
+            conn.commit()
+            logger.info(f"✅ Created personality for {character_name} ({model_id})")
+            return cursor.lastrowid
+    
+    def _extract_appearance_notes(self, appearance: dict) -> str:
+        """Extract appearance notes from character appearance data"""
+        notes = []
+        
+        # Physical appearance
+        physical = appearance.get('physical', {})
+        if physical.get('eye_color'):
+            notes.append(f"Eyes: {physical['eye_color']}")
+        if physical.get('skin_tone'):
+            notes.append(f"Skin: {physical['skin_tone']}")
+        
+        # Hair information
+        hair = appearance.get('hair', {})
+        if hair.get('color'):
+            hair_desc = f"Hair: {hair['color']}"
+            if hair.get('length'):
+                hair_desc += f" {hair['length']}"
+            notes.append(hair_desc)
+        
+        return '; '.join(notes) if notes else "Virtual AI companion"
+
+def _populate_personality_data_from_config(conn):
+    """Populate personality data from characters.json into the database"""
+    import json
+    from pathlib import Path
+    
+    try:
+        # Load characters.json instead of config.yaml
+        characters_path = Path(__file__).parent.parent / "databases" / "characters.json"
+        if not characters_path.exists():
+            logger.warning("characters.json not found, skipping personality data population")
+            return
+            
+        with open(characters_path, 'r') as f:
+            characters_data = json.load(f)
+        
+        cursor = conn.cursor()
+        
+        # Extract characters from the JSON structure
+        characters = characters_data.get('characters', {})
+        
+        for character_id, character_data in characters.items():
+            logger.info(f"Processing personality for character: {character_id}")
+            
+            # Extract basic info
+            basic_info = character_data.get('basic_info', {})
+            character_name = basic_info.get('display_name', character_id.title())
+            
+            # Extract personality traits
+            personality = character_data.get('personality', {})
+            core_traits = personality.get('core_traits', [])
+            trait_categories = personality.get('trait_categories', [])
+            
+            # Build base traits from character data
+            base_traits = {}
+            current_traits = {}
+            
+            # Map trait names to values - give each trait a default value
+            for trait in core_traits:
+                base_traits[trait] = 0.8  # Higher default for core traits
+                current_traits[trait] = 0.8
+            
+            # Add trait category bonuses
+            for category in trait_categories:
+                base_traits[f"{category}_affinity"] = 0.7
+                current_traits[f"{category}_affinity"] = 0.7
+            
+            # Extract appearance information for description
+            appearance = character_data.get('appearance', {})
+            appearance_notes = []
+            
+            # Physical appearance
+            physical = appearance.get('physical', {})
+            if physical.get('eye_color'):
+                appearance_notes.append(f"Eyes: {physical['eye_color']}")
+            if physical.get('skin_tone'):
+                appearance_notes.append(f"Skin: {physical['skin_tone']}")
+            if physical.get('body_type'):
+                appearance_notes.append(f"Build: {physical['body_type']}")
+            
+            # Hair information
+            hair = appearance.get('hair', {})
+            if hair.get('color'):
+                hair_desc = f"Hair: {hair['color']}"
+                if hair.get('length'):
+                    hair_desc += f" {hair['length']}"
+                if hair.get('style'):
+                    hair_desc += f" ({', '.join(hair['style'])})"
+                appearance_notes.append(hair_desc)
+            
+            # Clothing
+            clothing = appearance.get('clothing', {})
+            if clothing.get('default_outfit'):
+                appearance_notes.append(f"Outfit: {', '.join(clothing['default_outfit'])}")
+            
+            # Extract background story and motivation
+            backstory = character_data.get('backstory', {})
+            background_story = backstory.get('origin', '')
+            motivation = backstory.get('motivation', '')
+            if motivation:
+                background_story += f" {motivation}"
+            
+            # Extract behavioral patterns for favorite things
+            behavioral = character_data.get('behavioral_patterns', {})
+            interests = behavioral.get('interests', [])
+            favorite_things = ', '.join(interests) if interests else ''
+            
+            # Personality notes from speech style and habits
+            speech_style = behavioral.get('speech_style', {})
+            personality_notes = []
+            if speech_style.get('formality'):
+                personality_notes.append(f"Speaks {speech_style['formality']}ly")
+            if speech_style.get('common_phrases'):
+                personality_notes.append(f"Often says: {', '.join(speech_style['common_phrases'][:3])}")
+            
+            # Create model personality entry
+            model_id = character_id.lower()
+            
+            # Check if personality already exists
+            cursor.execute("SELECT id FROM model_personalities WHERE model_id = ?", (model_id,))
+            exists = cursor.fetchone()
+            
+            if not exists:
+                cursor.execute("""
+                    INSERT INTO model_personalities 
+                    (model_id, name, base_traits, current_traits, description, 
+                     background_story, favorite_things, personality_notes, appearance_notes, config_source)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    model_id,
+                    character_name,
+                    json.dumps(base_traits),
+                    json.dumps(current_traits),
+                    personality.get('archetype', f"AI companion {character_name}"),
+                    background_story,
+                    favorite_things,
+                    '; '.join(personality_notes),
+                    '; '.join(appearance_notes),
+                    "characters.json"
+                ))
+                logger.info(f"✅ Created personality for {character_name} ({model_id})")
+                logger.info(f"   Traits: {list(base_traits.keys())}")
+                logger.info(f"   Archetype: {personality.get('archetype', 'N/A')}")
+            else:
+                logger.info(f"⏭️ Personality for {character_name} ({model_id}) already exists, skipping")
+        
+        conn.commit()
+        
+    except Exception as e:
+        logger.error(f"Failed to populate personality data from characters.json: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
 
 def init_databases():
     """Initialize all databases with proper schemas"""
@@ -708,6 +984,10 @@ def init_databases():
         
         conn.commit()
         logger.info("Personality database initialized")
+        
+        # Populate personality data from config.yaml
+        _populate_personality_data_from_config(conn)
+        logger.info("Personality data populated from config")
     
     # Initialize System database
     system_db_path = get_user_data_dir() / "databases" / "system.db"

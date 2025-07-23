@@ -1,6 +1,11 @@
 ## .gitignore for a Python project
 
-## removing live2d models from dev until they are rebuilt for motions/expressions
+## Live2D Models
+# Exclude unpacked model directories (now using packaged ZIP files)
+live2d_models/*/
+# Keep the README and packaged ZIP files
+!live2d_models/README.md
+!live2d_models_packaged/
 
 # Python
 *.so

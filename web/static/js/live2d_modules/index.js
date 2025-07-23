@@ -17,6 +17,7 @@ MODEL MANAGEMENT:
 - live2d_model_manager.js - Manages multiple Live2D models
 - live2d_multi_model_manager.js - Advanced multi-model coordination
 - live2d_state_manager.js - Manages Live2D model states and transitions
+- live2d_model_import_manager.js - Handles model imports and character association
 
 MOTION & ANIMATION:
 - live2d_motion_manager.js - Controls Live2D motion playback

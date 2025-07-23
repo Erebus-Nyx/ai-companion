@@ -1019,3 +1019,395 @@ def api_live2d_check_model_preview(model_name):
     except Exception as e:
         logger.error(f"Error checking model preview: {e}")
         return jsonify({'error': str(e)}), 500
+
+@live2d_bp.route('/api/live2d/models/import', methods=['POST'])
+def import_live2d_model():
+    """Import a new Live2D model with ZIP file upload and character data"""
+    try:
+        # Only support file upload scenario (ZIP files only)
+        if 'model_files' in request.files:
+            return handle_model_file_upload()
+        else:
+            return jsonify({
+                'error': 'Live2D models must be uploaded as ZIP archives to preserve directory structure. Please upload a .zip file containing your complete model package.'
+            }), 400
+            
+    except Exception as e:
+        logger.error(f"Error importing Live2D model: {e}")
+        return jsonify({'error': str(e)}), 500
+
+def handle_model_file_upload():
+    """Handle uploading model files and registering the model"""
+    try:
+        from werkzeug.utils import secure_filename
+        from pathlib import Path
+        import zipfile
+        import tempfile
+        import shutil
+        
+        files = request.files.getlist('model_files')
+        model_name = request.form.get('model_name')
+        character_data = request.form.get('character_data')
+        
+        if not model_name:
+            return jsonify({'error': 'model_name is required'}), 400
+        
+        if not files:
+            return jsonify({'error': 'No files provided'}), 400
+        
+        # Enforce zip-only uploads to preserve directory structure
+        non_zip_files = [f.filename for f in files if f.filename and not f.filename.lower().endswith('.zip')]
+        if non_zip_files:
+            return jsonify({
+                'error': 'Live2D models must be uploaded as .zip archives to preserve the complete directory structure with motions, textures, and other assets.',
+                'invalid_files': non_zip_files
+            }), 400
+        
+        # Get models directory
+        try:
+            from config.config_manager import ConfigManager
+            config_manager = ConfigManager()
+            models_base_path = config_manager.get_live2d_models_path()
+        except ImportError:
+            models_base_path = Path.home() / ".local/share/ai2d_chat/live2d_models"
+        
+        model_dir = models_base_path / secure_filename(model_name)
+        model_dir.mkdir(parents=True, exist_ok=True)
+        
+        config_file = None
+        uploaded_files = []
+        
+        # Handle uploaded zip files
+        for file in files:
+            if file.filename and file.filename.lower().endswith('.zip'):
+                filename = secure_filename(file.filename)
+                
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    temp_zip = Path(temp_dir) / filename
+                    file.save(temp_zip)
+                    
+                    # Extract zip and preserve directory structure
+                    with zipfile.ZipFile(temp_zip, 'r') as zip_ref:
+                        zip_ref.extractall(model_dir)
+                        uploaded_files.extend([model_dir / name for name in zip_ref.namelist()])
+        
+        # Find config file in extracted contents
+        config_files = list(model_dir.rglob('*.model3.json'))
+        if config_files:
+            config_file = str(config_files[0].relative_to(models_base_path))
+        
+        if not config_file:
+            # Clean up on failure
+            shutil.rmtree(model_dir, ignore_errors=True)
+            return jsonify({
+                'error': 'No .model3.json config file found in uploaded zip archive. Please ensure your Live2D model package is complete.'
+            }), 400
+        
+        # Register the model
+        from databases.live2d_models_separated import Live2DModelsDB
+        live2d_db = Live2DModelsDB()
+        
+        model_id = live2d_db.register_model(
+            model_name=model_name,
+            model_path=str(model_dir.relative_to(models_base_path)),
+            config_file=config_file,
+            description=f"Imported Live2D model: {model_name}"
+        )
+        
+        # Scan and register motions
+        live2d_db.scan_and_register_motions(model_name, str(model_dir))
+        
+        # Create personality data if character_data provided
+        if character_data:
+            try:
+                char_data = json.loads(character_data)
+                from databases.database_manager import DatabaseManager
+                db_manager = DatabaseManager()
+                db_manager.create_model_personality(model_name.lower(), char_data)
+            except json.JSONDecodeError:
+                logger.warning(f"Invalid character_data JSON for model {model_name}")
+            except Exception as e:
+                logger.warning(f"Failed to create personality for model {model_name}: {e}")
+        
+        return jsonify({
+            'success': True,
+            'model_id': model_id,
+            'model_name': model_name,
+            'config_file': config_file,
+            'uploaded_files': [str(f) for f in uploaded_files],
+            'message': f'Successfully imported model: {model_name}'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error handling model file upload: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@live2d_bp.route('/api/live2d/characters', methods=['GET'])
+def get_all_characters():
+    """Get list of all available characters/personalities"""
+    try:
+        from databases.database_manager import DatabaseManager
+        from databases.live2d_models_separated import Live2DModelsDB
+        
+        db_manager = DatabaseManager()
+        live2d_db = Live2DModelsDB()
+        
+        # Get all registered models
+        models = live2d_db.get_all_models()
+        characters = []
+        
+        for model in models:
+            try:
+                personality = db_manager.get_model_personality(model['model_name'].lower())
+                if personality:
+                    characters.append({
+                        'model_id': model['model_name'].lower(),
+                        'model_name': model['model_name'],
+                        'name': personality.get('name', model['model_name']),
+                        'description': personality.get('description', ''),
+                        'personality_notes': personality.get('personality_notes', ''),
+                        'appearance_notes': personality.get('appearance_notes', ''),
+                        'has_character_data': True
+                    })
+                else:
+                    # Model without character data
+                    characters.append({
+                        'model_id': model['model_name'].lower(),
+                        'model_name': model['model_name'],
+                        'name': model['model_name'],
+                        'description': model.get('description', ''),
+                        'personality_notes': '',
+                        'appearance_notes': '',
+                        'has_character_data': False
+                    })
+            except Exception as e:
+                logger.warning(f"Error getting personality for model {model['model_name']}: {e}")
+                # Still include the model without character data
+                characters.append({
+                    'model_id': model['model_name'].lower(),
+                    'model_name': model['model_name'],
+                    'name': model['model_name'],
+                    'description': model.get('description', ''),
+                    'personality_notes': '',
+                    'appearance_notes': '',
+                    'has_character_data': False
+                })
+        
+        return jsonify(characters)
+        
+    except Exception as e:
+        logger.error(f"Error getting all characters: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@live2d_bp.route('/api/live2d/models/<model_name>/character', methods=['GET'])
+def get_character_data(model_name):
+    """Get character/personality data for a model"""
+    try:
+        from databases.database_manager import DatabaseManager
+        db_manager = DatabaseManager()
+        
+        personality = db_manager.get_model_personality(model_name.lower())
+        
+        if not personality:
+            return jsonify({'error': f'No character data found for model: {model_name}'}), 404
+        
+        return jsonify({
+            'model_id': model_name.lower(),
+            'character_data': personality
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting character data for {model_name}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@live2d_bp.route('/api/live2d/models/<model_name>/character', methods=['PUT'])
+def update_character_data(model_name):
+    """Update character/personality data for a model"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        from databases.database_manager import DatabaseManager
+        db_manager = DatabaseManager()
+        
+        # Extract updatable fields
+        update_fields = {}
+        
+        # Direct personality fields
+        for field in ['name', 'description', 'background_story', 'favorite_things', 
+                     'personality_notes', 'appearance_notes']:
+            if field in data:
+                update_fields[field] = data[field]
+        
+        # Trait data (should be JSON serializable)
+        for field in ['base_traits', 'current_traits']:
+            if field in data:
+                update_fields[field] = data[field]
+        
+        # Handle character_data structure (from characters.json format)
+        if 'character_data' in data:
+            char_data = data['character_data']
+            
+            # Extract basic info
+            basic_info = char_data.get('basic_info', {})
+            if basic_info.get('display_name'):
+                update_fields['name'] = basic_info['display_name']
+            
+            # Extract personality info
+            personality = char_data.get('personality', {})
+            if personality.get('archetype'):
+                update_fields['description'] = personality['archetype']
+            
+            # Extract and convert traits
+            core_traits = personality.get('core_traits', [])
+            if core_traits:
+                traits = {trait: 0.8 for trait in core_traits}
+                update_fields['base_traits'] = traits
+                update_fields['current_traits'] = traits
+            
+            # Extract backstory
+            backstory = char_data.get('backstory', {})
+            if backstory.get('origin'):
+                background = backstory['origin']
+                if backstory.get('motivation'):
+                    background += f" {backstory['motivation']}"
+                update_fields['background_story'] = background
+            
+            # Extract interests as favorite things
+            behavioral = char_data.get('behavioral_patterns', {})
+            interests = behavioral.get('interests', [])
+            if interests:
+                update_fields['favorite_things'] = ', '.join(interests)
+            
+            # Extract appearance notes
+            appearance = char_data.get('appearance', {})
+            appearance_notes = []
+            
+            physical = appearance.get('physical', {})
+            if physical.get('eye_color'):
+                appearance_notes.append(f"Eyes: {physical['eye_color']}")
+            if physical.get('skin_tone'):
+                appearance_notes.append(f"Skin: {physical['skin_tone']}")
+            
+            hair = appearance.get('hair', {})
+            if hair.get('color'):
+                hair_desc = f"Hair: {hair['color']}"
+                if hair.get('length'):
+                    hair_desc += f" {hair['length']}"
+                appearance_notes.append(hair_desc)
+            
+            if appearance_notes:
+                update_fields['appearance_notes'] = '; '.join(appearance_notes)
+        
+        if not update_fields:
+            return jsonify({'error': 'No valid update fields provided'}), 400
+        
+        # Update the personality
+        db_manager.update_model_personality(model_name.lower(), **update_fields)
+        
+        # Get updated data
+        updated_personality = db_manager.get_model_personality(model_name.lower())
+        
+        return jsonify({
+            'success': True,
+            'model_id': model_name.lower(),
+            'updated_fields': list(update_fields.keys()),
+            'character_data': updated_personality,
+            'message': f'Successfully updated character data for {model_name}'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating character data for {model_name}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@live2d_bp.route('/api/live2d/models/<model_name>/character', methods=['POST'])
+def create_character_data(model_name):
+    """Create new character/personality data for a model"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No character data provided'}), 400
+        
+        from databases.database_manager import DatabaseManager
+        db_manager = DatabaseManager()
+        
+        # Check if personality already exists
+        existing = db_manager.get_model_personality(model_name.lower())
+        if existing:
+            return jsonify({'error': f'Character data already exists for model: {model_name}'}), 409
+        
+        # Create personality data
+        character_data = data.get('character_data', data)
+        db_manager.create_model_personality(model_name.lower(), character_data)
+        
+        # Get created data
+        created_personality = db_manager.get_model_personality(model_name.lower())
+        
+        return jsonify({
+            'success': True,
+            'model_id': model_name.lower(),
+            'character_data': created_personality,
+            'message': f'Successfully created character data for {model_name}'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creating character data for {model_name}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@live2d_bp.route('/api/live2d/models/scan', methods=['POST'])
+def scan_and_import_models():
+    """Scan the models directory and import any new models found"""
+    try:
+        data = request.get_json() or {}
+        create_personalities = data.get('create_personalities', True)
+        
+        from databases.live2d_models_separated import Live2DModelsDB
+        live2d_db = Live2DModelsDB()
+        
+        # Scan for models
+        live2d_db.scan_and_register_models()
+        
+        # Get all models after scan
+        models = live2d_db.get_all_models()
+        
+        # Create personalities for models that don't have them
+        created_personalities = []
+        if create_personalities:
+            from databases.database_manager import DatabaseManager
+            db_manager = DatabaseManager()
+            
+            for model in models:
+                model_name = model['model_name']
+                personality = db_manager.get_model_personality(model_name.lower())
+                if not personality:
+                    # Try to load character data from characters.json
+                    try:
+                        from pathlib import Path
+                        characters_path = Path(__file__).parent.parent / "databases" / "characters.json"
+                        character_data = None
+                        
+                        if characters_path.exists():
+                            with open(characters_path, 'r') as f:
+                                characters = json.load(f).get('characters', {})
+                                character_data = characters.get(model_name.lower())
+                        
+                        db_manager.create_model_personality(model_name.lower(), character_data)
+                        created_personalities.append(model_name)
+                    except Exception as e:
+                        logger.warning(f"Failed to create personality for {model_name}: {e}")
+        
+        return jsonify({
+            'success': True,
+            'models_found': len(models),
+            'personalities_created': len(created_personalities),
+            'created_personalities': created_personalities,
+            'models': [{'name': m['model_name'], 'id': m['id']} for m in models],
+            'message': f'Scan complete. Found {len(models)} models, created {len(created_personalities)} personalities.'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error scanning and importing models: {e}")
+        return jsonify({'error': str(e)}), 500

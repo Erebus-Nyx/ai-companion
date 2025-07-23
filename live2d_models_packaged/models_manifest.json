@@ -1,0 +1,72 @@
+{
+  "packaged_models": [
+    {
+      "name": "epsilon",
+      "filename": "epsilon.zip",
+      "size": 14858637,
+      "description": "Live2D model: epsilon"
+    },
+    {
+      "name": "hiyori",
+      "filename": "hiyori.zip",
+      "size": 4479149,
+      "description": "Live2D model: hiyori"
+    },
+    {
+      "name": "Allium",
+      "filename": "Allium.zip",
+      "size": 18231698,
+      "description": "Live2D model: Allium"
+    },
+    {
+      "name": "Rei",
+      "filename": "Rei.zip",
+      "size": 2744732,
+      "description": "Live2D model: Rei"
+    },
+    {
+      "name": "haru",
+      "filename": "haru.zip",
+      "size": 15713166,
+      "description": "Live2D model: haru"
+    },
+    {
+      "name": "haruka",
+      "filename": "haruka.zip",
+      "size": 2452061,
+      "description": "Live2D model: haruka"
+    },
+    {
+      "name": "tsumiki",
+      "filename": "tsumiki.zip",
+      "size": 12108721,
+      "description": "Live2D model: tsumiki"
+    },
+    {
+      "name": "march",
+      "filename": "march.zip",
+      "size": 12444843,
+      "description": "Live2D model: march"
+    },
+    {
+      "name": "maomao",
+      "filename": "maomao.zip",
+      "size": 5600476,
+      "description": "Live2D model: maomao"
+    },
+    {
+      "name": "iori",
+      "filename": "iori.zip",
+      "size": 27641027,
+      "description": "Live2D model: iori"
+    },
+    {
+      "name": "chino",
+      "filename": "chino.zip",
+      "size": 6221604,
+      "description": "Live2D model: chino"
+    }
+  ],
+  "version": "1.0",
+  "description": "Pre-packaged Live2D models for AI2D Chat"
+}

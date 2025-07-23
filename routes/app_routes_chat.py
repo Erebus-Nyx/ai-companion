@@ -9,6 +9,8 @@ import logging
 import json
 from datetime import datetime
 import traceback
+import sqlite3
+from databases.database_manager import get_database_path
 
 logger = logging.getLogger(__name__)
 chat_bp = Blueprint('chat', __name__)
@@ -389,9 +391,84 @@ def get_user_chat_summary(user_id):
         logging.error(f"{error_msg}\n{traceback.format_exc()}")
         return jsonify({'error': error_msg}), 500
 
+@chat_routes.route('/api/chat/generate', methods=['POST'])
+def api_chat_generate():
+    """Enhanced chat generation endpoint with full avatar identity support"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+        
+        # Get comprehensive avatar and context information
+        avatar_id = data.get('avatar_id')
+        avatar_info = data.get('avatar_info', {})
+        message_type = data.get('message_type', 'greeting')
+        context = data.get('context', {})
+        character_identity = data.get('character_identity', {})
+        
+        if not avatar_id:
+            return jsonify({'error': 'Avatar ID is required'}), 400
+        
+        # Use the enhanced LLM handler
+        llm_handler = app_globals.llm_handler
+        if not llm_handler:
+            return jsonify({'error': 'LLM handler not available'}), 500
+        
+        # Extract character identity information
+        character_name = character_identity.get('name_to_use') or avatar_info.get('character_name') or avatar_info.get('name', 'Avatar')
+        character_instructions = character_identity.get('character_identity', f'You are {character_name}')
+        identity_enforcement = character_identity.get('identity_enforcement', f'Always introduce yourself as {character_name} and maintain this identity throughout the conversation.')
+        
+        # Build enhanced prompt with explicit character identity
+        if message_type == 'greeting':
+            prompt = f"""{character_instructions}
+
+{identity_enforcement}
+
+Context: {context.get('context', 'You just loaded and are greeting the user')}
+Intent: {context.get('intent', 'welcome_user')}
+Emotion: {context.get('emotion', 'friendly')}
+
+Generate a natural, friendly greeting where you introduce yourself correctly as {character_name}.
+Keep it brief and welcoming. Do not use asterisks or action descriptions.
+Remember: You are {character_name}, not any other character."""
+        else:
+            prompt = f"""{character_instructions}
+
+{identity_enforcement}
+
+Generate a {message_type} message as {character_name}.
+Context: {context.get('context', str(context)) if isinstance(context, dict) else str(context)}
+Keep the response natural and appropriate for {character_name}.
+Remember: You are {character_name}, not any other character."""
+        
+        # Generate response using LLM with character identity enforcement
+        response = llm_handler.generate_response(
+            prompt,
+            user_id=data.get('user_id', "autonomous_user"),
+            model_id=avatar_id  # Use avatar_id for isolation
+        )
+        
+        if response and response.strip():
+            return jsonify({
+                'message': response.strip(),
+                'avatar_id': avatar_id,
+                'character_name': character_name,
+                'message_type': message_type,
+                'emotion': context.get('emotion', 'neutral'),
+                'success': True
+            })
+        else:
+            return jsonify({'error': 'Failed to generate message'}), 500
+            
+    except Exception as e:
+        error_msg = f"Chat generation API error: {str(e)}"
+        logging.error(f"{error_msg}\n{traceback.format_exc()}")
+        return jsonify({'error': error_msg}), 500
+
 @chat_routes.route('/api/chat/autonomous', methods=['POST'])
 def api_chat_autonomous():
-    """Autonomous chat endpoint for avatar-generated messages"""
+    """Autonomous chat endpoint for avatar-generated messages - Enhanced with character identity"""
     try:
         data = request.get_json()
         if not data:
@@ -403,9 +480,6 @@ def api_chat_autonomous():
         message_type = data.get('message_type', 'greeting')
         user_id = data.get('user_id')
         context = data.get('context', {})
-        roleplay_context = data.get('roleplay_context', {})
-        content_filters = data.get('content_filters', {})
-        character_consistency = data.get('character_consistency', {})
         
         if not avatar_id:
             return jsonify({'error': 'Avatar ID is required'}), 400
@@ -421,21 +495,32 @@ def api_chat_autonomous():
         elif not isinstance(context, dict):
             context = {}
         
-        # Build prompt for autonomous message generation
+        # Enhanced character identity enforcement
+        # Use proper character name (capitalized from avatar_id if needed)
+        proper_character_name = avatar_name if avatar_name != 'Avatar' else avatar_id.capitalize()
+        
+        # Build prompt with explicit character identity enforcement
         if message_type == 'greeting':
-            prompt = f"""You are {avatar_name}, greeting a user for the first time. 
-Context: {context.get('context', 'Avatar just loaded and is greeting the user')}
+            prompt = f"""You are {proper_character_name}. This is very important: You must introduce yourself as {proper_character_name}, not as any other name or character.
+
+Your name is {proper_character_name}. You are {proper_character_name}. When introducing yourself, say "I'm {proper_character_name}" or "My name is {proper_character_name}".
+
+Context: {context.get('context', 'You just loaded and are greeting the user')}
 Intent: {context.get('intent', 'welcome_user')}
 Emotion: {context.get('emotion', 'friendly')}
 
-Generate a natural, friendly greeting appropriate for {avatar_name}'s personality.
-Keep it brief and welcoming. Do not use asterisks or action descriptions."""
+Generate a natural, friendly greeting where you correctly introduce yourself as {proper_character_name}.
+Keep it brief and welcoming. Do not use asterisks or action descriptions.
+Remember: You are {proper_character_name}, not Nyx or any other character."""
         else:
-            prompt = f"""You are {avatar_name}. Generate a {message_type} message.
+            prompt = f"""You are {proper_character_name}. This is very important: Your name is {proper_character_name}.
+
+Generate a {message_type} message as {proper_character_name}.
 Context: {context.get('context', str(context)) if isinstance(context, dict) else str(context)}
-Keep the response natural and appropriate for the character."""
+Keep the response natural and appropriate for {proper_character_name}.
+Remember: You are {proper_character_name}, not any other character."""
         
-        # Generate response using LLM with model isolation
+        # Generate response using LLM with character identity enforcement
         response = llm_handler.generate_response(
             prompt,
             user_id=str(user_id) if user_id else "autonomous_user",
@@ -446,7 +531,7 @@ Keep the response natural and appropriate for the character."""
             return jsonify({
                 'message': response.strip(),
                 'avatar_id': avatar_id,
-                'avatar_name': avatar_name,
+                'avatar_name': proper_character_name,
                 'message_type': message_type,
                 'emotion': context.get('emotion', 'neutral'),
                 'success': True
@@ -457,6 +542,121 @@ Keep the response natural and appropriate for the character."""
     except Exception as e:
         error_msg = f"Autonomous chat API error: {str(e)}"
         logging.error(f"{error_msg}\n{traceback.format_exc()}")
+        return jsonify({'error': error_msg}), 500
+
+@chat_bp.route('/api/chat/clear-cache', methods=['POST'])
+def clear_chat_cache():
+    """Clear LLM cache for specific avatar or all cache"""
+    try:
+        data = request.get_json() or {}
+        avatar_id = data.get('avatar_id')
+        
+        # Get database path using config - use conversations.db where llm_cache table is located
+        db_path = get_database_path("conversations.db")
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+        
+        if avatar_id:
+            # Clear cache for specific avatar - use model_id column
+            cursor.execute("DELETE FROM llm_cache WHERE model_id = ?", (avatar_id,))
+            deleted = cursor.rowcount
+            conn.commit()
+            conn.close()
+            
+            return jsonify({
+                "success": True,
+                "message": f"Cleared {deleted} cached responses for avatar {avatar_id}"
+            })
+        else:
+            # Clear all cache
+            cursor.execute("DELETE FROM llm_cache")
+            deleted = cursor.rowcount
+            conn.commit()
+            conn.close()
+            
+            return jsonify({
+                "success": True,
+                "message": f"Cleared {deleted} cached responses for all avatars"
+            })
+            
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"Database error: {str(e)}"
+        }), 500
+
+@chat_routes.route('/api/chat/clear-cache', methods=['POST'])
+def api_chat_clear_cache():
+    """Clear LLM response cache to force fresh generation"""
+    try:
+        data = request.get_json() or {}
+        
+        # Get optional parameters
+        avatar_id = data.get('avatar_id')  # Clear cache for specific avatar
+        user_id = data.get('user_id')      # Clear cache for specific user
+        
+        # Use the enhanced LLM handler to clear cache
+        llm_handler = app_globals.llm_handler
+        if not llm_handler:
+            return jsonify({'error': 'LLM handler not available'}), 500
+        
+        # Access the database manager through the LLM handler
+        db_manager = llm_handler.db_manager
+        if not db_manager:
+            return jsonify({'error': 'Database manager not available'}), 500
+        
+        # Clear cache based on parameters
+        cleared_count = 0
+        
+        try:
+            # Get database connection using config-based path
+            db_path = get_database_path("conversations.db")
+            conn = sqlite3.connect(str(db_path))
+            cursor = conn.cursor()
+            
+            if avatar_id and user_id:
+                # Clear cache for specific avatar and user - note: no user_id in llm_cache, use input_hash pattern
+                cursor.execute(
+                    'DELETE FROM llm_cache WHERE model_id = ? AND input_hash LIKE ?',
+                    (avatar_id, f'%{user_id}%')
+                )
+                cleared_count = cursor.rowcount
+                cache_scope = f"avatar '{avatar_id}' and user '{user_id}'"
+            elif avatar_id:
+                # Clear cache for specific avatar - use model_id column
+                cursor.execute('DELETE FROM llm_cache WHERE model_id = ?', (avatar_id,))
+                cleared_count = cursor.rowcount
+                cache_scope = f"avatar '{avatar_id}'"
+            elif user_id:
+                # Clear cache for specific user - search by input_hash pattern
+                cursor.execute('DELETE FROM llm_cache WHERE input_hash LIKE ?', (f'%{user_id}%',))
+                cleared_count = cursor.rowcount
+                cache_scope = f"user '{user_id}'"
+            else:
+                # Clear all cache
+                cursor.execute('DELETE FROM llm_cache')
+                cleared_count = cursor.rowcount
+                cache_scope = "all cached responses"
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"Cleared {cleared_count} cached LLM responses for {cache_scope}")
+            
+            return jsonify({
+                'success': True,
+                'cleared_count': cleared_count,
+                'scope': cache_scope,
+                'message': f'Successfully cleared {cleared_count} cached responses for {cache_scope}'
+            })
+            
+        except Exception as db_error:
+            logger.error(f"Database error while clearing cache: {str(db_error)}")
+            return jsonify({'error': f'Database error: {str(db_error)}'}), 500
+            
+    except Exception as e:
+        error_msg = f"Clear cache API error: {str(e)}"
+        logger.error(f"{error_msg}\n{traceback.format_exc()}")
         return jsonify({'error': error_msg}), 500
 
 @chat_bp.route('/api/v1/chat', methods=['POST'])

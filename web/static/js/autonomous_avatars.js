@@ -197,6 +197,25 @@ class AutonomousAvatarUI {
                 // Trigger avatar motion if available
                 this.triggerAutonomousAvatarMotion(avatar, 'happy');
                 
+                // Trigger TTS if available
+                if (typeof triggerEmotionalTTS === 'function') {
+                    console.log('🔊 Triggering TTS for autonomous greeting...');
+                    try {
+                        triggerEmotionalTTS(
+                            greeting,
+                            'happy',
+                            avatar.id,
+                            {}, // personality traits
+                            0.7  // intensity
+                        );
+                        console.log('✅ TTS triggered successfully');
+                    } catch (error) {
+                        console.warn('⚠️ Error triggering TTS:', error);
+                    }
+                } else {
+                    console.warn('⚠️ triggerEmotionalTTS function not available');
+                }
+                
                 console.log(`🎉 ${avatar.displayName} sent autonomous greeting: "${greeting}"`);
             } else {
                 console.warn('⚠️ Failed to generate greeting, avatar will remain silent');

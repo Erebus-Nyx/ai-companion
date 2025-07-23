@@ -296,18 +296,19 @@ class EnhancedLLMHandler:
         # Get model-specific personality information
         model_personality = self.db_manager.get_model_personality(model_id)
         if model_personality:
-            character_name = model_personality.get("name", "Nyx")
+            character_name = model_personality.get("name", model_id.title())
             character_description = model_personality.get("description", "")
             background_story = model_personality.get("background_story", "")
             favorite_things = model_personality.get("favorite_things", "")
             personality_notes = model_personality.get("personality_notes", "")
             appearance_notes = model_personality.get("appearance_notes", "")
         else:
-            character_name = "Nyx"
-            character_description = ""
-            background_story = ""
-            favorite_things = ""
-            personality_notes = ""
+            # If no personality data exists, create it dynamically or use model_id as fallback
+            character_name = model_id.title()
+            character_description = f"AI companion {model_id.title()}"
+            background_story = f"An AI assistant companion named {model_id.title()}"
+            favorite_things = "helping users, learning new things"
+            personality_notes = "Friendly and helpful AI companion"
             appearance_notes = ""
         
         # Build personality description

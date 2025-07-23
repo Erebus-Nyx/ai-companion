@@ -180,12 +180,29 @@ class AvatarChatManager {
                 this.avatarDatabase.clear();
                 if (avatarData.models) {
                     avatarData.models.forEach(avatar => {
+                        const displayName = this.formatAvatarName(avatar.name);
                         this.avatarDatabase.set(avatar.name, {
                             id: avatar.name,
                             name: avatar.name,
-                            displayName: this.formatAvatarName(avatar.name),
+                            displayName: displayName,
                             modelPath: avatar.model_path,
                             capabilities: avatar.capabilities || {},
+                            // Enhanced character identity information
+                            character_info: {
+                                name: displayName,
+                                character_name: displayName,
+                                identity: displayName,
+                                self_name: displayName,
+                                is_character: true,
+                                model_source: avatar.name
+                            },
+                            background: avatar.background || {
+                                description: `I am ${displayName}, a Live2D character.`,
+                                personality: avatar.personality || 'friendly and helpful'
+                            },
+                            appearance: avatar.appearance || {
+                                description: `I appear as ${displayName}, a Live2D animated character.`
+                            },
                             ...avatar
                         });
                     });
@@ -580,11 +597,13 @@ class AvatarChatManager {
     }
 
     sendFallbackGreeting(avatar) {
+        const avatarName = avatar.displayName || avatar.name;
         const fallbackGreetings = [
-            `Hello! ${avatar.displayName} here.`,
-            `Hi there! It's good to see you!`,
-            `Hey! How are you doing today?`,
-            `Hello! How's your day going?`
+            `Hello! I'm ${avatarName}. Nice to meet you!`,
+            `Hi there! ${avatarName} here. How are you doing today?`,
+            `Hey! It's ${avatarName}. Great to see you!`,
+            `Hello! ${avatarName} at your service. How can I help you today?`,
+            `Greetings! I'm ${avatarName}. What would you like to talk about?`
         ];
         
         const greeting = fallbackGreetings[Math.floor(Math.random() * fallbackGreetings.length)];
@@ -768,19 +787,37 @@ class AvatarChatManager {
 
     // UI Management methods
     addMessageToUI(messageObj, isHistorical = false) {
+        console.log('🎯 addMessageToUI called with:', { messageObj, isHistorical });
+        
         const chatMessagesContainer = document.getElementById('chatMessages');
         if (!chatMessagesContainer) {
             console.warn('⚠️ Chat messages container not found');
             return;
         }
 
+        console.log('✅ Chat messages container found:', chatMessagesContainer);
+        
         const messageElement = this.createMessageElement(messageObj, isHistorical);
+        console.log('📝 Created message element:', messageElement);
+        
         chatMessagesContainer.appendChild(messageElement);
+        console.log('➕ Message element appended to container');
+
+        // Add visible class with animation delay
+        requestAnimationFrame(() => {
+            messageElement.classList.add('visible');
+            console.log('✨ Added visible class for animation');
+        });
 
         // Scroll to bottom for new messages (not historical)
         if (!isHistorical) {
-            chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+            setTimeout(() => {
+                chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+                console.log('📜 Scrolled chat to bottom');
+            }, 100); // Small delay to allow animation
         }
+        
+        console.log('✅ addMessageToUI completed successfully');
     }
 
     createMessageElement(messageObj, isHistorical = false) {
@@ -924,3 +961,212 @@ class AvatarChatManager {
 
 // Export for global access
 window.AvatarChatManager = AvatarChatManager;
+
+// Global sendMessage function for chat input functionality
+async function sendMessage() {
+    console.log('📤 Global sendMessage called');
+    
+    // Get chat input element
+    const chatInput = document.getElementById('chatInput');
+    if (!chatInput) {
+        console.error('Chat input element not found! Looking for element with ID: chatInput');
+        return;
+    }
+    
+    const text = chatInput.value.trim();
+    if (!text) {
+        console.log('Empty message, not sending');
+        return;
+    }
+    
+    console.log('📤 Sending message:', text);
+    
+    // Clear input immediately
+    chatInput.value = '';
+    
+    // Initialize avatar chat manager if not already done
+    if (!window.avatarChatManager) {
+        console.log('Initializing avatar chat manager...');
+        window.avatarChatManager = new AvatarChatManager();
+        // Give it a moment to initialize
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    // Add user message to chat
+    const userMessageObj = {
+        type: 'user',
+        message: text,
+        timestamp: new Date(),
+        user: window.avatarChatManager.currentUser || { display_name: 'User' },
+        generated_by: 'manual'
+    };
+    
+    window.avatarChatManager.addMessageToUI(userMessageObj);
+    
+    try {
+        // Send message to backend for AI response
+        const apiUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || '';
+        const response = await fetch(`${apiUrl}/api/chat`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                message: text,
+                user_id: window.avatarChatManager.currentUser?.id || 1
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            // Add AI response to chat
+            const aiMessageObj = {
+                type: 'avatar',
+                message: data.reply || data.response || '[No reply]',
+                timestamp: new Date(),
+                avatar: { 
+                    id: 'assistant', 
+                    name: 'Assistant', 
+                    displayName: 'AI Assistant' 
+                },
+                generated_by: 'api_response',
+                emotion: data.emotion || 'neutral'
+            };
+            
+            window.avatarChatManager.addMessageToUI(aiMessageObj);
+            
+            console.log('✅ Message sent and response received');
+        } else {
+            console.error('Chat API request failed:', response.status);
+            
+            // Add error message
+            const errorMessageObj = {
+                type: 'system',
+                message: 'Failed to get response from AI assistant',
+                timestamp: new Date(),
+                generated_by: 'error'
+            };
+            
+            window.avatarChatManager.addMessageToUI(errorMessageObj);
+        }
+        
+    } catch (error) {
+        console.error('Error sending message:', error);
+        
+        // Add error message
+        const errorMessageObj = {
+            type: 'system',
+            message: 'Error: Could not send message',
+            timestamp: new Date(),
+            generated_by: 'error'
+        };
+        
+        window.avatarChatManager.addMessageToUI(errorMessageObj);
+    }
+}
+
+// Also handle Enter key in chat input
+function handleChatKeyPress(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        sendMessage();
+    }
+}
+
+// Make functions globally available
+window.sendMessage = sendMessage;
+window.handleChatKeyPress = handleChatKeyPress;
+
+// Global addMessage function for backwards compatibility with autonomous system
+function addMessage(sender, message, type = 'info', avatar = null, metadata = null) {
+    // Bridge to current chat manager's addMessageToUI method
+    console.log('🔗 Global addMessage called - bridging to chat manager');
+    console.log('📝 addMessage parameters:', { sender, message, type, avatar, metadata });
+    
+    if (!window.avatarChatManager) {
+        console.warn('⚠️ Avatar chat manager not initialized, creating new instance');
+        window.avatarChatManager = new AvatarChatManager();
+    }
+    
+    console.log('🎯 Avatar chat manager available:', !!window.avatarChatManager);
+    console.log('🎯 addMessageToUI method available:', typeof window.avatarChatManager.addMessageToUI);
+    
+    // Convert old addMessage format to new addMessageToUI format
+    const messageObj = {
+        type: sender === 'user' ? 'user' : (sender === 'ai' ? 'avatar' : 'system'),
+        message: message,
+        timestamp: metadata?.timestamp ? new Date(metadata.timestamp) : new Date(),
+        avatar: avatar,
+        user: sender === 'user' ? (window.avatarChatManager.currentUser || { display_name: 'User' }) : null,
+        generated_by: metadata?.is_autonomous ? 'autonomous' : metadata?.is_self_reflection ? 'reflection' : 'manual',
+        emotion: metadata?.emotion || 'neutral',
+        metadata: metadata
+    };
+    
+    console.log('📦 Converted message object:', messageObj);
+    
+    // Use the current chat manager's method
+    try {
+        window.avatarChatManager.addMessageToUI(messageObj, false);
+        console.log('✅ Message bridged to chat manager successfully');
+    } catch (error) {
+        console.error('❌ Error calling addMessageToUI:', error);
+    }
+}
+
+// Make addMessage globally available
+window.addMessage = addMessage;
+
+// Debug: Log function availability after all functions are defined
+console.log('✅ Global chat functions exposed:', {
+    sendMessage: typeof window.sendMessage,
+    handleChatKeyPress: typeof window.handleChatKeyPress,
+    addMessage: typeof window.addMessage
+});
+
+// Debug function for testing chat UI - call from browser console: testChatUI()
+function testChatUI() {
+    console.log('🧪 Testing chat UI functionality...');
+    
+    // Check if container exists
+    const container = document.getElementById('chatMessages');
+    console.log('📦 Chat container found:', !!container);
+    
+    if (container) {
+        console.log('📏 Container dimensions:', {
+            width: container.offsetWidth,
+            height: container.offsetHeight,
+            childCount: container.children.length
+        });
+        
+        // Check existing messages
+        const messages = container.querySelectorAll('.chat-message');
+        console.log('💬 Existing messages:', messages.length);
+        messages.forEach((msg, i) => {
+            console.log(`Message ${i}:`, {
+                text: msg.textContent.substring(0, 50),
+                visible: msg.classList.contains('visible'),
+                opacity: getComputedStyle(msg).opacity
+            });
+        });
+        
+        // Try adding a test message directly
+        const testDiv = document.createElement('div');
+        testDiv.className = 'chat-message test-message';
+        testDiv.textContent = '🧪 TEST MESSAGE - If you see this, DOM manipulation works!';
+        testDiv.style.cssText = 'background: yellow; color: black; padding: 10px; margin: 5px; border: 2px solid red;';
+        container.appendChild(testDiv);
+        requestAnimationFrame(() => {
+            testDiv.classList.add('visible');
+        });
+        console.log('✅ Test message added to DOM');
+        
+        // Try the official addMessage function
+        console.log('🔄 Testing addMessage function...');
+        addMessage('Test User', '🧪 Testing addMessage function', 'test');
+    }
+}
+
+// Make test function globally available
+window.testChatUI = testChatUI;

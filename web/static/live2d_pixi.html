@@ -300,13 +300,68 @@
         <div class="dialog-overlay" onclick="closeAddModelDialog()"></div>
         <div class="dialog-content">
             <div class="dialog-header">
-                <h3>Add Live2D Model</h3>
+                <h3>Live2D Model Management</h3>
                 <button class="dialog-close" onclick="closeAddModelDialog()">×</button>
             </div>
             <div class="dialog-body">
-                <div class="model-grid" id="modelGrid">
-                    <div style="text-align: center; padding: 20px; color: #aaa;">
-                        Loading available models...
+                <!-- Tab Navigation -->
+                <div class="dialog-tabs">
+                    <button class="tab-button active" onclick="switchModelDialogTab('existing')">Existing Models</button>
+                    <button class="tab-button" onclick="switchModelDialogTab('import')">Import ZIP Models</button>
+                </div>
+                
+                <!-- Existing Models Tab -->
+                <div id="existingModelsTab" class="tab-content active">
+                    <div class="form-group">
+                        <label for="modelDialogSelect">Select Model:</label>
+                        <select id="modelDialogSelect">
+                            <option value="">Loading models...</option>
+                        </select>
+                    </div>
+                    <div class="model-grid" id="modelGrid">
+                        <div style="text-align: center; padding: 20px; color: #aaa;">
+                            Loading available models...
+                        </div>
+                    </div>
+                    <div class="dialog-actions">
+                        <button class="btn btn-primary" onclick="addSelectedModel()">Add Model</button>
+                    </div>
+                </div>
+                
+                <!-- Import Models Tab -->
+                <div id="importModelsTab" class="tab-content">
+                    <div class="import-section">
+                        <h4>Upload Model Files</h4>
+                        <div class="upload-area">
+                            <div class="drop-zone" id="modelDropZone">
+                                <div class="drop-zone-content">
+                                    <div class="drop-icon">📁</div>
+                                    <p>Drag and drop Live2D model ZIP archives here</p>
+                                    <p class="drop-hint">ZIP files preserve the complete directory structure</p>
+                                    <input type="file" id="modelFileInput" accept=".zip" multiple style="display: none;">
+                                </div>
+                            </div>
+                            <button class="btn btn-secondary" onclick="document.getElementById('modelFileInput').click()">Choose ZIP Files</button>
+                        </div>
+                        
+                        <div class="supported-formats">
+                            <h5>Requirements:</h5>
+                            <ul>
+                                <li><strong>ZIP archives only</strong> - preserves directory structure</li>
+                                <li>Must contain .model3.json configuration file</li>
+                                <li>Includes all motions, textures, and assets</li>
+                                <li>Maintains relative paths for proper model functionality</li>
+                            </ul>
+                            <div class="format-note">
+                                <strong>Note:</strong> Live2D models require their complete directory structure to function properly. 
+                                Individual files cannot be uploaded as they break motion and texture references.
+                            </div>
+                        </div>
+                        
+                        <!-- Upload Progress -->
+                        <div id="uploadProgressContainer" class="upload-progress-container">
+                            <!-- Progress items will be added here -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1215,6 +1270,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <script src="/static/js/live2d_modules/live2d_logger.js"></script>
     <script src="/static/js/live2d_modules/live2d_model_loader.js"></script>
     <script src="/static/js/live2d_modules/live2d_model_manager.js"></script>
+    <script src="/static/js/live2d_modules/live2d_model_import_manager.js"></script>
     <script src="/static/js/live2d_modules/live2d_motion_manager.js"></script>
     <script src="/static/js/live2d_modules/live2d_motions.js"></script>
     <script src="/static/js/live2d_modules/live2d_mouse_interaction.js"></script>    
@@ -2168,6 +2224,399 @@ async function loadLive2DModel(modelPath) {
         console.log('📍 All models centered');
     }
     
+    // UI Panel Management Functions
+    function openChat() {
+        const chatWindow = document.getElementById('chatWindow');
+        if (chatWindow) {
+            chatWindow.style.display = 'block';
+            chatWindow.classList.add('open');
+            console.log('Chat window opened');
+        }
+    }
+    
+    function closeChat() {
+        const chatWindow = document.getElementById('chatWindow');
+        if (chatWindow) {
+            chatWindow.classList.remove('open');
+            setTimeout(() => {
+                chatWindow.style.display = 'none';
+            }, 300);
+            console.log('Chat window closed');
+        }
+    }
+    
+    function openSettings() {
+        const settingsPanel = document.getElementById('settingsPanel');
+        if (settingsPanel) {
+            settingsPanel.style.display = 'block';
+            settingsPanel.classList.add('open');
+            console.log('Settings panel opened');
+        }
+    }
+    
+    function closeSettings() {
+        const settingsPanel = document.getElementById('settingsPanel');
+        if (settingsPanel) {
+            settingsPanel.classList.remove('open');
+            setTimeout(() => {
+                settingsPanel.style.display = 'none';
+            }, 300);
+            console.log('Settings panel closed');
+        }
+    }
+    
+    function openCharacterProfiles() {
+        const characterPanel = document.getElementById('characterProfilesPanel');
+        if (characterPanel) {
+            characterPanel.style.display = 'block';
+            characterPanel.classList.add('open');
+            loadCharactersForProfiles();
+            console.log('Character profiles panel opened');
+        }
+    }
+    
+    function closeCharacterProfiles() {
+        const characterPanel = document.getElementById('characterProfilesPanel');
+        if (characterPanel) {
+            characterPanel.classList.remove('open');
+            setTimeout(() => {
+                characterPanel.style.display = 'none';
+            }, 300);
+            console.log('Character profiles panel closed');
+        }
+    }
+    
+    function openUserManagement() {
+        const userPanel = document.getElementById('userManagementPanel');
+        if (userPanel) {
+            userPanel.style.display = 'block';
+            userPanel.classList.add('open');
+            loadUsersForManagement();
+            console.log('User management panel opened');
+        }
+    }
+    
+    function closeUserManagement() {
+        const userPanel = document.getElementById('userManagementPanel');
+        if (userPanel) {
+            userPanel.classList.remove('open');
+            setTimeout(() => {
+                userPanel.style.display = 'none';
+            }, 300);
+            console.log('User management panel closed');
+        }
+    }
+    
+    function openDrawing() {
+        console.log('Drawing tools not yet implemented');
+        // TODO: Implement drawing tools interface
+    }
+    
+    function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+        } else {
+            document.exitFullscreen();
+        }
+    }
+    
+    // Character Management Functions
+    function loadCharactersForProfiles() {
+        fetch('/api/live2d/models')
+            .then(response => response.json())
+            .then(data => {
+                const characterSelect = document.getElementById('characterSelect');
+                if (characterSelect && data.success) {
+                    characterSelect.innerHTML = '<option value="">Select a character...</option>';
+                    data.models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.model_name;
+                        option.textContent = model.model_name;
+                        characterSelect.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Failed to load characters:', error);
+            });
+    }
+    
+    function onCharacterChange() {
+        const characterSelect = document.getElementById('characterSelect');
+        const modelName = characterSelect.value;
+        
+        if (modelName) {
+            loadCharacterData(modelName);
+        } else {
+            clearCharacterForm();
+        }
+    }
+    
+    function loadCharacterData(modelName) {
+        fetch(`/api/live2d/models/${modelName}/character`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.character) {
+                    populateCharacterForm(data.character);
+                } else {
+                    console.warn('No character data found for model:', modelName);
+                    clearCharacterForm();
+                }
+            })
+            .catch(error => {
+                console.error('Failed to load character data:', error);
+                clearCharacterForm();
+            });
+    }
+    
+    function populateCharacterForm(character) {
+        document.getElementById('characterName').value = character.name || '';
+        document.getElementById('characterDescription').value = character.description || '';
+        document.getElementById('characterAge').value = character.age || '';
+        document.getElementById('characterPersonality').value = character.personality_notes || '';
+        document.getElementById('characterAppearance').value = character.appearance_notes || '';
+        document.getElementById('characterOutfit').value = character.appearance_notes || '';
+        document.getElementById('characterBackground').value = character.background_story || '';
+        document.getElementById('characterGoals').value = character.favorite_things || '';
+    }
+    
+    function clearCharacterForm() {
+        document.getElementById('characterName').value = '';
+        document.getElementById('characterDescription').value = '';
+        document.getElementById('characterAge').value = '';
+        document.getElementById('characterPersonality').value = '';
+        document.getElementById('characterAppearance').value = '';
+        document.getElementById('characterOutfit').value = '';
+        document.getElementById('characterBackground').value = '';
+        document.getElementById('characterGoals').value = '';
+    }
+    
+    function saveCharacterProfile() {
+        const characterSelect = document.getElementById('characterSelect');
+        const modelName = characterSelect.value;
+        
+        if (!modelName) {
+            alert('Please select a character first');
+            return;
+        }
+        
+        const characterData = {
+            name: document.getElementById('characterName').value,
+            description: document.getElementById('characterDescription').value,
+            personality_notes: document.getElementById('characterPersonality').value,
+            appearance_notes: document.getElementById('characterAppearance').value,
+            background_story: document.getElementById('characterBackground').value,
+            favorite_things: document.getElementById('characterGoals').value
+        };
+        
+        fetch(`/api/live2d/models/${modelName}/character`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(characterData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Character profile saved successfully!');
+            } else {
+                alert('Failed to save character profile: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error saving character profile:', error);
+            alert('Failed to save character profile');
+        });
+    }
+    
+    function createNewCharacter() {
+        const modelName = prompt('Enter model name for new character:');
+        if (modelName) {
+            const characterData = {
+                name: modelName.charAt(0).toUpperCase() + modelName.slice(1),
+                description: 'New character',
+                personality_notes: 'Friendly and helpful',
+                appearance_notes: 'Virtual companion',
+                background_story: `A new AI companion named ${modelName}`,
+                favorite_things: 'Helping users, learning new things'
+            };
+            
+            fetch(`/api/live2d/models/${modelName}/character`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(characterData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Character created successfully!');
+                    loadCharactersForProfiles();
+                } else {
+                    alert('Failed to create character: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error creating character:', error);
+                alert('Failed to create character');
+            });
+        }
+    }
+    
+    function duplicateCharacter() {
+        const characterSelect = document.getElementById('characterSelect');
+        const modelName = characterSelect.value;
+        
+        if (!modelName) {
+            alert('Please select a character to duplicate');
+            return;
+        }
+        
+        const newName = prompt('Enter name for duplicated character:');
+        if (newName) {
+            // Get current character data and create new one
+            fetch(`/api/live2d/models/${modelName}/character`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.character) {
+                        const duplicatedData = {
+                            ...data.character,
+                            name: newName.charAt(0).toUpperCase() + newName.slice(1)
+                        };
+                        
+                        return fetch(`/api/live2d/models/${newName}/character`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(duplicatedData)
+                        });
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Character duplicated successfully!');
+                        loadCharactersForProfiles();
+                    } else {
+                        alert('Failed to duplicate character: ' + (data.error || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error duplicating character:', error);
+                    alert('Failed to duplicate character');
+                });
+        }
+    }
+    
+    function deleteCharacter() {
+        const characterSelect = document.getElementById('characterSelect');
+        const modelName = characterSelect.value;
+        
+        if (!modelName) {
+            alert('Please select a character to delete');
+            return;
+        }
+        
+        if (confirm(`Are you sure you want to delete the character "${modelName}"?`)) {
+            fetch(`/api/live2d/models/${modelName}/character`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Character deleted successfully!');
+                    loadCharactersForProfiles();
+                    clearCharacterForm();
+                } else {
+                    alert('Failed to delete character: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting character:', error);
+                alert('Failed to delete character');
+            });
+        }
+    }
+    
+    function exportCharacter() {
+        const characterSelect = document.getElementById('characterSelect');
+        const modelName = characterSelect.value;
+        
+        if (!modelName) {
+            alert('Please select a character to export');
+            return;
+        }
+        
+        fetch(`/api/live2d/models/${modelName}/character`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.character) {
+                    const dataStr = JSON.stringify(data.character, null, 2);
+                    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                    const url = URL.createObjectURL(dataBlob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${modelName}_character.json`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                } else {
+                    alert('Failed to export character: No character data found');
+                }
+            })
+            .catch(error => {
+                console.error('Error exporting character:', error);
+                alert('Failed to export character');
+            });
+    }
+    
+    function importCharacter() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const characterData = JSON.parse(e.target.result);
+                        const modelName = prompt('Enter model name for imported character:', characterData.name || 'imported_character');
+                        
+                        if (modelName) {
+                            fetch(`/api/live2d/models/${modelName}/character`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify(characterData)
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    alert('Character imported successfully!');
+                                    loadCharactersForProfiles();
+                                } else {
+                                    alert('Failed to import character: ' + (data.error || 'Unknown error'));
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error importing character:', error);
+                                alert('Failed to import character');
+                            });
+                        }
+                    } catch (error) {
+                        alert('Invalid JSON file');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        };
+        input.click();
+    }
+
     // Debug function to test chat functionality
     function testChatMessage() {
         console.log('Testing chat message functionality...');

@@ -10,7 +10,9 @@ class ResponseGenerationManager {
 
     // Main response generation method
     async generateAutonomousMessage(avatar, messageType, context = {}) {
-        const cacheKey = `${avatar.id}_${messageType}_${JSON.stringify(context)}`;
+        // Add randomization to prevent identical messages
+        const randomSeed = Math.random().toString(36).substring(7);
+        const cacheKey = `${avatar.id}_${messageType}_${randomSeed}`;
         
         // Check if generation is already in progress for this request
         if (this.generationInProgress.has(cacheKey)) {
@@ -21,13 +23,20 @@ class ResponseGenerationManager {
         this.generationInProgress.add(cacheKey);
 
         try {
-            // Build comprehensive context for AI generation
-            const aiContext = await this.buildAIGenerationContext(avatar, messageType, context);
-            
-            // Generate response using AI API
-            const response = await this.callAIGenerationAPI(avatar, aiContext);
-            
-            // Validate and process response
+        // Build comprehensive context for AI generation
+        const aiContext = await this.buildAIGenerationContext(avatar, messageType, context);
+        
+        // Debug: Log the avatar identity information being sent
+        console.log('🎭 Avatar identity information being sent to AI:', {
+            name: aiContext.avatar.name,
+            character_name: aiContext.avatar.character_name,
+            model_name: aiContext.avatar.model_name,
+            identity: aiContext.avatar.identity,
+            character_instructions: aiContext.context.character_instructions
+        });
+        
+        // Generate response using AI API
+        const response = await this.callAIGenerationAPI(avatar, aiContext);            // Validate and process response
             const processedResponse = await this.processAIResponse(response, avatar, aiContext);
             
             this.generationInProgress.delete(cacheKey);
@@ -61,9 +70,20 @@ class ResponseGenerationManager {
             avatar: {
                 id: avatar.id,
                 name: avatar.displayName || avatar.name,
+                character_name: avatar.displayName || avatar.name, // Explicit character name
+                model_name: avatar.name, // Original model name (haruka, etc.)
+                identity: {
+                    display_name: avatar.displayName || avatar.name,
+                    character_identity: avatar.displayName || avatar.name,
+                    is_character: true,
+                    self_reference: avatar.displayName || avatar.name
+                },
                 personality_traits: personalityTraits,
                 content_capabilities: contentCapabilities,
-                behavioral_constraints: behavioralConstraints
+                behavioral_constraints: behavioralConstraints,
+                character_info: avatar.character_info || {},
+                background: avatar.background || {},
+                appearance: avatar.appearance || {}
             },
             message_type: messageType,
             context: {
@@ -71,7 +91,14 @@ class ResponseGenerationManager {
                 user_attention: userAttention,
                 environmental_factors: environmentalFactors,
                 conversation_history: conversationHistory,
-                addressing_analysis: conversationManager.analyzeAddressingContext(avatar, context)
+                addressing_analysis: conversationManager.analyzeAddressingContext(avatar, context),
+                // Explicit character identity instructions
+                character_instructions: {
+                    name_to_use: avatar.displayName || avatar.name,
+                    self_reference: `I am ${avatar.displayName || avatar.name}`,
+                    character_identity: `You are ${avatar.displayName || avatar.name}, not any other character.`,
+                    identity_enforcement: `Always introduce yourself as ${avatar.displayName || avatar.name} and maintain this identity throughout the conversation.`
+                }
             },
             generation_parameters: {
                 response_style: this.determineResponseStyle(personalityTraits, context),
@@ -87,12 +114,14 @@ class ResponseGenerationManager {
         
         const requestBody = {
             avatar_id: avatar.id,
+            avatar_info: aiContext.avatar, // Include full avatar information
             message_type: aiContext.message_type,
             context: aiContext.context,
             personality: aiContext.avatar.personality_traits,
             generation_params: aiContext.generation_parameters,
             conversation_history: aiContext.context.conversation_history,
-            environmental_context: aiContext.context.environmental_factors
+            environmental_context: aiContext.context.environmental_factors,
+            character_identity: aiContext.context.character_instructions // Explicit identity instructions
         };
 
         console.log('🤖 Sending AI generation request:', requestBody);

@@ -461,12 +461,27 @@ class AI2DChatInstaller:
             print(f"  📝 Log file: {log_file}")
     
     def _copy_repo_models(self):
-        """Copy existing models from repository to user directory."""
+        """Install packaged models and copy other resources from repository to user directory."""
         import shutil
         
         user_data_dir = Path.home() / ".local" / "share" / "ai2d_chat"
         
-        # Models to copy from repo
+        # Install packaged Live2D models
+        print("  🎭 Installing packaged Live2D models...")
+        try:
+            install_script = self.project_root / "scripts" / "install_packaged_models.py"
+            if install_script.exists():
+                result = self._run_command([
+                    sys.executable, str(install_script)
+                ], "Installing packaged Live2D models", capture_output=False)
+                print("  ✅ Live2D models installed from packages")
+            else:
+                print("  ⚠️  Packaged model installer not found")
+        except subprocess.CalledProcessError as e:
+            print(f"  ⚠️  Failed to install packaged models: {e}")
+            print("  📝 Continuing with other model installation...")
+        
+        # Other models to copy from repo (non-Live2D)
         models_to_copy = [
             ("models/silero_vad", "models/silero_vad"),
             ("models/voices", "models/tts/voices"),  # Map voices to tts/voices
