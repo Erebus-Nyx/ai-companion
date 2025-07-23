@@ -914,6 +914,8 @@ class Live2DMultiModelManager {
                 <span class="status-indicator status-success"></span>
                 Active model loaded
             `;
+        } else {
+            console.warn('modelStatus element not found - UI may be incomplete');
         }
     }
 
@@ -978,6 +980,8 @@ class Live2DMultiModelManager {
                 <span class="status-indicator status-warning"></span>
                 No model loaded
             `;
+        } else {
+            console.warn('modelStatus element not found during reset - UI may be incomplete');
         }
     }
 

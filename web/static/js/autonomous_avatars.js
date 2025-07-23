@@ -22,13 +22,19 @@ class AutonomousAvatarUI {
         document.addEventListener('keypress', () => this.updateUserActivity());
         
         // Listen for user messages to pause autonomous system
-        if (window.sendMessage) {
+        if (window.sendMessage && typeof window.sendMessage === 'function') {
             const originalSendMessage = window.sendMessage;
             window.sendMessage = async (...args) => {
                 this.updateUserActivity();
                 return await originalSendMessage.apply(this, args);
             };
         }
+        
+        // Listen for model loaded events directly
+        document.addEventListener('live2d:modelLoaded', (event) => {
+            console.log('🤖 Autonomous system detected model load:', event.detail);
+            this.handleModelLoaded(event.detail);
+        });
     }
 
     setupSocketListeners() {
@@ -59,16 +65,18 @@ class AutonomousAvatarUI {
         const { avatar, message, metadata } = data;
         
         // Add autonomous message to chat with special styling
-        if (window.addMessage) {
+        if (window.addMessage && typeof window.addMessage === 'function') {
             window.addMessage('ai', message, 'autonomous', avatar, {
                 ...metadata,
                 is_autonomous: true,
                 timestamp: new Date().toLocaleTimeString()
             });
+        } else {
+            console.warn('🤖 Cannot display autonomous message - addMessage not available');
         }
 
         // Add to chat history
-        if (this.avatarChatManager) {
+        if (this.avatarChatManager && this.avatarChatManager.messageHistory) {
             this.avatarChatManager.messageHistory.push({
                 type: 'avatar',
                 message: message,
@@ -76,12 +84,12 @@ class AutonomousAvatarUI {
                 avatar: avatar,
                 is_autonomous: true,
                 emotions: ['neutral'],
-                primary_emotion: metadata.emotion || 'neutral'
+                primary_emotion: metadata?.emotion || 'neutral'
             });
         }
 
         // Trigger avatar motion/expression if available
-        this.triggerAutonomousAvatarMotion(avatar, metadata.emotion || 'neutral');
+        this.triggerAutonomousAvatarMotion(avatar, metadata?.emotion || 'neutral');
 
         console.log(`🤖 Autonomous message from ${avatar.name}: ${message.substring(0, 50)}...`);
     }
@@ -90,7 +98,7 @@ class AutonomousAvatarUI {
         const { avatar, message, metadata } = data;
         
         // Add self-reflection with special styling
-        if (window.addMessage) {
+        if (window.addMessage && typeof window.addMessage === 'function') {
             window.addMessage('ai', message, 'reflection', avatar, {
                 ...metadata,
                 is_self_reflection: true,
@@ -101,24 +109,191 @@ class AutonomousAvatarUI {
         console.log(`🧠 Self-reflection from ${avatar.name}: ${message.substring(0, 50)}...`);
     }
 
+    handleModelLoaded(modelDetail) {
+        console.log('🤖 === AUTONOMOUS SYSTEM HANDLING MODEL LOADED ===');
+        console.log('Model detail:', modelDetail);
+        
+        // Trigger autonomous greeting for newly loaded model
+        if (modelDetail && modelDetail.modelData && modelDetail.modelData.name) {
+            const modelName = modelDetail.modelData.name;
+            console.log('🤖 Processing newly loaded model for autonomous greeting:', modelName);
+            
+            const avatarInfo = {
+                id: modelName,
+                name: modelName,
+                displayName: this.formatAvatarName(modelName)
+            };
+            
+            // Add pixiModel reference if available
+            if (modelDetail.modelData.pixiModel) {
+                avatarInfo.pixiModel = modelDetail.modelData.pixiModel;
+            }
+            
+            // Schedule autonomous greeting with delay
+            const delay = 2000 + Math.random() * 3000; // 2-5 seconds
+            console.log(`🤖 Scheduling autonomous greeting for ${avatarInfo.displayName} in ${delay.toFixed(0)}ms`);
+            
+            setTimeout(() => {
+                this.sendAutonomousGreeting(avatarInfo);
+                // Auto-enable autonomous conversations if not already enabled
+                if (!this.autonomousEnabled) {
+                    console.log('🤖 Auto-enabling autonomous conversations due to model load');
+                    this.enableAutonomousConversations();
+                }
+            }, delay);
+        }
+        console.log('🤖 === END AUTONOMOUS MODEL LOADED HANDLING ===');
+    }
+
+    formatAvatarName(modelName) {
+        // Convert model names like 'haruka' to 'Haruka'
+        return modelName.charAt(0).toUpperCase() + modelName.slice(1);
+    }
+
+    async sendAutonomousGreeting(avatar) {
+        console.log('🤖 === SENDING AUTONOMOUS GREETING ===');
+        console.log('Avatar info:', avatar);
+        
+        try {
+            // Generate AI-based greeting using backend
+            const greeting = await this.generateAutonomousMessage(avatar, 'greeting', {
+                context: 'Avatar just loaded and is greeting the user',
+                intent: 'welcome_user',
+                emotion: 'happy'
+            });
+            
+            console.log('💬 Generated greeting:', greeting);
+            
+            if (greeting) {
+                // Add greeting message to chat
+                if (window.addMessage && typeof window.addMessage === 'function') {
+                    console.log('📝 Adding autonomous greeting to chat...');
+                    window.addMessage('ai', greeting, 'autonomous', avatar, {
+                        emotion: 'happy',
+                        timestamp: new Date().toLocaleTimeString(),
+                        is_autonomous: true,
+                        is_greeting: true
+                    });
+                    console.log('✅ Autonomous greeting added to chat');
+                } else {
+                    console.warn('⚠️ Cannot add autonomous greeting - addMessage not available');
+                }
+                
+                // Add to message history if chat manager is available
+                if (this.avatarChatManager && this.avatarChatManager.messageHistory) {
+                    this.avatarChatManager.messageHistory.push({
+                        type: 'avatar',
+                        message: greeting,
+                        timestamp: new Date(),
+                        avatar: avatar,
+                        is_autonomous: true,
+                        is_greeting: true,
+                        emotions: ['happy'],
+                        primary_emotion: 'happy'
+                    });
+                    console.log('✅ Greeting added to message history');
+                }
+                
+                // Trigger avatar motion if available
+                this.triggerAutonomousAvatarMotion(avatar, 'happy');
+                
+                console.log(`🎉 ${avatar.displayName} sent autonomous greeting: "${greeting}"`);
+            } else {
+                console.warn('⚠️ Failed to generate greeting, avatar will remain silent');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error sending autonomous greeting:', error);
+        }
+        
+        console.log('🤖 === END AUTONOMOUS GREETING ===');
+    }
+
+    async generateAutonomousMessage(avatar, messageType, context) {
+        /**
+         * Generate AI-based autonomous messages using the backend LLM
+         * @param {Object} avatar - Avatar object with id, name, displayName
+         * @param {String} messageType - 'greeting', 'spontaneous', 'response'
+         * @param {Object} context - Context for message generation
+         */
+        try {
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+            
+            const requestData = {
+                message_type: 'autonomous',
+                autonomous_type: messageType,
+                avatar_id: avatar.id,
+                avatar_name: avatar.name,
+                avatar_display_name: avatar.displayName,
+                context: context,
+                active_avatars: this.avatarChatManager ? this.avatarChatManager.getActiveAvatars().map(a => ({
+                    id: a.id,
+                    name: a.name,
+                    displayName: a.displayName
+                })) : [avatar],
+                conversation_history: this.avatarChatManager ? this.avatarChatManager.messageHistory.slice(-3) : [],
+                user_info: this.avatarChatManager?.currentUser ? {
+                    user_id: this.avatarChatManager.currentUser.id,
+                    display_name: this.avatarChatManager.currentUser.display_name || 'User'
+                } : null
+            };
+
+            console.log(`🤖 Generating ${messageType} message for ${avatar.displayName}...`);
+            
+            const response = await fetch(`${apiBaseUrl}/api/chat/autonomous`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData)
+            });
+
+            if (!response.ok) {
+                console.warn(`Autonomous message API failed: ${response.status}`);
+                return null;
+            }
+
+            const data = await response.json();
+            console.log(`✅ Generated autonomous message for ${avatar.displayName}:`, data.message);
+            
+            return data.message || data.reply;
+            
+        } catch (error) {
+            console.error('❌ Error generating autonomous message:', error);
+            return null;
+        }
+    }
+
     triggerAutonomousAvatarMotion(avatar, emotion) {
         // Find the avatar's PIXI model and trigger motion
         if (window.live2dMultiModelManager) {
             const models = window.live2dMultiModelManager.getAllModels();
             const avatarModel = models.find(m => m.name === avatar.id);
             
-            if (avatarModel && avatarModel.model) {
+            // Support both .model and .pixiModel properties
+            const pixiModel = avatarModel?.model || avatarModel?.pixiModel || avatar.pixiModel;
+            
+            if (pixiModel) {
+                console.log('🎭 Triggering autonomous avatar motion:', emotion);
+                
                 // Trigger subtle motion for autonomous conversations
                 if (typeof window.triggerAvatarMotion === 'function') {
-                    window.triggerAvatarMotion(avatarModel.model, emotion);
+                    window.triggerAvatarMotion(pixiModel, emotion);
+                } else if (typeof pixiModel.motion === 'function') {
+                    // Direct motion trigger as fallback
+                    try {
+                        pixiModel.motion(emotion === 'happy' ? 'happy' : 'idle');
+                    } catch (e) {
+                        console.warn('Direct motion trigger failed:', e);
+                    }
                 }
                 
                 // Also trigger a subtle idle motion
                 setTimeout(() => {
                     if (typeof window.triggerSubtleIdleMotion === 'function') {
-                        window.triggerSubtleIdleMotion(avatarModel.model);
+                        window.triggerSubtleIdleMotion(pixiModel);
                     }
                 }, 1000);
+            } else {
+                console.warn('🤖 No PIXI model found for autonomous motion:', avatar.id);
             }
         }
     }
@@ -174,79 +349,82 @@ class AutonomousAvatarUI {
 
 // Extend the existing addMessage function to handle autonomous messages
 (function() {
-    const originalAddMessage = window.addMessage;
-    
-    window.addMessage = function(sender, message, type = 'info', avatar = null, metadata = null) {
-        // Add special styling for autonomous messages
-        if (metadata && metadata.is_autonomous) {
-            type = type + ' autonomous';
-        }
+    if (window.addMessage && typeof window.addMessage === 'function') {
+        const originalAddMessage = window.addMessage;
         
-        if (metadata && metadata.is_self_reflection) {
-            type = type + ' reflection';
-        }
-        
-        // Call original function
-        return originalAddMessage.call(this, sender, message, type, avatar, metadata);
-    };
+        window.addMessage = function(sender, message, type = 'info', avatar = null, metadata = null) {
+            // Add special styling for autonomous messages
+            if (metadata && metadata.is_autonomous) {
+                type = type + ' autonomous';
+            }
+            
+            if (metadata && metadata.is_self_reflection) {
+                type = type + ' reflection';
+            }
+            
+            // Call original function
+            return originalAddMessage.call(this, sender, message, type, avatar, metadata);
+        };
+    } else {
+        console.warn('🤖 window.addMessage not available - autonomous message styling disabled');
+    }
 })();
 
 // Global instance
 let autonomousAvatarUI = null;
 
-// Initialize when chat manager is ready
+// Initialize immediately when possible, don't wait for chat manager
 function initializeAutonomousAvatarUI() {
-    if (window.avatarChatManager && !autonomousAvatarUI) {
-        autonomousAvatarUI = new AutonomousAvatarUI(window.avatarChatManager);
+    if (!autonomousAvatarUI) {
+        // Initialize with or without chat manager
+        const chatManager = window.avatarChatManager || null;
+        autonomousAvatarUI = new AutonomousAvatarUI(chatManager);
         window.autonomousAvatarUI = autonomousAvatarUI;
         
         console.log('🤖 Autonomous Avatar UI initialized successfully');
         
-        // Enable by default when any avatars are loaded
+        // Check for active avatars after a delay
         setTimeout(() => {
-            const activeAvatars = window.avatarChatManager.getActiveAvatars();
-            console.log('🎭 Checking for active avatars:', activeAvatars.length);
-            
-            if (activeAvatars.length >= 1) {
-                console.log('🤖 Enabling autonomous conversations for', activeAvatars.length, 'avatar(s)');
-                autonomousAvatarUI.enableAutonomousConversations();
-                
-                // Also request a test autonomous message to verify the system
-                setTimeout(() => {
-                    if (typeof socket !== 'undefined' && socket.connected) {
-                        socket.emit('test_autonomous_message');
-                        console.log('🧪 Requested test autonomous message');
-                    }
-                }, 5000);
-            } else {
-                console.log('🤖 No active avatars yet, will check again...');
-            }
-        }, 2000);
-        
-        // Also check periodically for newly loaded avatars
-        setInterval(() => {
-            if (autonomousAvatarUI && !autonomousAvatarUI.autonomousEnabled) {
+            if (window.avatarChatManager) {
                 const activeAvatars = window.avatarChatManager.getActiveAvatars();
-                if (activeAvatars.length >= 1) {
-                    console.log('🎭 Found active avatars, enabling autonomous system');
+                console.log('🎭 Checking for active avatars:', activeAvatars.length);
+                
+                if (activeAvatars.length >= 1 && !autonomousAvatarUI.autonomousEnabled) {
+                    console.log('🤖 Enabling autonomous conversations for', activeAvatars.length, 'avatar(s)');
                     autonomousAvatarUI.enableAutonomousConversations();
                 }
             }
-        }, 10000); // Check every 10 seconds
+        }, 2000);
+        
+        return true;
     }
+    return false;
 }
 
-// Auto-initialize
+// Auto-initialize immediately
 document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(initializeAutonomousAvatarUI, 2000);
+    console.log('🤖 DOM loaded - initializing autonomous avatar system');
+    initializeAutonomousAvatarUI();
 });
 
-// Also check periodically in case chat manager loads later
+// Also initialize on script load in case DOM is already ready
+if (document.readyState === 'loading') {
+    console.log('🤖 Document still loading - will initialize on DOMContentLoaded');
+} else {
+    console.log('🤖 Document already loaded - initializing autonomous avatar system immediately');
+    initializeAutonomousAvatarUI();
+}
+
+// Check periodically in case chat manager loads later
 setInterval(() => {
     if (!autonomousAvatarUI) {
         initializeAutonomousAvatarUI();
+    } else if (autonomousAvatarUI && !autonomousAvatarUI.avatarChatManager && window.avatarChatManager) {
+        // Update chat manager reference if it becomes available
+        console.log('🔄 Updating autonomous system with chat manager');
+        autonomousAvatarUI.avatarChatManager = window.avatarChatManager;
     }
-}, 5000);
+}, 3000);
 
 // Export to window
 window.AutonomousAvatarUI = AutonomousAvatarUI;
@@ -283,5 +461,41 @@ window.getAutonomousStatus = function() {
         });
     } else {
         console.log('❌ Autonomous system not initialized');
+    }
+};
+
+// Test function to manually trigger greeting for any loaded model
+window.testAutonomousGreeting = function() {
+    console.log('🧪 Testing autonomous greeting...');
+    
+    if (!autonomousAvatarUI) {
+        console.error('❌ Autonomous system not initialized');
+        return false;
+    }
+    
+    // Try to find any loaded model
+    if (window.live2dMultiModelManager) {
+        const models = window.live2dMultiModelManager.getAllModels();
+        console.log('🔍 Found models:', models.length);
+        
+        if (models.length > 0) {
+            const model = models[0];
+            const avatarInfo = {
+                id: model.name,
+                name: model.name,
+                displayName: autonomousAvatarUI.formatAvatarName(model.name),
+                pixiModel: model.model || model.pixiModel
+            };
+            
+            console.log('🎭 Testing greeting for:', avatarInfo.displayName);
+            autonomousAvatarUI.sendAutonomousGreeting(avatarInfo);
+            return true;
+        } else {
+            console.error('❌ No models loaded to test with');
+            return false;
+        }
+    } else {
+        console.error('❌ Live2D manager not available');
+        return false;
     }
 };

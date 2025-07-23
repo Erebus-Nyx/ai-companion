@@ -110,8 +110,7 @@ def init_user_tables():
                 # Create new user profiles table
                 conn.execute('''
                     CREATE TABLE user_profiles (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id INTEGER NOT NULL UNIQUE,
+                        user_id INTEGER PRIMARY KEY,
                         display_name TEXT,
                         age INTEGER,
                         avatar_preferences TEXT,
@@ -124,6 +123,18 @@ def init_user_tables():
                         age_range TEXT DEFAULT 'adult',
                         nsfw_enabled BOOLEAN DEFAULT 0,
                         explicit_enabled BOOLEAN DEFAULT 0,
+                        allow_nsfw_content BOOLEAN DEFAULT 0,
+                        allow_mature_themes BOOLEAN DEFAULT 0,
+                        allow_violence BOOLEAN DEFAULT 0,
+                        allow_strong_language BOOLEAN DEFAULT 0,
+                        content_warnings_enabled BOOLEAN DEFAULT 1,
+                        safe_mode BOOLEAN DEFAULT 1,
+                        explicit_comfort_level TEXT DEFAULT 'none',
+                        roleplay_engagement_level TEXT DEFAULT 'moderate',
+                        preferred_narrative_style TEXT DEFAULT 'conversational',
+                        immersion_preference TEXT DEFAULT 'medium',
+                        character_consistency_expectation TEXT DEFAULT 'high',
+                        roleplay_experience_level TEXT DEFAULT 'intermediate',
                         bio TEXT DEFAULT '',
                         preferences TEXT DEFAULT '{}',
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -153,6 +164,54 @@ def init_user_tables():
                 if 'explicit_enabled' not in columns:
                     conn.execute('ALTER TABLE user_profiles ADD COLUMN explicit_enabled BOOLEAN DEFAULT 0')
                     logging.info("Added explicit_enabled column to user_profiles table")
+                    
+                if 'allow_nsfw_content' not in columns:
+                    conn.execute('ALTER TABLE user_profiles ADD COLUMN allow_nsfw_content BOOLEAN DEFAULT 0')
+                    logging.info("Added allow_nsfw_content column to user_profiles table")
+                    
+                if 'allow_mature_themes' not in columns:
+                    conn.execute('ALTER TABLE user_profiles ADD COLUMN allow_mature_themes BOOLEAN DEFAULT 0')
+                    logging.info("Added allow_mature_themes column to user_profiles table")
+                    
+                if 'allow_violence' not in columns:
+                    conn.execute('ALTER TABLE user_profiles ADD COLUMN allow_violence BOOLEAN DEFAULT 0')
+                    logging.info("Added allow_violence column to user_profiles table")
+                    
+                if 'allow_strong_language' not in columns:
+                    conn.execute('ALTER TABLE user_profiles ADD COLUMN allow_strong_language BOOLEAN DEFAULT 0')
+                    logging.info("Added allow_strong_language column to user_profiles table")
+                    
+                if 'content_warnings_enabled' not in columns:
+                    conn.execute('ALTER TABLE user_profiles ADD COLUMN content_warnings_enabled BOOLEAN DEFAULT 1')
+                    logging.info("Added content_warnings_enabled column to user_profiles table")
+                    
+                if 'safe_mode' not in columns:
+                    conn.execute('ALTER TABLE user_profiles ADD COLUMN safe_mode BOOLEAN DEFAULT 1')
+                    logging.info("Added safe_mode column to user_profiles table")
+                    
+                if 'explicit_comfort_level' not in columns:
+                    conn.execute('ALTER TABLE user_profiles ADD COLUMN explicit_comfort_level TEXT DEFAULT "none"')
+                    logging.info("Added explicit_comfort_level column to user_profiles table")
+                    
+                if 'roleplay_engagement_level' not in columns:
+                    conn.execute('ALTER TABLE user_profiles ADD COLUMN roleplay_engagement_level TEXT DEFAULT "moderate"')
+                    logging.info("Added roleplay_engagement_level column to user_profiles table")
+                    
+                if 'preferred_narrative_style' not in columns:
+                    conn.execute('ALTER TABLE user_profiles ADD COLUMN preferred_narrative_style TEXT DEFAULT "conversational"')
+                    logging.info("Added preferred_narrative_style column to user_profiles table")
+                    
+                if 'immersion_preference' not in columns:
+                    conn.execute('ALTER TABLE user_profiles ADD COLUMN immersion_preference TEXT DEFAULT "medium"')
+                    logging.info("Added immersion_preference column to user_profiles table")
+                    
+                if 'character_consistency_expectation' not in columns:
+                    conn.execute('ALTER TABLE user_profiles ADD COLUMN character_consistency_expectation TEXT DEFAULT "high"')
+                    logging.info("Added character_consistency_expectation column to user_profiles table")
+                    
+                if 'roleplay_experience_level' not in columns:
+                    conn.execute('ALTER TABLE user_profiles ADD COLUMN roleplay_experience_level TEXT DEFAULT "intermediate"')
+                    logging.info("Added roleplay_experience_level column to user_profiles table")
                     
                 if 'bio' not in columns:
                     conn.execute('ALTER TABLE user_profiles ADD COLUMN bio TEXT DEFAULT ""')
@@ -279,7 +338,11 @@ def api_get_user_profile(user_id):
             profile_cursor = profiles_conn.execute('''
                 SELECT user_id, display_name, age, avatar_preferences, conversation_settings, 
                        privacy_settings, theme_preferences, language_preference, timezone,
-                       gender, age_range, nsfw_enabled, explicit_enabled, bio, preferences
+                       gender, age_range, nsfw_enabled, explicit_enabled, allow_nsfw_content,
+                       allow_mature_themes, allow_violence, allow_strong_language, 
+                       content_warnings_enabled, safe_mode, explicit_comfort_level,
+                       roleplay_engagement_level, preferred_narrative_style, immersion_preference,
+                       character_consistency_expectation, roleplay_experience_level, bio, preferences
                 FROM user_profiles WHERE user_id = ?
             ''', (user_id,))
             
@@ -296,7 +359,11 @@ def api_get_user_profile(user_id):
                 profile_cursor = profiles_conn.execute('''
                     SELECT user_id, display_name, age, avatar_preferences, conversation_settings, 
                            privacy_settings, theme_preferences, language_preference, timezone,
-                           gender, age_range, nsfw_enabled, explicit_enabled, bio, preferences
+                           gender, age_range, nsfw_enabled, explicit_enabled, allow_nsfw_content,
+                           allow_mature_themes, allow_violence, allow_strong_language, 
+                           content_warnings_enabled, safe_mode, explicit_comfort_level,
+                           roleplay_engagement_level, preferred_narrative_style, immersion_preference,
+                           character_consistency_expectation, roleplay_experience_level, bio, preferences
                     FROM user_profiles WHERE user_id = ?
                 ''', (user_id,))
                 profile = profile_cursor.fetchone()
@@ -315,8 +382,20 @@ def api_get_user_profile(user_id):
                 'age_range': profile[10],
                 'nsfw_enabled': bool(profile[11]) if profile[11] is not None else False,
                 'explicit_enabled': bool(profile[12]) if profile[12] is not None else False,
-                'bio': profile[13] or '',
-                'preferences': profile[14] or '{}',
+                'allow_nsfw_content': bool(profile[13]) if profile[13] is not None else False,
+                'allow_mature_themes': bool(profile[14]) if profile[14] is not None else False,
+                'allow_violence': bool(profile[15]) if profile[15] is not None else False,
+                'allow_strong_language': bool(profile[16]) if profile[16] is not None else False,
+                'content_warnings_enabled': bool(profile[17]) if profile[17] is not None else True,
+                'safe_mode': bool(profile[18]) if profile[18] is not None else True,
+                'explicit_comfort_level': profile[19] or 'none',
+                'roleplay_engagement_level': profile[20] or 'moderate',
+                'preferred_narrative_style': profile[21] or 'conversational',
+                'immersion_preference': profile[22] or 'medium',
+                'character_consistency_expectation': profile[23] or 'high',
+                'roleplay_experience_level': profile[24] or 'intermediate',
+                'bio': profile[25] or '',
+                'preferences': profile[26] or '{}',
                 'username': user_info[0],
                 'user_display_name': user_info[1]
             })
@@ -328,6 +407,118 @@ def api_get_user_profile(user_id):
 
 @users_routes.route('/api/users/<int:user_id>/profile', methods=['PUT'])
 def api_update_user_profile(user_id):
+    """Update user profile via API"""
+    try:
+        with get_user_profiles_connection() as profiles_conn:
+            data = request.get_json()
+            
+            # Build the UPDATE query dynamically based on provided fields
+            update_fields = []
+            values = []
+            
+            field_mapping = {
+                'display_name': 'display_name',
+                'age': 'age',
+                'avatar_preferences': 'avatar_preferences',
+                'conversation_settings': 'conversation_settings',
+                'privacy_settings': 'privacy_settings',
+                'theme_preferences': 'theme_preferences',
+                'language_preference': 'language_preference',
+                'timezone': 'timezone',
+                'gender': 'gender',
+                'age_range': 'age_range',
+                'nsfw_enabled': 'nsfw_enabled',
+                'explicit_enabled': 'explicit_enabled',
+                'allow_nsfw_content': 'allow_nsfw_content',
+                'allow_mature_themes': 'allow_mature_themes',
+                'allow_violence': 'allow_violence',
+                'allow_strong_language': 'allow_strong_language',
+                'content_warnings_enabled': 'content_warnings_enabled',
+                'safe_mode': 'safe_mode',
+                'explicit_comfort_level': 'explicit_comfort_level',
+                'roleplay_engagement_level': 'roleplay_engagement_level',
+                'preferred_narrative_style': 'preferred_narrative_style',
+                'immersion_preference': 'immersion_preference',
+                'character_consistency_expectation': 'character_consistency_expectation',
+                'roleplay_experience_level': 'roleplay_experience_level',
+                'bio': 'bio',
+                'preferences': 'preferences'
+            }
+            
+            for field, column in field_mapping.items():
+                if field in data:
+                    update_fields.append(f"{column} = ?")
+                    values.append(data[field])
+            
+            if update_fields:
+                update_fields.append("last_updated = CURRENT_TIMESTAMP")
+                values.append(user_id)
+                
+                query = f"UPDATE user_profiles SET {', '.join(update_fields)} WHERE user_id = ?"
+                profiles_conn.execute(query, values)
+                profiles_conn.commit()
+                
+                return jsonify({'status': 'success', 'message': 'Profile updated successfully'})
+            else:
+                return jsonify({'status': 'error', 'message': 'No valid fields provided'}), 400
+                
+    except Exception as e:
+        error_msg = f"Update user profile API error: {str(e)}"
+        logging.error(f"{error_msg}\n{traceback.format_exc()}")
+        return jsonify({'error': error_msg}), 500
+
+@users_routes.route('/api/users/<int:user_id>/content-preferences', methods=['GET'])
+def api_get_user_content_preferences(user_id):
+    """Get user content preferences for avatar system"""
+    try:
+        with get_user_profiles_connection() as profiles_conn:
+            cursor = profiles_conn.execute('''
+                SELECT allow_nsfw_content, allow_mature_themes, allow_violence, 
+                       allow_strong_language, content_warnings_enabled, safe_mode,
+                       explicit_comfort_level, roleplay_engagement_level,
+                       preferred_narrative_style, immersion_preference,
+                       character_consistency_expectation, roleplay_experience_level
+                FROM user_profiles WHERE user_id = ?
+            ''', (user_id,))
+            
+            profile = cursor.fetchone()
+            
+            if not profile:
+                # Return safe defaults if no profile exists
+                return jsonify({
+                    'allow_nsfw_content': False,
+                    'allow_mature_themes': False,
+                    'allow_violence': False,
+                    'allow_strong_language': False,
+                    'content_warnings_enabled': True,
+                    'safe_mode': True,
+                    'explicit_comfort_level': 'none',
+                    'roleplay_engagement_level': 'moderate',
+                    'preferred_narrative_style': 'conversational',
+                    'immersion_preference': 'medium',
+                    'character_consistency_expectation': 'high',
+                    'roleplay_experience_level': 'intermediate'
+                })
+            
+            return jsonify({
+                'allow_nsfw_content': bool(profile[0]) if profile[0] is not None else False,
+                'allow_mature_themes': bool(profile[1]) if profile[1] is not None else False,
+                'allow_violence': bool(profile[2]) if profile[2] is not None else False,
+                'allow_strong_language': bool(profile[3]) if profile[3] is not None else False,
+                'content_warnings_enabled': bool(profile[4]) if profile[4] is not None else True,
+                'safe_mode': bool(profile[5]) if profile[5] is not None else True,
+                'explicit_comfort_level': profile[6] or 'none',
+                'roleplay_engagement_level': profile[7] or 'moderate',
+                'preferred_narrative_style': profile[8] or 'conversational',
+                'immersion_preference': profile[9] or 'medium',
+                'character_consistency_expectation': profile[10] or 'high',
+                'roleplay_experience_level': profile[11] or 'intermediate'
+            })
+            
+    except Exception as e:
+        error_msg = f"Get content preferences API error: {str(e)}"
+        logging.error(f"{error_msg}\n{traceback.format_exc()}")
+        return jsonify({'error': error_msg}), 500
     """Update user profile"""
     try:
         data = request.get_json()

@@ -1552,11 +1552,11 @@ body.user-selection-active .app-container > *:not(.user-selection-overlay) {
     display: flex;
     align-items: center;
     gap: 5px;
-    padding: 5px 5px;
+    padding: 5px 10px 5px 10px; /* bottom, left */  
     background: rgba(255, 255, 255, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 14px; /* Pill shape */
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
     color: white;
     cursor: pointer;
@@ -1564,6 +1564,7 @@ body.user-selection-active .app-container > *:not(.user-selection-overlay) {
     position: relative;
     white-space: nowrap;
     max-width: 120px;
+    min-width: 50px; /* Minimum width to prevent overflow */
 }
 
 .character-icon:hover {

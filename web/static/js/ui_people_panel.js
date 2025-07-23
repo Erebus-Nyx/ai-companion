@@ -100,7 +100,8 @@ function showAddModelDialog() {
     console.log('Opening add model dialog...');
     const dialog = document.getElementById('modelSelectionDialog');
     if (dialog) {
-        dialog.style.display = 'flex';
+        dialog.style.display = 'block';
+        dialog.classList.add('open');
         loadAvailableModelsForDialog();
     }
 }
@@ -109,7 +110,11 @@ function closeAddModelDialog() {
     console.log('Closing add model dialog...');
     const dialog = document.getElementById('modelSelectionDialog');
     if (dialog) {
-        dialog.style.display = 'none';
+        dialog.classList.remove('open');
+        // Add a small delay before hiding to allow transition
+        setTimeout(() => {
+            dialog.style.display = 'none';
+        }, 300);
     }
 }
 

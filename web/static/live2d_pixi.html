@@ -1226,7 +1226,6 @@ document.addEventListener('DOMContentLoaded', function() {
     <!-- UI components -->
     <script src="/static/js/ui_drawing_system.js"></script>
     <script src="/static/js/ui_icon_manager.js"></script>     
-    <script src="/static/js/ui_panel_management.js"></script>
     <script src="/static/js/ui_people_panel.js"></script>
     <script src="/static/js/ui_panel_manager.js"></script>
     <script src="/static/js/ui_character_profiles.js"></script>
@@ -1380,13 +1379,7 @@ async function initializeLive2D() {
             'window.pixiApp': !!window.pixiApp
         });
         
-        // CRITICAL: Also expose the interaction manager for debug functions
-        if (live2dIntegration && live2dIntegration.core && live2dIntegration.core.interactionManager) {
-            window.interactionManager = live2dIntegration.core.interactionManager;
-            console.log('✅ Interaction manager exposed globally');
-        }
-        
-        // Also expose the SDK for debug console
+        // CRITICAL: Also expose the SDK for debug console
         window.LIVE2DCUBISMCORE = window.Live2DCubismCore;
         
         // CRITICAL: Apply interaction fix immediately after initialization
@@ -2199,7 +2192,74 @@ async function loadLive2DModel(modelPath) {
             console.log('Running automatic chat test...');
             testChatMessage();
         }, 2000);
+        
+        // Test model dialog functions after a delay to ensure all scripts are loaded
+        setTimeout(() => {
+            console.log('Testing model dialog functions...');
+            console.log('showAddModelDialog available:', typeof window.showAddModelDialog);
+            console.log('closeAddModelDialog available:', typeof window.closeAddModelDialog);
+            
+            if (typeof window.showAddModelDialog !== 'function') {
+                console.error('❌ showAddModelDialog function not available - adding fallback');
+                window.showAddModelDialog = function() {
+                    console.log('Fallback showAddModelDialog called');
+                    var dialog = document.getElementById('modelSelectionDialog');
+                    if (dialog) {
+                        dialog.style.display = 'block';
+                        dialog.classList.add('open');
+                        console.log('Model selection dialog opened via fallback');
+                    } else {
+                        console.error('Model selection dialog element not found');
+                    }
+                };
+            }
+            
+            if (typeof window.closeAddModelDialog !== 'function') {
+                console.error('❌ closeAddModelDialog function not available - adding fallback');
+                window.closeAddModelDialog = function() {
+                    console.log('Fallback closeAddModelDialog called');
+                    var dialog = document.getElementById('modelSelectionDialog');
+                    if (dialog) {
+                        dialog.classList.remove('open');
+                        setTimeout(() => {
+                            dialog.style.display = 'none';
+                        }, 300);
+                        console.log('Model selection dialog closed via fallback');
+                    }
+                };
+            }
+        }, 3000);
     });
+    
+    // Test function for debugging the model dialog
+    window.testModelDialog = function() {
+        console.log('=== Model Dialog Test ===');
+        console.log('1. Dialog element exists:', !!document.getElementById('modelSelectionDialog'));
+        console.log('2. Add button exists:', !!document.querySelector('.add-character-btn'));
+        console.log('3. showAddModelDialog function:', typeof window.showAddModelDialog);
+        console.log('4. closeAddModelDialog function:', typeof window.closeAddModelDialog);
+        console.log('5. loadAvailableModelsForDialog function:', typeof window.loadAvailableModelsForDialog);
+        
+        if (typeof window.showAddModelDialog === 'function') {
+            console.log('6. Attempting to open dialog...');
+            window.showAddModelDialog();
+            
+            setTimeout(() => {
+                const dialog = document.getElementById('modelSelectionDialog');
+                const isVisible = dialog && (
+                    dialog.style.display === 'block' || 
+                    dialog.style.display === 'flex' ||
+                    dialog.classList.contains('open')
+                );
+                console.log('7. Dialog visible after call:', isVisible);
+                console.log('8. Dialog display style:', dialog ? dialog.style.display : 'N/A');
+                console.log('9. Dialog has open class:', dialog ? dialog.classList.contains('open') : 'N/A');
+                console.log('=== End Test ===');
+            }, 100);
+        } else {
+            console.error('6. showAddModelDialog function not available!');
+        }
+    };
     </script>
 
 </body>

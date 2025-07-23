@@ -26,9 +26,9 @@ except ImportError:
     from .models.enhanced_llm_handler import EnhancedLLMHandler
 
 try:
-    from models.tts_handler import TTSHandler
+    from models.tts_handler import EmotionalTTSHandler
 except ImportError:
-    from .models.tts_handler import TTSHandler
+    from .models.tts_handler import EmotionalTTSHandler
 
 try:
     from models.personality import PersonalitySystem
@@ -559,13 +559,13 @@ class AICompanionApp:
             self._broadcast_status()
             
             # Initialize TTS handler
-            tts_handler = TTSHandler()
+            tts_handler = EmotionalTTSHandler()
             app_globals.tts_handler = tts_handler
             success = tts_handler.initialize_model()
             if not success:
                 logger.error("Failed to initialize TTS model")
             else:
-                logger.info("✅ TTS handler initialized")
+                logger.info("✅ Emotional TTS handler initialized")
             
             # Update status
             app_state['initialization_status'] = 'Setting up audio pipeline...'
