@@ -618,6 +618,28 @@ class AI2DChatInstaller:
             ], "Installing Live2D models")
             print("✅ Live2D models installed")
             
+            # Step 5.4: Install system dependencies
+            print("\n🔧 Step 5.4: Installing system dependencies...")
+            try:
+                # Import dependency manager
+                sys.path.insert(0, str(self.project_root))
+                from utils.dependency_manager import DependencyManager
+                
+                dep_manager = DependencyManager()
+                success = dep_manager.install_system_dependencies(dry_run=False)
+                
+                if success:
+                    print("✅ System dependencies installed successfully")
+                else:
+                    print("⚠️  Some system dependencies may not have installed correctly")
+                    print("   TTS audio playback may not work properly")
+                    print("   You can manually install: sudo apt install pulseaudio-utils alsa-utils")
+                    
+            except Exception as e:
+                print(f"⚠️  Failed to install system dependencies: {e}")
+                print("   TTS audio playback may not work properly")
+                print("   You can manually install: sudo apt install pulseaudio-utils alsa-utils")
+            
             # Step 5.5: Copy existing models from repo
             print("\n📦 Step 5.5: Copying existing models from repository...")
             self._copy_repo_models()

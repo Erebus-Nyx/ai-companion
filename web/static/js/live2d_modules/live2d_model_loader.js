@@ -172,7 +172,8 @@ async function initializeFallbackLive2D() {
 // Try to load a test model for interaction testing
 async function tryLoadTestModel() {
     try {
-        const response = await fetch('/api/live2d/models');
+        const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+        const response = await fetch(`${apiBaseUrl}/api/live2d/models`);
         if (response.ok) {
             const models = await response.json();
             if (models && models.length > 0) {

@@ -129,6 +129,33 @@ class AICompanionInstaller:
             logger.error(f"Failed to create directories: {e}")
             return False
     
+    def install_system_dependencies(self):
+        """Install system dependencies - same as install.py"""
+        try:
+            logger.info("Installing system dependencies...")
+            
+            # Import dependency manager
+            sys.path.insert(0, str(self.base_path))
+            from utils.dependency_manager import DependencyManager
+            
+            dep_manager = DependencyManager()
+            success = dep_manager.install_system_dependencies(dry_run=False)
+            
+            if success:
+                logger.info("System dependencies installed successfully")
+                return True
+            else:
+                logger.warning("Some system dependencies may not have installed correctly")
+                logger.warning("TTS audio playback may not work properly")
+                logger.warning("You can manually install: sudo apt install pulseaudio-utils alsa-utils")
+                return True  # Don't fail the entire installation
+                
+        except Exception as e:
+            logger.error(f"Failed to install system dependencies: {e}")
+            logger.warning("TTS audio playback may not work properly")
+            logger.warning("You can manually install: sudo apt install pulseaudio-utils alsa-utils")
+            return True  # Don't fail the entire installation
+    
     def install_python_dependencies(self):
         """Install Python dependencies"""
         try:
@@ -163,24 +190,47 @@ class AICompanionInstaller:
                 # Create virtual environment
                 subprocess.run([sys.executable, '-m', 'venv', str(venv_path)], check=True)
                 
-                # Install in virtual environment
+                # Install in virtual environment with appropriate extras
                 venv_python = venv_path / 'bin' / 'python'
-                subprocess.run([str(venv_python), '-m', 'pip', 'install', '-e', '.'], 
+                
+                # Determine which extras to install based on system capabilities
+                extras = ['dev']  # Always include dev dependencies
+                
+                # Add hardware-specific extras
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        extras.append('cuda')
+                        logger.info("CUDA detected, installing CUDA dependencies")
+                    else:
+                        extras.append('cpu')
+                        logger.info("No CUDA detected, installing CPU-only dependencies")
+                except ImportError:
+                    extras.append('cpu')
+                    logger.info("PyTorch not available, defaulting to CPU dependencies")
+                
+                # Install with extras
+                install_target = f".[{','.join(extras)}]"
+                subprocess.run([str(venv_python), '-m', 'pip', 'install', '-e', install_target], 
                              cwd=self.base_path, check=True)
                 
-                logger.info("Python dependencies installed successfully in virtual environment")
+                logger.info(f"Python dependencies installed successfully in virtual environment with extras: {extras}")
                 logger.info(f"Virtual environment created at: {venv_path}")
-                logger.info("To use: source .dev_venv/bin/activate")
+                logger.info("To use: source .venv/bin/activate")
                 return True
             except subprocess.CalledProcessError:
                 logger.info("Virtual environment approach failed, trying user installation...")
             
             # Strategy 2: Try with --user flag for user-local installation
             try:
+                # Determine extras for user installation
+                extras = ['dev', 'cpu']  # Default to CPU for user installation
+                install_target = f".[{','.join(extras)}]"
+                
                 subprocess.run([
-                    sys.executable, '-m', 'pip', 'install', '--user', '-e', '.'
+                    sys.executable, '-m', 'pip', 'install', '--user', '-e', install_target
                 ], cwd=self.base_path, check=True)
-                logger.info("Python dependencies installed successfully via pip (--user)")
+                logger.info(f"Python dependencies installed successfully via pip (--user) with extras: {extras}")
                 return True
             except subprocess.CalledProcessError:
                 logger.info("Failed with --user flag, trying final fallback...")
@@ -188,10 +238,14 @@ class AICompanionInstaller:
             # Strategy 3: Last resort - --break-system-packages (with warning)
             try:
                 logger.warning("Using --break-system-packages as last resort - this may affect system stability")
+                # Use CPU extras as safest option for system installation
+                extras = ['dev', 'cpu']
+                install_target = f".[{','.join(extras)}]"
+                
                 subprocess.run([
-                    sys.executable, '-m', 'pip', 'install', '--break-system-packages', '-e', '.'
+                    sys.executable, '-m', 'pip', 'install', '--break-system-packages', '-e', install_target
                 ], cwd=self.base_path, check=True)
-                logger.info("Python dependencies installed successfully via pip (--break-system-packages)")
+                logger.info(f"Python dependencies installed successfully via pip (--break-system-packages) with extras: {extras}")
                 logger.warning("IMPORTANT: System packages may have been affected. Consider using a virtual environment.")
                 return True
             except subprocess.CalledProcessError:
@@ -362,6 +416,7 @@ class AICompanionInstaller:
         # Add standard installation steps exactly like install.py
         steps.extend([
             ("Setting up directories", self.setup_directories),
+            ("Installing system dependencies", self.install_system_dependencies),
             ("Installing Python dependencies", self.install_python_dependencies),
             ("Setting up configuration", self.setup_configuration),
             ("Detecting system capabilities", self.detect_system_capabilities),

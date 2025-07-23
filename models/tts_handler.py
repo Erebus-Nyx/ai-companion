@@ -15,6 +15,11 @@ from typing import Dict, List, Optional, Union, BinaryIO, Tuple
 import numpy as np
 
 try:
+    from kokoro_onnx import Kokoro
+except ImportError:
+    Kokoro = None
+    
+try:
     import torch
     import torchaudio
     import onnxruntime as ort
@@ -47,9 +52,8 @@ class EmotionalTTSHandler:
         self.logger = logging.getLogger(__name__)
         self.config_path = config_path
         
-        # Model components
-        self.model = None
-        self.tokenizer = None
+        # Model components - using Kokoro library
+        self.kokoro_model = None
         self.model_loaded = False
         self.loading_lock = threading.Lock()
         
@@ -58,17 +62,17 @@ class EmotionalTTSHandler:
         import os
         user_data_dir = Path.home() / ".local" / "share" / "ai2d_chat"
         self.model_dir = user_data_dir / "models" / "tts" / "kokoro"
-        self.model_path = self.model_dir / "onnx" / "model.onnx"
-        self.config_path = self.model_dir / "config.json"
-        self.tokenizer_path = self.model_dir / "tokenizer.json"
-        # Fix: voices are in the parent TTS directory, not under kokoro
-        self.voices_dir = user_data_dir / "models" / "tts" / "voices"
+        
+        # Kokoro model files (following official Kokoro TTS structure)
+        self.onnx_model_path = self.model_dir / "kokoro-v1.0.onnx"
+        self.voices_bin_path = self.model_dir / "voices-v1.0.bin"
+        self.voices_json_path = self.model_dir / "voices-v1.0.json"
         
         # Voice management
         self.available_voices = {}
         self.current_voice = "af_sarah"  # Default voice
         self.voice_configs = {}
-        self.voice_embeddings = {}
+        self.voice_embeddings = {}  # Initialize voice embeddings dict
         
         # Load voice configurations
         self._load_voice_configs()
@@ -202,27 +206,19 @@ class EmotionalTTSHandler:
         }
     
     def _load_voice_configs(self) -> None:
-        """Load voice configurations and embeddings."""
+        """Load voice configurations (not needed with official kokoro_onnx library)."""
+        # With the official kokoro_onnx library, voice embeddings are handled internally
+        # The voices-v1.0.bin file contains all voice embeddings and is loaded by the Kokoro class
         try:
+            # Optional: Load custom voice metadata if available
             voices_json_path = self.model_dir / "voices.json"
             if voices_json_path.exists():
                 with open(voices_json_path, 'r') as f:
                     self.voice_configs = json.load(f)
+                    self.logger.info(f"Loaded voice configurations from {voices_json_path}")
+            else:
+                self.logger.info("No custom voice config found - using defaults")
                     
-            # Load voice embeddings
-            if self.voices_dir.exists():
-                for voice_file in self.voices_dir.glob("*.bin"):
-                    voice_name = voice_file.stem
-                    try:
-                        # Load binary voice embedding
-                        voice_embedding = np.fromfile(voice_file, dtype=np.float32)
-                        self.voice_embeddings[voice_name] = voice_embedding
-                        self.logger.info(f"Loaded voice embedding: {voice_name} ({len(voice_embedding)} dims)")
-                    except Exception as e:
-                        self.logger.warning(f"Failed to load voice embedding {voice_name}: {e}")
-                        
-            self.logger.info(f"Loaded {len(self.voice_embeddings)} voice embeddings")
-            
         except Exception as e:
             self.logger.error(f"Failed to load voice configurations: {e}")
     
@@ -285,116 +281,178 @@ class EmotionalTTSHandler:
         return primary_emotion.lower(), intensity
 
     def initialize_model(self) -> bool:
-        """Initialize the Kokoro ONNX TTS model, fallback to lightweight TTS if needed."""
+        """Initialize the Kokoro TTS model using the official kokoro_onnx library."""
         if self.model_loaded:
             return True
-        self.logger.info("Initializing Kokoro TTS ONNX model...")
-        try:
-            # Use the user data directory path that was already set in __init__
-            if not self.model_path.exists():
-                self.logger.error(f"Kokoro ONNX model not found at {self.model_path}")
-                raise FileNotFoundError(f"Kokoro ONNX model not found at {self.model_path}")
-            if ort is not None and self.model_path.exists():
-                self.model = ort.InferenceSession(str(self.model_path), providers=["CPUExecutionProvider"])
-                # Log input names for debugging
-                input_names = [i.name for i in self.model.get_inputs()]
-                self.logger.info(f"Kokoro ONNX model input names: {input_names}")
-                self.model_loaded = True
-                self.logger.info(f"✅ Kokoro TTS ONNX model loaded: {self.model_path}")
+            
+        with self.loading_lock:
+            if self.model_loaded:  # Double-check after acquiring lock
                 return True
-            else:
-                self.logger.warning("ONNXRuntime not available or model file missing. Falling back to lightweight TTS.")
-        except Exception as e:
-            self.logger.error(f"Failed to load Kokoro TTS ONNX model: {e}")
-        # Fallback to lightweight TTS
-        self.model = LightweightEmotionalTTS()
-        self.model.initialize_model()
-        self.model_loaded = False
-        self.logger.info("Using LightweightEmotionalTTS fallback.")
-        return False
+                
+            self.logger.info("Initializing Kokoro TTS model...")
+            
+            try:
+                # Check if Kokoro library is available
+                if Kokoro is None:
+                    self.logger.error("kokoro_onnx library not available. Install with: pip install kokoro-onnx")
+                    raise ImportError("kokoro_onnx library not available")
+                
+                # Ensure model files exist
+                if not self.onnx_model_path.exists():
+                    self.logger.error(f"Kokoro ONNX model not found at {self.onnx_model_path}")
+                    self.logger.info("Download the model with:")
+                    self.logger.info("wget https://github.com/nazdridoy/kokoro-tts/releases/download/v1.0.0/kokoro-v1.0.onnx")
+                    raise FileNotFoundError(f"Kokoro ONNX model not found at {self.onnx_model_path}")
+                
+                # Check for voice files (prefer .bin over .json)
+                voice_file = None
+                if self.voices_bin_path.exists():
+                    voice_file = str(self.voices_bin_path)
+                    self.logger.info(f"Using voice file: {voice_file}")
+                elif self.voices_json_path.exists():
+                    voice_file = str(self.voices_json_path)
+                    self.logger.info(f"Using voice file: {voice_file}")
+                else:
+                    self.logger.error(f"No voice files found. Expected at {self.voices_bin_path} or {self.voices_json_path}")
+                    self.logger.info("Download voices with:")
+                    self.logger.info("wget https://github.com/nazdridoy/kokoro-tts/releases/download/v1.0.0/voices-v1.0.bin")
+                    raise FileNotFoundError("Voice files not found")
+                
+                # Initialize Kokoro model
+                self.kokoro_model = Kokoro(str(self.onnx_model_path), voice_file)
+                
+                # Verify model is working by getting available voices
+                self.available_voices = list(self.kokoro_model.get_voices())
+                self.logger.info(f"✅ Kokoro TTS model loaded successfully with {len(self.available_voices)} voices")
+                self.logger.info(f"Available voices: {', '.join(self.available_voices[:5])}{'...' if len(self.available_voices) > 5 else ''}")
+                
+                # Verify current voice is available
+                if self.current_voice not in self.available_voices:
+                    self.current_voice = self.available_voices[0] if self.available_voices else "af_sarah"
+                    self.logger.info(f"Set voice to: {self.current_voice}")
+                
+                self.model_loaded = True
+                return True
+                
+            except Exception as e:
+                self.logger.error(f"Failed to load Kokoro TTS model: {e}")
+                self.logger.info("Falling back to lightweight TTS...")
+                
+                # Fallback to lightweight TTS
+                try:
+                    self.kokoro_model = LightweightEmotionalTTS()
+                    self.kokoro_model.initialize_model()
+                    self.model_loaded = False  # Mark as fallback mode
+                    self.logger.info("✅ Using LightweightEmotionalTTS fallback")
+                    return False
+                except Exception as fallback_error:
+                    self.logger.error(f"Failed to initialize fallback TTS: {fallback_error}")
+                    return False
 
-    def _minimal_tokenizer(self, text: str) -> np.ndarray:
-        """Fallback: tokenize text as whitespace split and map to fake IDs."""
-        # This is a placeholder; real models need a proper tokenizer
-        tokens = text.strip().split()
-        token_ids = [min(abs(hash(t)) % 32000, 32000) for t in tokens]  # Clamp to vocab size
-        if not token_ids:
-            token_ids = [0]
-        return np.array(token_ids, dtype=np.int64)
-
-    def _preprocess_text(self, text: str, emotion: Optional[str] = None, intensity: Optional[float] = None) -> dict:
-        """Convert input text and emotion to model input dict for ONNX inference."""
-        # Try to use Hugging Face tokenizer if available, else fallback
-        tokenizer = None
-        try:
-            from transformers import PreTrainedTokenizerFast
-            tokenizer = PreTrainedTokenizerFast(tokenizer_file=str(self.tokenizer_path))
-            input_ids = np.array(tokenizer.encode(text), dtype=np.int64)
-        except Exception as e:
-            self.logger.warning(f"Failed to load transformers tokenizer: {e}. Using minimal tokenizer.")
-            input_ids = self._minimal_tokenizer(text)
-        # Pad/truncate to length 128 (arbitrary, adjust as needed)
-        max_len = 128
-        if len(input_ids) < max_len:
-            input_ids = np.pad(input_ids, (0, max_len - len(input_ids)), 'constant')
-        else:
-            input_ids = input_ids[:max_len]
-        input_ids = input_ids.reshape(1, -1)
-        # Style: map emotion to style index (very basic mapping)
-        style_map = {
-            'neutral': 0, 'happy': 1, 'excited': 2, 'sad': 3, 'empathetic': 4, 'surprised': 5,
-            'joyful': 6, 'cheerful': 7, 'amazed': 8, 'supportive': 9, 'caring': 10, 'disappointed': 11,
-            'curious': 12, 'thoughtful': 13, 'calm': 14
+    def _get_emotional_params(self, emotion: Optional[str], intensity: Optional[float]) -> dict:
+        """Get emotional parameters for TTS synthesis."""
+        params = {
+            'speed': 1.0,
+            'language': 'en-us',
+            'voice_blend': None
         }
-        style = np.array([[style_map.get((emotion or 'neutral').lower(), 0)]], dtype=np.int64)
-        # Speed: use intensity to modulate speed (default 1.0)
-        speed = np.array([[1.0 + 0.2 * float(intensity or 0.5)]], dtype=np.float32)
-        # Return dict matching ONNX model's expected input names
-        return {
-            'input_ids': input_ids,
-            'style': style,
-            'speed': speed
-        }
+        
+        if not emotion or emotion == 'neutral':
+            return params
+        
+        # Get emotion mapping
+        emotion_config = self.emotion_mappings.get(emotion, {})
+        intensity = intensity or 0.5
+        
+        # Calculate speed based on emotion
+        base_speed = emotion_config.get('speed_factor', 1.0)
+        speed_adjustment = (base_speed - 1.0) * intensity
+        params['speed'] = 1.0 + speed_adjustment
+        
+        # Clamp speed to reasonable range
+        params['speed'] = max(0.5, min(2.0, params['speed']))
+        
+        return params
 
     def synthesize_emotional_speech(self, text: str, emotion: Optional[str] = None, 
                                    intensity: Optional[float] = None, 
                                    voice_id: Optional[str] = None) -> Optional[np.ndarray]:
-        """Synthesize speech with emotional tone modulation."""
+        """Synthesize speech with emotional tone modulation using Kokoro TTS."""
         if not self.model_loaded:
             if not self.initialize_model():
                 self.logger.error("TTS model not initialized")
                 return None
+        
         # Auto-detect emotion from text if not provided
         if emotion is None:
             detected_emotion, detected_intensity = self.extract_emotion_from_text(text)
             emotion = detected_emotion
             if intensity is None:
                 intensity = detected_intensity
+        
         # Set emotion for synthesis
         if emotion:
             self.set_emotion(emotion, intensity or self.emotion_intensity)
+        
         # Clean text of emotion tags for synthesis
         clean_text = re.sub(r'\*([^*]+)\*', '', text).strip()
-        # Get base audio
-        if self.model_loaded and self.model is not None and ort is not None:
-            try:
-                # Preprocess text to model input, now with emotion/intensity
-                input_dict = self._preprocess_text(clean_text, emotion, intensity)
-                # Log input_dict keys for debugging
-                self.logger.info(f"ONNX input_dict keys: {list(input_dict.keys())}")
-                output = self.model.run(None, input_dict)
-                audio = self._postprocess_audio(output[0].squeeze())
-                return audio
-            except Exception as e:
-                self.logger.error(f"Kokoro ONNX inference error: {e}")
-        # Fallback to lightweight TTS
-        if isinstance(self.model, LightweightEmotionalTTS):
-            # Fallback: return 1 second of silence at 24kHz
-            return np.zeros(24000, dtype=np.float32)
-        return None
+        
+        # Get voice to use
+        voice = voice_id or self.current_voice
+        
+        # Calculate emotional parameters
+        emotion_params = self._get_emotional_params(emotion, intensity)
+        
+        try:
+            # Use Kokoro TTS model if available
+            if self.model_loaded and self.kokoro_model and hasattr(self.kokoro_model, 'create'):
+                self.logger.info(f"🎵 Generating TTS with Kokoro: voice={voice}, emotion={emotion}, intensity={intensity}")
+                
+                # Generate audio using Kokoro
+                samples, sample_rate = self.kokoro_model.create(
+                    clean_text, 
+                    voice=voice, 
+                    speed=emotion_params.get('speed', 1.0),
+                    lang=emotion_params.get('language', 'en-us')
+                )
+                
+                # Convert to numpy array if needed
+                if not isinstance(samples, np.ndarray):
+                    samples = np.array(samples, dtype=np.float32)
+                
+                # Apply additional emotional modulation
+                if emotion and emotion != 'neutral':
+                    samples = self._apply_emotion_modulation(samples, emotion, intensity or 0.5)
+                
+                self.logger.info(f"✅ Generated {len(samples)} samples at {sample_rate}Hz")
+                return samples
+                
+            else:
+                self.logger.warning("Kokoro model not available, using fallback")
+                # Use fallback method
+                return self._fallback_synthesis(clean_text, emotion, intensity)
+                
+        except Exception as e:
+            self.logger.error(f"Kokoro TTS synthesis error: {e}")
+            # Use fallback method
+            return self._fallback_synthesis(clean_text, emotion, intensity)
+    
+    def _fallback_synthesis(self, text: str, emotion: Optional[str], intensity: Optional[float]) -> Optional[np.ndarray]:
+        """Fallback synthesis method when Kokoro is not available."""
+        try:
+            if hasattr(self.kokoro_model, 'synthesize_emotional_speech'):
+                # Use lightweight TTS fallback
+                return self.kokoro_model.synthesize_emotional_speech(text, emotion, intensity)
+            else:
+                # Generate silence as last resort
+                self.logger.warning("No TTS method available, generating silence")
+                return np.zeros(int(self.sample_rate * 2), dtype=np.float32)  # 2 seconds of silence
+        except Exception as e:
+            self.logger.error(f"Fallback synthesis failed: {e}")
+            return np.zeros(int(self.sample_rate * 2), dtype=np.float32)
 
     def synthesize_speech(self, text: str, voice_id: Optional[str] = None) -> Optional[np.ndarray]:
-        """Synthesize speech using Kokoro ONNX model or fallback."""
+        """Synthesize speech using Kokoro TTS model or fallback."""
         return self.synthesize_emotional_speech(text, "neutral", 0.3, voice_id)
 
     def _apply_emotion_modulation(self, audio: np.ndarray, emotion: str, intensity: float) -> np.ndarray:
@@ -530,66 +588,7 @@ class EmotionalTTSHandler:
             self.logger.error(f"Error adding expression: {e}")
             return audio
 
-    def _postprocess_audio(self, output: np.ndarray) -> np.ndarray:
-        """Convert model output to audio waveform."""
-        try:
-            if output is None or output.size == 0:
-                self.logger.warning("Empty model output, generating silence")
-                return np.zeros(self.sample_rate, dtype=np.float32)
-            
-            # Handle different output shapes
-            audio = output.squeeze()
-            
-            # Ensure audio is 1D
-            if audio.ndim > 1:
-                audio = audio.flatten()
-            
-            # Convert to float32 if needed
-            if audio.dtype != np.float32:
-                if audio.dtype in [np.int16, np.int32]:
-                    # Convert from integer to float
-                    audio = audio.astype(np.float32) / (2**(audio.dtype.itemsize * 8 - 1))
-                else:
-                    audio = audio.astype(np.float32)
-            
-            # Normalize audio to prevent clipping
-            max_val = np.max(np.abs(audio))
-            if max_val > 1.0:
-                audio = audio / max_val * 0.95
-            
-            # Ensure minimum length (avoid empty audio)
-            if len(audio) < 1000:
-                self.logger.warning(f"Short audio output ({len(audio)} samples), padding")
-                audio = np.pad(audio, (0, max(1000 - len(audio), 0)), mode='constant')
-            
-            self.logger.debug(f"Postprocessed audio: shape={audio.shape}, dtype={audio.dtype}, range=({audio.min():.3f}, {audio.max():.3f})")
-            return audio
-            
-        except Exception as e:
-            self.logger.error(f"Error in audio postprocessing: {e}")
-            # Return silence as fallback
-            return np.zeros(self.sample_rate, dtype=np.float32)
-
-    def synthesize_speech(self, text: str, voice_id: Optional[str] = None) -> Optional[np.ndarray]:
-        """Synthesize speech using Kokoro ONNX model or fallback."""
-        if self.model_loaded and self.model is not None and ort is not None:
-            try:
-                # Preprocess text to model input
-                input_tensor = self._preprocess_text(text)
-                input_name = self.model.get_inputs()[0].name
-                # Run inference
-                output = self.model.run(None, {input_name: input_tensor})
-                # Postprocess output to audio
-                audio = self._postprocess_audio(output[0].squeeze())
-                return audio
-            except Exception as e:
-                self.logger.error(f"Kokoro ONNX inference error: {e}")
-                # Fallback to lightweight
-        # Fallback to lightweight TTS    def synthesize_speech(self, text: str, voice_id: Optional[str] = None) -> Optional[np.ndarray]:
-        """Synthesize speech using Kokoro ONNX model or fallback."""
-        return self.synthesize_emotional_speech(text, "neutral", 0.3, voice_id)
-
-    # Alias for backward compatibility
+    # Backward compatibility alias
     def synthesize(self, text: str, voice: str = "default", emotion: Optional[str] = None, 
                   intensity: Optional[float] = None) -> Optional[np.ndarray]:
         """Synthesize speech with optional emotional tone (backward compatible)."""
@@ -597,6 +596,7 @@ class EmotionalTTSHandler:
             return self.synthesize_emotional_speech(text, emotion, intensity, voice if voice != "default" else None)
         else:
             return self.synthesize_speech(text, voice if voice != "default" else None)
+
 
 # Backward compatibility alias
 TTSHandler = EmotionalTTSHandler

@@ -221,37 +221,224 @@ class DependencyManager:
         return notes
     
     def validate_installation(self) -> Tuple[bool, List[str]]:
-        """Validate that required packages are properly installed."""
+        """Validate that key dependencies are properly installed."""
         issues = []
         
-        try:
-            # Test core imports
-            import torch
-            import numpy
-            import flask
-            
-            # Test torch functionality
-            if not torch.cuda.is_available() and self.system_info.get("has_cuda", False):
-                issues.append("CUDA detected but PyTorch CUDA not available")
-            
-            # Test llama-cpp-python
+        # Check Python packages
+        required_packages = ["torch", "numpy", "flask", "transformers"]
+        for package in required_packages:
             try:
-                from llama_cpp import Llama
+                __import__(package)
             except ImportError:
-                issues.append("llama-cpp-python not properly installed")
-            
-            # Test audio dependencies for Raspberry Pi
-            if self.system_info.get("is_raspberry_pi", False):
-                try:
-                    import sounddevice
-                    import gpiozero
-                except ImportError as e:
-                    issues.append(f"Raspberry Pi audio/GPIO dependencies missing: {e}")
-            
-        except ImportError as e:
-            issues.append(f"Core dependency missing: {e}")
+                issues.append(f"Missing Python package: {package}")
+        
+        # Check system capabilities
+        if not self.system_info.get("python_version_ok", True):
+            issues.append("Python version may be incompatible")
         
         return len(issues) == 0, issues
+    
+    def install_system_dependencies(self, dry_run: bool = False) -> bool:
+        """Install system-level dependencies required for audio and other features."""
+        try:
+            system = platform.system().lower()
+            
+            if system == "linux":
+                return self._install_linux_system_deps(dry_run)
+            elif system == "darwin":  # macOS
+                return self._install_macos_system_deps(dry_run)
+            elif system == "windows":
+                return self._install_windows_system_deps(dry_run)
+            else:
+                self.logger.warning(f"System dependency installation not supported for {system}")
+                return True  # Don't fail installation
+                
+        except Exception as e:
+            self.logger.error(f"Failed to install system dependencies: {e}")
+            return False
+    
+    def _install_linux_system_deps(self, dry_run: bool = False) -> bool:
+        """Install Linux system dependencies."""
+        # Core audio dependencies
+        packages = [
+            "pulseaudio-utils",    # For paplay (PulseAudio)
+            "alsa-utils",          # For aplay (ALSA)
+            "ffmpeg",              # For audio format conversion
+            "portaudio19-dev",     # For PyAudio compilation
+            "libsndfile1",         # For soundfile library
+            "libasound2-dev",      # For ALSA development
+        ]
+        
+        # Additional packages for different distros
+        try:
+            # Try to detect package manager
+            if subprocess.run(["which", "apt"], capture_output=True).returncode == 0:
+                return self._install_apt_packages(packages, dry_run)
+            elif subprocess.run(["which", "dnf"], capture_output=True).returncode == 0:
+                return self._install_dnf_packages(packages, dry_run)
+            elif subprocess.run(["which", "yum"], capture_output=True).returncode == 0:
+                return self._install_yum_packages(packages, dry_run)
+            elif subprocess.run(["which", "pacman"], capture_output=True).returncode == 0:
+                return self._install_pacman_packages(packages, dry_run)
+            else:
+                self.logger.warning("No supported package manager found")
+                return True  # Don't fail installation
+                
+        except Exception as e:
+            self.logger.error(f"Error installing Linux system dependencies: {e}")
+            return False
+    
+    def _install_apt_packages(self, packages: List[str], dry_run: bool = False) -> bool:
+        """Install packages using apt (Debian/Ubuntu)."""
+        try:
+            if dry_run:
+                self.logger.info(f"Would install apt packages: {', '.join(packages)}")
+                return True
+            
+            # Update package list
+            subprocess.run(["sudo", "apt", "update"], check=True, capture_output=True)
+            
+            # Install packages
+            cmd = ["sudo", "apt", "install", "-y"] + packages
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            
+            self.logger.info(f"Successfully installed apt packages: {', '.join(packages)}")
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Failed to install apt packages: {e}")
+            if e.stderr:
+                self.logger.error(f"Error details: {e.stderr}")
+            return False
+    
+    def _install_dnf_packages(self, packages: List[str], dry_run: bool = False) -> bool:
+        """Install packages using dnf (Fedora/RHEL)."""
+        # Map some package names for dnf
+        dnf_packages = []
+        for pkg in packages:
+            if pkg == "pulseaudio-utils":
+                dnf_packages.append("pulseaudio-utils")
+            elif pkg == "alsa-utils":
+                dnf_packages.append("alsa-utils")
+            elif pkg == "portaudio19-dev":
+                dnf_packages.append("portaudio-devel")
+            elif pkg == "libsndfile1":
+                dnf_packages.append("libsndfile")
+            elif pkg == "libasound2-dev":
+                dnf_packages.append("alsa-lib-devel")
+            else:
+                dnf_packages.append(pkg)
+        
+        try:
+            if dry_run:
+                self.logger.info(f"Would install dnf packages: {', '.join(dnf_packages)}")
+                return True
+            
+            cmd = ["sudo", "dnf", "install", "-y"] + dnf_packages
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            
+            self.logger.info(f"Successfully installed dnf packages: {', '.join(dnf_packages)}")
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Failed to install dnf packages: {e}")
+            return False
+    
+    def _install_yum_packages(self, packages: List[str], dry_run: bool = False) -> bool:
+        """Install packages using yum (older RHEL/CentOS)."""
+        # Similar to dnf but using yum
+        yum_packages = []
+        for pkg in packages:
+            if pkg == "portaudio19-dev":
+                yum_packages.append("portaudio-devel")
+            elif pkg == "libsndfile1":
+                yum_packages.append("libsndfile")
+            elif pkg == "libasound2-dev":
+                yum_packages.append("alsa-lib-devel")
+            else:
+                yum_packages.append(pkg)
+        
+        try:
+            if dry_run:
+                self.logger.info(f"Would install yum packages: {', '.join(yum_packages)}")
+                return True
+            
+            cmd = ["sudo", "yum", "install", "-y"] + yum_packages
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            
+            self.logger.info(f"Successfully installed yum packages: {', '.join(yum_packages)}")
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Failed to install yum packages: {e}")
+            return False
+    
+    def _install_pacman_packages(self, packages: List[str], dry_run: bool = False) -> bool:
+        """Install packages using pacman (Arch Linux)."""
+        # Map package names for pacman
+        pacman_packages = []
+        for pkg in packages:
+            if pkg == "pulseaudio-utils":
+                pacman_packages.append("pulseaudio")
+            elif pkg == "alsa-utils":
+                pacman_packages.append("alsa-utils")
+            elif pkg == "portaudio19-dev":
+                pacman_packages.append("portaudio")
+            elif pkg == "libsndfile1":
+                pacman_packages.append("libsndfile")
+            elif pkg == "libasound2-dev":
+                pacman_packages.append("alsa-lib")
+            else:
+                pacman_packages.append(pkg)
+        
+        try:
+            if dry_run:
+                self.logger.info(f"Would install pacman packages: {', '.join(pacman_packages)}")
+                return True
+            
+            cmd = ["sudo", "pacman", "-S", "--noconfirm"] + pacman_packages
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            
+            self.logger.info(f"Successfully installed pacman packages: {', '.join(pacman_packages)}")
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Failed to install pacman packages: {e}")
+            return False
+    
+    def _install_macos_system_deps(self, dry_run: bool = False) -> bool:
+        """Install macOS system dependencies using brew."""
+        packages = [
+            "portaudio",
+            "ffmpeg",
+            "libsndfile"
+        ]
+        
+        try:
+            # Check if brew is available
+            if subprocess.run(["which", "brew"], capture_output=True).returncode != 0:
+                self.logger.warning("Homebrew not found. Please install: https://brew.sh/")
+                return True  # Don't fail installation
+            
+            if dry_run:
+                self.logger.info(f"Would install brew packages: {', '.join(packages)}")
+                return True
+            
+            cmd = ["brew", "install"] + packages
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            
+            self.logger.info(f"Successfully installed brew packages: {', '.join(packages)}")
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Failed to install brew packages: {e}")
+            return False
+    
+    def _install_windows_system_deps(self, dry_run: bool = False) -> bool:
+        """Install Windows system dependencies."""
+        # On Windows, audio utilities are typically built-in or handled by Python packages
+        self.logger.info("Windows audio dependencies are typically handled by Python packages")
+        return True
 
 
 def main():
@@ -263,6 +450,8 @@ def main():
                        help='Detect optimal variant for current system')
     parser.add_argument('--install', type=str, nargs='?', const='auto',
                        help='Install dependencies for specified variant (auto-detect if not specified)')
+    parser.add_argument('--install-system', action='store_true',
+                       help='Install system-level dependencies (audio, etc.)')
     parser.add_argument('--dry-run', action='store_true',
                        help='Show what would be installed without actually installing')
     parser.add_argument('--validate', action='store_true',
@@ -277,6 +466,14 @@ def main():
     if args.detect:
         variant = dm.detect_optimal_variant()
         print(f"Detected optimal variant: {variant}")
+    
+    if args.install_system:
+        success = dm.install_system_dependencies(dry_run=args.dry_run)
+        if success:
+            print("✅ System dependencies installed successfully")
+        else:
+            print("❌ Failed to install system dependencies")
+            sys.exit(1)
     
     if args.install:
         variant = None if args.install == 'auto' else args.install

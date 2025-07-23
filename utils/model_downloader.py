@@ -104,14 +104,22 @@ class ModelDownloader:
             },
             "tts": {
                 "kokoro": {
-                    "source_type": "huggingface",
-                    "repo_id": "onnx-community/Kokoro-82M-ONNX",
+                    "source_type": "github_release",
+                    "repo": "nazdridoy/kokoro-tts",
+                    "tag": "v1.0.0",
                     "files": [
-                        "onnx/model.onnx",
-                        "config.json"
+                        {
+                            "filename": "kokoro-v1.0.onnx",
+                            "download_url": "https://github.com/nazdridoy/kokoro-tts/releases/download/v1.0.0/kokoro-v1.0.onnx"
+                        },
+                        {
+                            "filename": "voices-v1.0.bin", 
+                            "download_url": "https://github.com/nazdridoy/kokoro-tts/releases/download/v1.0.0/voices-v1.0.bin"
+                        }
                     ],
-                    "size_mb": 350,
-                    "min_ram_gb": 1
+                    "size_mb": 400,
+                    "min_ram_gb": 1,
+                    "description": "Official Kokoro TTS ONNX model with voice embeddings"
                 }
             },
             "whisper": {
@@ -641,35 +649,65 @@ class ModelDownloader:
                            progress_callback: Optional[Callable] = None) -> bool:
         """Download TTS model files."""
         try:
-            repo_id = model_info["repo_id"]
-            files = model_info["files"]
+            source_type = model_info.get("source_type", "huggingface")
             
-            self.logger.info(f"Downloading TTS model: {repo_id}")
-            
-            # Create TTS models directory
+            # Create TTS models directory  
             tts_dir = self.models_dir / "tts" / model_variant
             tts_dir.mkdir(parents=True, exist_ok=True)
             
-            for i, filename in enumerate(files):
-                self.logger.info(f"Downloading TTS file: {filename}")
+            if source_type == "github_release":
+                # Handle GitHub release downloads (new Kokoro format)
+                self.logger.info(f"Downloading TTS model from GitHub: {model_info['repo']}")
+                files = model_info["files"]
                 
-                downloaded_path = hf_hub_download(
-                    repo_id=repo_id,
-                    filename=filename,
-                    cache_dir=str(self.cache_dir),
-                    resume_download=True
-                )
+                for i, file_info in enumerate(files):
+                    filename = file_info["filename"]
+                    download_url = file_info["download_url"]
+                    
+                    self.logger.info(f"Downloading TTS file: {filename}")
+                    
+                    target_path = tts_dir / filename
+                    
+                    # Download file directly from URL
+                    if not target_path.exists():
+                        response = requests.get(download_url, stream=True)
+                        response.raise_for_status()
+                        
+                        with open(target_path, 'wb') as f:
+                            for chunk in response.iter_content(chunk_size=8192):
+                                f.write(chunk)
+                    
+                    if progress_callback:
+                        progress = int(((i + 1) / len(files)) * 100)
+                        progress_callback(progress, f"Downloaded: {filename}")
+                        
+            else:
+                # Handle Hugging Face downloads (legacy format)
+                repo_id = model_info["repo_id"]
+                files = model_info["files"]
                 
-                # Copy to our models directory
-                target_path = tts_dir / filename
-                target_path.parent.mkdir(parents=True, exist_ok=True)  # Create nested directories
-                if not target_path.exists():
-                    import shutil
-                    shutil.copy2(downloaded_path, target_path)
+                self.logger.info(f"Downloading TTS model: {repo_id}")
                 
-                if progress_callback:
-                    progress = int(((i + 1) / len(files)) * 100)
-                    progress_callback(progress, f"Downloaded: {filename}")
+                for i, filename in enumerate(files):
+                    self.logger.info(f"Downloading TTS file: {filename}")
+                    
+                    downloaded_path = hf_hub_download(
+                        repo_id=repo_id,
+                        filename=filename,
+                        cache_dir=str(self.cache_dir),
+                        resume_download=True
+                    )
+                    
+                    # Copy to our models directory
+                    target_path = tts_dir / filename
+                    target_path.parent.mkdir(parents=True, exist_ok=True)  # Create nested directories
+                    if not target_path.exists():
+                        import shutil
+                        shutil.copy2(downloaded_path, target_path)
+                    
+                    if progress_callback:
+                        progress = int(((i + 1) / len(files)) * 100)
+                        progress_callback(progress, f"Downloaded: {filename}")
             
             self.logger.info(f"TTS model downloaded successfully: {tts_dir}")
             return True

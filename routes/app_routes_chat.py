@@ -78,12 +78,19 @@ def api_chat():
         
         # Generate response with avatar context
         if avatar_id:
-            # Multi-avatar mode: include avatar context in prompt
+            # Multi-avatar mode: include avatar context in prompt with model isolation
             enhanced_prompt = build_avatar_prompt(user_message, chat_context)
-            response_text = llm_handler.generate_response(enhanced_prompt)
+            response_text = llm_handler.generate_response(
+                enhanced_prompt,
+                user_id=str(user_id) if user_id else "default_user",
+                model_id=avatar_id  # Use avatar_id as model_id for isolation
+            )
         else:
             # Legacy single chat mode
-            response_text = llm_handler.generate_response(user_message)
+            response_text = llm_handler.generate_response(
+                user_message,
+                user_id=str(user_id) if user_id else "default_user"
+            )
         
         # Basic emotion detection (enhanced emotion system will be rebuilt later)
         emotions, primary_emotion = detect_basic_emotions(response_text)
@@ -379,6 +386,76 @@ def get_user_chat_summary(user_id):
             
     except Exception as e:
         error_msg = f"Chat summary API error: {str(e)}"
+        logging.error(f"{error_msg}\n{traceback.format_exc()}")
+        return jsonify({'error': error_msg}), 500
+
+@chat_routes.route('/api/chat/autonomous', methods=['POST'])
+def api_chat_autonomous():
+    """Autonomous chat endpoint for avatar-generated messages"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+        
+        # Get avatar and context information
+        avatar_id = data.get('avatar_id')
+        avatar_name = data.get('avatar_name', 'Avatar')
+        message_type = data.get('message_type', 'greeting')
+        user_id = data.get('user_id')
+        context = data.get('context', {})
+        roleplay_context = data.get('roleplay_context', {})
+        content_filters = data.get('content_filters', {})
+        character_consistency = data.get('character_consistency', {})
+        
+        if not avatar_id:
+            return jsonify({'error': 'Avatar ID is required'}), 400
+        
+        # Use the enhanced LLM handler for autonomous message generation
+        llm_handler = app_globals.llm_handler
+        if not llm_handler:
+            return jsonify({'error': 'LLM handler not available'}), 500
+        
+        # Ensure context is a dictionary
+        if isinstance(context, str):
+            context = {'context': context}
+        elif not isinstance(context, dict):
+            context = {}
+        
+        # Build prompt for autonomous message generation
+        if message_type == 'greeting':
+            prompt = f"""You are {avatar_name}, greeting a user for the first time. 
+Context: {context.get('context', 'Avatar just loaded and is greeting the user')}
+Intent: {context.get('intent', 'welcome_user')}
+Emotion: {context.get('emotion', 'friendly')}
+
+Generate a natural, friendly greeting appropriate for {avatar_name}'s personality.
+Keep it brief and welcoming. Do not use asterisks or action descriptions."""
+        else:
+            prompt = f"""You are {avatar_name}. Generate a {message_type} message.
+Context: {context.get('context', str(context)) if isinstance(context, dict) else str(context)}
+Keep the response natural and appropriate for the character."""
+        
+        # Generate response using LLM with model isolation
+        response = llm_handler.generate_response(
+            prompt,
+            user_id=str(user_id) if user_id else "autonomous_user",
+            model_id=avatar_id  # Use avatar_id as model_id for isolation
+        )
+        
+        if response and response.strip():
+            return jsonify({
+                'message': response.strip(),
+                'avatar_id': avatar_id,
+                'avatar_name': avatar_name,
+                'message_type': message_type,
+                'emotion': context.get('emotion', 'neutral'),
+                'success': True
+            })
+        else:
+            return jsonify({'error': 'Failed to generate message'}), 500
+            
+    except Exception as e:
+        error_msg = f"Autonomous chat API error: {str(e)}"
         logging.error(f"{error_msg}\n{traceback.format_exc()}")
         return jsonify({'error': error_msg}), 500
 

@@ -33,6 +33,14 @@ class AvatarChatManager {
         // Set up listeners for avatar changes
         this.setupAvatarListeners();
         
+        // Check for active avatars after initialization and clear chat if none
+        setTimeout(() => {
+            if (this.activeAvatars.size === 0) {
+                console.log('🧹 No avatars found on initialization - clearing old chat');
+                this.clearChatWindow();
+            }
+        }, 3000); // Wait 3 seconds for models to load
+        
         console.log('🎭 Multi-avatar chat system initialized with user context:', this.currentUser?.display_name || 'No user');
     }
 
@@ -60,7 +68,8 @@ class AvatarChatManager {
     async loadCurrentUser() {
         try {
             console.log('🔍 Loading current user from API...');
-            const response = await fetch('/api/users/current');
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+            const response = await fetch(`${apiBaseUrl}/api/users/current`);
             console.log('📡 API response status:', response.status, response.statusText);
             
             if (response.ok) {
@@ -91,7 +100,8 @@ class AvatarChatManager {
         if (!this.currentUser) return;
 
         try {
-            const response = await fetch(`/api/users/${this.currentUser.id}/profile`);
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+            const response = await fetch(`${apiBaseUrl}/api/users/${this.currentUser.id}/profile`);
             if (response.ok) {
                 this.userProfile = await response.json();
                 console.log('📋 User profile loaded');
@@ -109,7 +119,8 @@ class AvatarChatManager {
         }
 
         try {
-            const response = await fetch(`/api/chat/history?user_id=${this.currentUser.id}&limit=${limit}`);
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+            const response = await fetch(`${apiBaseUrl}/api/chat/history?user_id=${this.currentUser.id}&limit=${limit}`);
             if (response.ok) {
                 const data = await response.json();
                 this.chatHistory = data.history || [];
@@ -173,7 +184,8 @@ class AvatarChatManager {
             // Add user message
             addMessage('user', msg.user_message, 'info', null, {
                 timestamp: new Date(msg.timestamp).toLocaleString(),
-                speaker: msg.user_display_name
+                speaker: msg.user_display_name,
+                skip_tts: true // Don't trigger TTS for historical messages
             });
             
             // Add AI response with avatar info
@@ -184,7 +196,8 @@ class AvatarChatManager {
             
             addMessage('ai', msg.ai_response, 'info', avatarInfo, {
                 timestamp: new Date(msg.timestamp).toLocaleString(),
-                emotion: msg.primary_emotion
+                emotion: msg.primary_emotion,
+                skip_tts: true // Don't trigger TTS for historical messages
             });
         });
         
@@ -204,6 +217,8 @@ class AvatarChatManager {
         
         // Listen for avatar changes from the Live2D system using events (efficient)
         if (window.live2dMultiModelManager) {
+            console.log('✅ Live2D multi model manager found, setting up event listeners');
+            
             // Listen for model loaded events instead of polling
             document.addEventListener('live2d:modelLoaded', (event) => {
                 console.log('🎭 Model loaded event received:', event.detail);
@@ -221,6 +236,16 @@ class AvatarChatManager {
                 console.log('🔍 Initial avatar check on startup');
                 this.updateActiveAvatars();
             }, 2000);
+        } else {
+            console.warn('⚠️ Live2D multi model manager not found - will try again in 3 seconds');
+            setTimeout(() => {
+                if (window.live2dMultiModelManager) {
+                    console.log('🔄 Retrying avatar listener setup...');
+                    this.setupAvatarListeners();
+                } else {
+                    console.error('❌ Live2D multi model manager still not found after retry');
+                }
+            }, 3000);
         }
         
         // Listen for user changes from the user selection system
@@ -245,11 +270,22 @@ class AvatarChatManager {
             
             console.log('✅ Chat manager updated for user:', this.currentUser?.display_name, 'ID:', this.currentUser?.id);
         });
+        
+        // FALLBACK: Also check for models via polling as backup (less frequent)
+        setInterval(() => {
+            this.updateActiveAvatars();
+        }, 30000); // Check every 30 seconds as fallback
     }
     
     handleModelLoaded(modelDetail) {
         console.log('🎭 === HANDLING MODEL LOADED EVENT ===');
         console.log('Model detail received:', modelDetail);
+        
+        // Clear chat messages when first model loads - always clear for fresh start
+        if (this.activeAvatars.size === 0) {
+            console.log('🧹 Clearing chat for fresh avatar session...');
+            this.clearChatWindow();
+        }
         
         // Update active avatars to include the newly loaded model
         this.updateActiveAvatars();
@@ -274,7 +310,7 @@ class AvatarChatManager {
             }
             
             // Trigger autonomous greeting for the newly loaded avatar
-            const delay = 1000 + Math.random() * 2000; // Random delay 1-3 seconds for natural feel
+            const delay = 2000 + Math.random() * 3000; // 2-5 seconds for natural feel
             console.log(`👋 Scheduling autonomous greeting for ${avatarInfo.displayName} in ${delay.toFixed(0)}ms`);
             
             setTimeout(() => {
@@ -285,6 +321,30 @@ class AvatarChatManager {
             console.warn('⚠️ Invalid model detail received:', modelDetail);
         }
         console.log('🎭 === END MODEL LOADED HANDLING ===');
+    }
+
+    clearChatWindow() {
+        console.log('🧹 Clearing chat window for new session...');
+        const chatMessagesContainer = document.getElementById('chatMessages');
+        if (chatMessagesContainer) {
+            chatMessagesContainer.innerHTML = '';
+            console.log('✅ Chat messages container cleared');
+            
+            // Clear message history as well for fresh start
+            this.messageHistory = [];
+            console.log('✅ Message history cleared');
+            
+            // Add welcome message only if avatars are expected
+            if (this.activeAvatars.size > 0 || window.live2dMultiModelManager?.getAllModels()?.length > 0) {
+                setTimeout(() => {
+                    addSystemMessage('💬 Welcome! Your avatars will greet you shortly...', 'info');
+                }, 500);
+            } else {
+                setTimeout(() => {
+                    addSystemMessage('🎭 No avatars loaded. Load an avatar to start chatting!', 'info');
+                }, 500);
+            }
+        }
     }
 
     // Method to manually refresh current user (useful for debugging and ensuring sync)
@@ -311,19 +371,25 @@ class AvatarChatManager {
         const currentActive = new Map();
         const allModels = window.live2dMultiModelManager.getAllModels();
         
+        // Store previous state to avoid redundant logging
+        const previousActiveAvatars = new Set(this.activeAvatars.keys());
+        
         // Only log when there are actually models to check
         if (allModels.length > 0) {
             console.log('🔍 Checking all Live2D models:', allModels.length);
         }
         
         allModels.forEach((modelData, index) => {
-            console.log(`🎭 Model ${index + 1}:`, {
-                name: modelData.name,
-                hasModel: !!modelData.pixiModel,
-                visible: modelData.pixiModel?.visible,
-                alpha: modelData.pixiModel?.alpha,
-                isActive: modelData.isActive
-            });
+            // Only log individual model details if there's a change or it's the first check
+            if (this.activeAvatars.size === 0 || !this.activeAvatars.has(modelData.name)) {
+                console.log(`🎭 Model ${index + 1}:`, {
+                    name: modelData.name,
+                    hasModel: !!modelData.pixiModel,
+                    visible: modelData.pixiModel?.visible,
+                    alpha: modelData.pixiModel?.alpha,
+                    isActive: modelData.isActive
+                });
+            }
             
             // Check if model exists and is visible 
             // Note: Some Live2D models might not have alpha property or default to 1
@@ -339,7 +405,10 @@ class AvatarChatManager {
                     displayName: this.formatAvatarName(avatarId)
                 };
                 
-                console.log('✅ Active avatar found:', avatarId);
+                // Only log if this is a new active avatar
+                if (!previousActiveAvatars.has(avatarId)) {
+                    console.log('✅ Active avatar found:', avatarId);
+                }
                 
                 currentActive.set(avatarId, {
                     ...avatarInfo,
@@ -351,16 +420,33 @@ class AvatarChatManager {
             }
         });
 
+        // Check if the active avatars have actually changed
+        const currentActiveAvatars = new Set(currentActive.keys());
+        const hasChanges = previousActiveAvatars.size !== currentActiveAvatars.size ||
+                          Array.from(previousActiveAvatars).some(id => !currentActiveAvatars.has(id)) ||
+                          Array.from(currentActiveAvatars).some(id => !previousActiveAvatars.has(id));
+
         // Update active avatars map
         this.activeAvatars = currentActive;
         
-        console.log('🎭 Updated active avatars:', this.activeAvatars.size, Array.from(this.activeAvatars.keys()));
+        // Only log updates when there are actual changes
+        if (hasChanges || this.activeAvatars.size === 0) {
+            console.log('🎭 Updated active avatars:', this.activeAvatars.size, Array.from(this.activeAvatars.keys()));
+            
+            // Clear chat if no avatars are active
+            if (this.activeAvatars.size === 0) {
+                console.log('🧹 No active avatars - clearing chat interface');
+                this.clearChatWindow();
+            }
+        }
         
         // Update UI if needed
         this.updateChatUI();
         
-        // Notify autonomous system about avatar changes
-        this.notifyAutonomousSystem();
+        // Notify autonomous system about avatar changes (only if there are changes)
+        if (hasChanges) {
+            this.notifyAutonomousSystem();
+        }
     }
     
     notifyAutonomousSystem() {
@@ -430,28 +516,14 @@ class AvatarChatManager {
         }
         
         try {
-            // Enhanced context for roleplay and content filtering
-            const roleplayContext = await this.buildRoleplayContext(avatar, {
-                user_id: this.currentUser?.id,
-                interaction_type: 'greeting',
-                relationship_context: userRelationship
-            });
+            // Simplified greeting generation to debug the issue
+            console.log('🎭 Using simplified greeting generation for debugging...');
             
-            const contentFilters = await this.buildContentFilters(avatar.id, this.currentUser?.id);
-            
-            // Generate AI-based greeting using synchronized backend system
+            // Generate AI-based greeting using simplified context
             const greetingResponse = await this.generateAutonomousMessage(avatar, 'greeting', {
                 context: 'Avatar just loaded and is greeting the user',
                 intent: 'welcome_user',
-                emotion: this.determineGreetingEmotion(avatar.id, userRelationship),
-                conversation_history: this.messageHistory.slice(-3),
-                relationship_context: userRelationship,
-                personality_influence: personalityTraits,
-                addressing_analysis: addressingContext,
-                behavioral_constraints: behavioralConstraints,
-                roleplay_context: roleplayContext,
-                content_filters: contentFilters,
-                character_consistency: this.getCharacterConsistencyProfile(avatar.id)
+                emotion: 'friendly'
             });
             
             console.log('💬 Generated synchronized greeting:', greetingResponse);
@@ -511,6 +583,9 @@ class AvatarChatManager {
             
         } catch (error) {
             console.error('❌ Error sending synchronized autonomous greeting:', error);
+            console.error('❌ Error stack:', error.stack);
+            console.error('❌ Error message:', error.message);
+            console.error('❌ Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
         }
         
         console.log('👋 === END SYNCHRONIZED AUTONOMOUS GREETING ===');
@@ -1061,7 +1136,8 @@ class AvatarChatManager {
         
         try {
             // Fetch user content preferences from API
-            const response = await fetch(`/api/users/${userId}/content-preferences`);
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+            const response = await fetch(`${apiBaseUrl}/api/users/${userId}/content-preferences`);
             if (response.ok) {
                 const preferences = await response.json();
                 console.log('📋 Loaded user content preferences:', preferences);
@@ -1079,7 +1155,8 @@ class AvatarChatManager {
     async getAvatarContentCapabilities(avatarId) {
         // Get avatar content capabilities from database/character profile
         try {
-            const response = await fetch(`/api/live2d/models/${avatarId}/capabilities`);
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+            const response = await fetch(`${apiBaseUrl}/api/live2d/models/${avatarId}/capabilities`);
             if (response.ok) {
                 const capabilities = await response.json();
                 console.log(`🎭 Loaded content capabilities for ${avatarId}:`, capabilities);
@@ -2020,8 +2097,11 @@ class AvatarChatManager {
             // Build comprehensive context including roleplay and content filters
             const enhancedContext = await this.buildEnhancedContextWithRoleplay(avatar, context);
             
+            // Get proper API base URL for autonomous message generation
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+            
             // Make API call to backend with enhanced context
-            const response = await fetch('/api/chat/autonomous', {
+            const response = await fetch(`${apiBaseUrl}/api/chat/autonomous`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -5443,6 +5523,561 @@ class AvatarChatManager {
             resolved: false
         }));
     }
+
+    // Multi-avatar conversation management methods
+    isOpenQuestionForMultipleAvatars(message) {
+        const openQuestionPatterns = [
+            /tell me about.*you.*(like|enjoy|love|favorite)/i,
+            /what do you.*think about/i,
+            /how do you.*feel about/i,
+            /what.*your.*opinion/i,
+            /everyone.*tell me/i,
+            /what.*you all.*think/i,
+            /anybody.*have.*thoughts/i,
+            /what.*interests.*you/i,
+            /share.*something.*about/i
+        ];
+        
+        return openQuestionPatterns.some(pattern => pattern.test(message));
+    }
+
+    getAddressedAvatars(message, activeAvatars) {
+        const addressedAvatars = [];
+        const messageLower = message.toLowerCase();
+        
+        // Check for specific avatar names
+        activeAvatars.forEach(avatar => {
+            const avatarNames = [
+                avatar.name?.toLowerCase(),
+                avatar.displayName?.toLowerCase(),
+                avatar.id?.toLowerCase()
+            ].filter(name => name);
+            
+            if (avatarNames.some(name => messageLower.includes(name))) {
+                addressedAvatars.push(avatar);
+            }
+        });
+        
+        // Check for group addressing
+        const groupPatterns = [
+            /everyone/i, /everybody/i, /all of you/i, /you all/i, 
+            /anyone/i, /anybody/i, /girls/i, /ladies/i
+        ];
+        
+        if (groupPatterns.some(pattern => pattern.test(message)) && addressedAvatars.length === 0) {
+            return activeAvatars; // Address all avatars
+        }
+        
+        return addressedAvatars.length > 0 ? addressedAvatars : [activeAvatars[0]]; // Default to first avatar
+    }
+
+    async handleMultiAvatarConversation(message, activeAvatars) {
+        console.log('🗣️ Handling multi-avatar conversation...');
+        
+        try {
+            // Add user message to history
+            this.messageHistory.push({
+                type: 'user',
+                message: message,
+                timestamp: new Date(),
+                user: this.currentUser ? {
+                    id: this.currentUser.id,
+                    display_name: this.currentUser.display_name || 'User'
+                } : {
+                    id: null,
+                    display_name: 'Anonymous User'
+                }
+            });
+            
+            // Determine which avatars should respond
+            const respondingAvatars = this.selectRespondingAvatars(message, activeAvatars);
+            console.log('🎭 Avatars selected to respond:', respondingAvatars.map(a => a.displayName));
+            
+            // Generate responses with staggered timing for natural conversation flow
+            for (let i = 0; i < respondingAvatars.length; i++) {
+                const avatar = respondingAvatars[i];
+                const delay = i * (2000 + Math.random() * 3000); // 2-5 second stagger
+                
+                setTimeout(async () => {
+                    try {
+                        await this.generateAvatarResponse(avatar, message, {
+                            conversation_position: i + 1,
+                            total_respondents: respondingAvatars.length,
+                            previous_responses: this.messageHistory.slice(-i),
+                            is_multi_avatar_conversation: true
+                        });
+                    } catch (error) {
+                        console.error(`Error generating response for ${avatar.displayName}:`, error);
+                    }
+                }, delay);
+            }
+            
+        } catch (error) {
+            console.error('Error in multi-avatar conversation:', error);
+            // Fallback to single avatar response
+            const fallbackAvatar = activeAvatars[0];
+            await this.generateAvatarResponse(fallbackAvatar, message, {
+                is_fallback: true
+            });
+        }
+    }
+
+    selectRespondingAvatars(message, activeAvatars) {
+        // Logic to determine which avatars should respond
+        const addressed = this.getAddressedAvatars(message, activeAvatars);
+        
+        if (addressed.length === activeAvatars.length || this.isOpenQuestionForMultipleAvatars(message)) {
+            // For open questions, select 1-3 avatars based on relevance and personality
+            const relevantAvatars = [];
+            
+            activeAvatars.forEach(avatar => {
+                const relevanceScore = this.calculateMessageRelevance(avatar, message);
+                const personalityFit = this.calculatePersonalityRelevance(avatar, message);
+                const totalScore = relevanceScore + personalityFit;
+                
+                if (totalScore > 0.3) { // Threshold for response
+                    relevantAvatars.push({ avatar, score: totalScore });
+                }
+            });
+            
+            // Sort by relevance and return top 2-3
+            relevantAvatars.sort((a, b) => b.score - a.score);
+            const maxResponders = Math.min(3, Math.max(1, relevantAvatars.length));
+            return relevantAvatars.slice(0, maxResponders).map(item => item.avatar);
+        }
+        
+        return addressed;
+    }
+
+    calculateMessageRelevance(avatar, message) {
+        // Calculate how relevant the message is to this avatar
+        const messageLower = message.toLowerCase();
+        const personalityTraits = this.getAvatarPersonalityTraits(avatar.id);
+        
+        let relevanceScore = 0.2; // Base score
+        
+        // Topic relevance
+        if (messageLower.includes('dress') && this.avatarHasDress(avatar)) {
+            relevanceScore += 0.5;
+        }
+        
+        if (messageLower.includes('music') && personalityTraits.musical > 0.5) {
+            relevanceScore += 0.4;
+        }
+        
+        if (messageLower.includes('art') && personalityTraits.artistic > 0.5) {
+            relevanceScore += 0.4;
+        }
+        
+        if (messageLower.includes('love') && personalityTraits.romantic > 0.5) {
+            relevanceScore += 0.3;
+        }
+        
+        return Math.min(1.0, relevanceScore);
+    }
+
+    calculatePersonalityRelevance(avatar, message) {
+        const personalityTraits = this.getAvatarPersonalityTraits(avatar.id);
+        const messageLower = message.toLowerCase();
+        
+        let personalityScore = 0;
+        
+        // Extroverted avatars more likely to respond to open questions
+        if (this.isOpenQuestionForMultipleAvatars(message)) {
+            personalityScore += personalityTraits.extroversion * 0.3;
+        }
+        
+        // Confident avatars more likely to share opinions
+        if (messageLower.includes('opinion') || messageLower.includes('think')) {
+            personalityScore += personalityTraits.confident * 0.2;
+        }
+        
+        // Curious avatars respond to interesting topics
+        if (messageLower.includes('interesting') || messageLower.includes('fascinating')) {
+            personalityScore += personalityTraits.curious * 0.2;
+        }
+        
+        return personalityScore;
+    }
+
+    avatarHasDress(avatar) {
+        // Check if avatar model has dress-related keywords
+        const avatarData = this.avatarDatabase.get(avatar.id);
+        const description = avatarData?.description?.toLowerCase() || '';
+        const modelName = avatar.name?.toLowerCase() || '';
+        
+        return description.includes('dress') || 
+               description.includes('gown') || 
+               modelName.includes('dress') ||
+               this.checkAvatarVisualFeatures(avatar, 'dress');
+    }
+
+    checkAvatarVisualFeatures(avatar, feature) {
+        // In a real implementation, this could analyze the avatar's visual features
+        // For now, return false as placeholder
+        return false;
+    }
+
+    async generateAvatarResponse(avatar, originalMessage, context = {}) {
+        console.log(`💭 Generating response for ${avatar.displayName}...`);
+        
+        try {
+            // Build context for this specific avatar
+            const enhancedContext = {
+                ...context,
+                original_message: originalMessage,
+                avatar_specific_context: this.buildAvatarSpecificContext(avatar, originalMessage),
+                conversation_history: this.messageHistory.slice(-5),
+                personality_traits: this.getAvatarPersonalityTraits(avatar.id),
+                relationship_context: this.getUserRelationshipContext(avatar.id)
+            };
+            
+            // Generate response using the autonomous message system
+            const response = await this.generateAutonomousMessage(avatar, 'response', enhancedContext);
+            
+            if (response) {
+                // Process the response with emotional sync
+                const syncDetails = await this.processSynchronizedResponse(avatar, 
+                    { message: response }, 
+                    enhancedContext
+                );
+                
+                // Add to chat with full emotional context
+                addMessage('ai', syncDetails.message, 'info', avatar, {
+                    emotion: syncDetails.emotion,
+                    emotion_intensity: syncDetails.emotion_intensity,
+                    timestamp: new Date().toLocaleTimeString(),
+                    personality_traits: syncDetails.personality_traits,
+                    is_multi_avatar_response: true,
+                    conversation_position: context.conversation_position
+                });
+                
+                // Add to message history
+                this.messageHistory.push({
+                    type: 'avatar',
+                    message: syncDetails.message,
+                    timestamp: new Date(),
+                    avatar: avatar,
+                    emotions: [syncDetails.emotion],
+                    primary_emotion: syncDetails.emotion,
+                    is_multi_avatar_response: true
+                });
+                
+                // Trigger synchronized response
+                await this.executeSynchronizedAvatarResponse(avatar, syncDetails);
+                
+                console.log(`✅ ${avatar.displayName} responded: "${syncDetails.message}"`);
+            } else {
+                console.warn(`⚠️ No response generated for ${avatar.displayName}`);
+            }
+            
+        } catch (error) {
+            console.error(`❌ Error generating response for ${avatar.displayName}:`, error);
+            
+            // Fallback response
+            const fallbackMessage = `*${avatar.displayName} seems thoughtful but doesn't respond*`;
+            addMessage('ai', fallbackMessage, 'info', avatar, {
+                emotion: 'thoughtful',
+                is_fallback: true
+            });
+        }
+    }
+
+    buildAvatarSpecificContext(avatar, message) {
+        return {
+            avatar_id: avatar.id,
+            avatar_name: avatar.displayName || avatar.name,
+            message_directed_at_avatar: this.isMessageDirectedAtAvatar(avatar, message),
+            avatar_expertise: this.getAvatarExpertise(avatar),
+            avatar_interests: this.getAvatarInterests(avatar),
+            recent_avatar_activity: this.getRecentAvatarActivity(avatar.id)
+        };
+    }
+
+    isMessageDirectedAtAvatar(avatar, message) {
+        const messageLower = message.toLowerCase();
+        const avatarNames = [
+            avatar.name?.toLowerCase(),
+            avatar.displayName?.toLowerCase(),
+            avatar.id?.toLowerCase()
+        ].filter(name => name);
+        
+        return avatarNames.some(name => messageLower.includes(name));
+    }
+
+    getAvatarExpertise(avatar) {
+        // Return avatar's areas of expertise based on personality and background
+        const personalityTraits = this.getAvatarPersonalityTraits(avatar.id);
+        const expertise = [];
+        
+        if (personalityTraits.artistic > 0.6) expertise.push('art', 'creativity');
+        if (personalityTraits.musical > 0.6) expertise.push('music');
+        if (personalityTraits.intellectual > 0.6) expertise.push('philosophy', 'science');
+        if (personalityTraits.social > 0.6) expertise.push('relationships', 'social dynamics');
+        
+        return expertise;
+    }
+
+    getAvatarInterests(avatar) {
+        // Return avatar's interests based on personality
+        const personalityTraits = this.getAvatarPersonalityTraits(avatar.id);
+        const interests = [];
+        
+        if (personalityTraits.adventurous > 0.5) interests.push('travel', 'exploration');
+        if (personalityTraits.romantic > 0.5) interests.push('romance', 'poetry');
+        if (personalityTraits.mischievous > 0.5) interests.push('games', 'pranks');
+        if (personalityTraits.nurturing > 0.5) interests.push('caring for others', 'nature');
+        
+        return interests;
+    }
+
+    getRecentAvatarActivity(avatarId) {
+        return this.messageHistory
+            .filter(msg => msg.avatar?.id === avatarId)
+            .slice(-3)
+            .map(msg => ({
+                message: msg.message,
+                timestamp: msg.timestamp,
+                emotion: msg.primary_emotion
+            }));
+    }
+
+    // Missing functions that are called but not defined
+    calculateSocialAppropriatenessLevel(relationship, socialContext) {
+        let appropriateness = 0.5; // Base level
+        
+        // Adjust based on relationship familiarity
+        if (relationship.familiarity_level === 'close') appropriateness += 0.3;
+        else if (relationship.familiarity_level === 'stranger') appropriateness -= 0.2;
+        
+        // Consider social context
+        if (socialContext.privacy_level === 'private') appropriateness += 0.2;
+        else if (socialContext.privacy_level === 'public') appropriateness -= 0.1;
+        
+        return Math.max(0, Math.min(1, appropriateness));
+    }
+
+    getPersonalityEmotionalBoundaries(personalityTraits) {
+        return {
+            max_emotional_intensity: personalityTraits.emotional_stability || 0.7,
+            comfort_with_vulnerability: personalityTraits.openness || 0.5,
+            expression_comfort_level: personalityTraits.extroversion || 0.5,
+            emotional_range_preference: personalityTraits.neuroticism < 0.3 ? 'stable' : 'dynamic'
+        };
+    }
+
+    getTopicBoundaries(personalityTraits, relationship) {
+        return {
+            personal_topics_comfort: relationship.intimacy_level || 0.3,
+            controversial_topics_tolerance: personalityTraits.openness || 0.5,
+            mature_content_boundaries: this.getMatureContentBoundaries(personalityTraits, relationship),
+            intellectual_depth_preference: personalityTraits.intelligence || 0.5
+        };
+    }
+
+    getInteractionLimits(personalityTraits, context) {
+        return {
+            interaction_frequency_tolerance: personalityTraits.extroversion || 0.5,
+            attention_span_expectation: personalityTraits.conscientiousness || 0.5,
+            social_energy_level: this.calculateSocialEnergyLevel(personalityTraits, context),
+            response_time_expectations: this.calculateResponseTimeExpectations(personalityTraits)
+        };
+    }
+
+    getMatureContentBoundaries(personalityTraits, relationship) {
+        const baseComfort = personalityTraits.openness || 0.3;
+        const relationshipBonus = (relationship.intimacy_level || 0) * 0.3;
+        return Math.min(1, baseComfort + relationshipBonus);
+    }
+
+    calculateSocialEnergyLevel(personalityTraits, context) {
+        let energy = personalityTraits.extroversion || 0.5;
+        
+        // Adjust based on context
+        if (context.interaction_type === 'greeting') energy += 0.2;
+        if (context.time_of_day === 'morning') energy += 0.1;
+        if (context.time_of_day === 'late_night') energy -= 0.2;
+        
+        return Math.max(0.1, Math.min(1, energy));
+    }
+
+    calculateResponseTimeExpectations(personalityTraits) {
+        const patience = personalityTraits.agreeableness || 0.5;
+        const urgency = 1 - (personalityTraits.conscientiousness || 0.5);
+        
+        if (patience > 0.7) return 'relaxed';
+        if (urgency > 0.7) return 'immediate';
+        return 'moderate';
+    }
+
+    getSocialContext() {
+        return {
+            privacy_level: this.determinePrivacyLevel(),
+            social_setting: this.determineSocialSetting(),
+            formality_level: this.determineFormalityLevel(),
+            audience_awareness: this.calculateAudienceAwareness()
+        };
+    }
+
+    determineSocialSetting() {
+        const activeAvatarCount = this.activeAvatars.size;
+        if (activeAvatarCount === 0) return 'empty';
+        if (activeAvatarCount === 1) return 'intimate';
+        if (activeAvatarCount <= 3) return 'small_group';
+        return 'large_group';
+    }
+
+    determineFormalityLevel() {
+        // Determine based on user interaction patterns
+        const userMessages = this.messageHistory.filter(msg => msg.type === 'user').slice(-5);
+        if (userMessages.length === 0) return 'neutral';
+        
+        const formalIndicators = userMessages.filter(msg => 
+            msg.message.includes('please') || 
+            msg.message.includes('thank you') ||
+            /^[A-Z]/.test(msg.message.trim())
+        ).length;
+        
+        const casualIndicators = userMessages.filter(msg =>
+            msg.message.includes('hey') ||
+            msg.message.includes('yo') ||
+            msg.message.toLowerCase() === msg.message
+        ).length;
+        
+        if (formalIndicators > casualIndicators) return 'formal';
+        if (casualIndicators > formalIndicators) return 'casual';
+        return 'neutral';
+    }
+
+    calculateAudienceAwareness() {
+        return {
+            other_avatars_present: this.activeAvatars.size > 1,
+            user_attention_divided: this.activeAvatars.size > 2,
+            conversation_observers: this.activeAvatars.size,
+            privacy_expectations: this.activeAvatars.size === 1 ? 'high' : 'moderate'
+        };
+    }
+
+    // Add missing stub methods that are referenced but not defined
+    getAvatarPersonalityTraits(avatarId) {
+        // Return default personality traits
+        return {
+            extroversion: 0.5,
+            agreeableness: 0.5,
+            conscientiousness: 0.5,
+            neuroticism: 0.3,
+            openness: 0.5,
+            emotional_stability: 0.7,
+            intelligence: 0.6,
+            seductive: 0.2,
+            flirtatious: 0.2,
+            passionate: 0.3,
+            sensual: 0.2,
+            sexually_adventurous: 0.1,
+            mischievous: 0.3,
+            dominant: 0.3,
+            submissive: 0.3,
+            intensity: 0.4,
+            wild: 0.2,
+            horny: 0.1,
+            empathy: 0.6,
+            emotional_depth: 0.5
+        };
+    }
+
+    getUserRelationshipContext(avatarId) {
+        return {
+            familiarity_level: 'new',
+            intimacy_level: 0.1,
+            trust_level: 0.3,
+            last_interaction_tone: 'neutral',
+            unresolved_issues: [],
+            positive_interactions: 0,
+            negative_interactions: 0,
+            relationship_trend: 'stable'
+        };
+    }
+
+    analyzeAddressingContext(avatar, context) {
+        return {
+            direct_address: false,
+            implied_address: true,
+            attention_level: 'moderate',
+            expectation_of_response: context.context === 'greeting' ? 'high' : 'moderate'
+        };
+    }
+
+    determineGreetingEmotion(avatarId, userRelationship) {
+        const personality = this.getAvatarPersonalityTraits(avatarId);
+        
+        if (personality.extroversion > 0.7) return 'excited';
+        if (personality.agreeableness > 0.7) return 'friendly';
+        if (userRelationship.familiarity_level === 'close') return 'happy';
+        
+        return 'neutral';
+    }
+
+    async generateAutonomousMessage(avatar, messageType, context) {
+        // Simplified message generation - in real implementation would call backend
+        console.log(`🤖 Generating ${messageType} message for ${avatar.displayName}`);
+        
+        // For now, return a simple greeting
+        if (messageType === 'greeting') {
+            const greetings = [
+                `Hello! I'm ${avatar.displayName}. Nice to meet you!`,
+                `Hi there! ${avatar.displayName} here.`,
+                `Hey! It's good to see you!`,
+                `Hello! How are you doing today?`
+            ];
+            return greetings[Math.floor(Math.random() * greetings.length)];
+        }
+        
+        return null;
+    }
+
+    async processSynchronizedResponse(avatar, response, context) {
+        return {
+            message: response.message,
+            emotion: context.relationship_context?.last_interaction_tone || 'friendly',
+            emotion_intensity: 0.5,
+            personality_influence: context.personality_influence || {},
+            tts_params: {
+                emotion: 'neutral',
+                avatar_id: avatar.id,
+                intensity: 0.5
+            },
+            live2d_params: {
+                motion: 'idle',
+                expression: 'neutral'
+            },
+            behavioral_cues: []
+        };
+    }
+
+    scheduleAutonomousInteractions(avatar) {
+        // Placeholder for scheduling follow-up interactions
+        console.log(`📅 Scheduling autonomous interactions for ${avatar.displayName}`);
+    }
+
+    updateChatUI() {
+        // Placeholder for UI updates
+        console.log('🎨 Updating chat UI...');
+    }
+
+    getActiveAvatars() {
+        return Array.from(this.activeAvatars.values());
+    }
+
+    determinePrivacyLevel() {
+        // Determine privacy level based on current context
+        const activeAvatarCount = this.activeAvatars.size;
+        const hasUser = !!this.currentUser;
+        
+        if (activeAvatarCount === 0) return 'empty';
+        if (activeAvatarCount === 1 && hasUser) return 'private';
+        if (activeAvatarCount <= 2) return 'semi_private';
+        return 'group';
+    }
 }
 
 // Initialize global avatar chat manager
@@ -5528,29 +6163,46 @@ function addMessage(sender, message, type = 'info', avatar = null, metadata = nu
     chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
     
     // NEW: Trigger TTS for AI messages automatically
-    if (validSender === 'ai' && avatar && typeof triggerEmotionalTTS === 'function') {
-        // Extract TTS parameters from metadata or generate defaults
-        const emotion = metadata?.emotion || metadata?.primary_emotion || 'neutral';
-        const intensity = metadata?.emotion_intensity || metadata?.intensity || 0.5;
-        const avatarId = avatar.id || avatar.name || 'default';
+    if (validSender === 'ai' && avatar && message && message.trim() !== '') {
+        console.log('🔊 Checking TTS availability for AI message...');
+        console.log('triggerEmotionalTTS available:', typeof triggerEmotionalTTS === 'function');
+        console.log('Avatar info:', avatar);
+        console.log('Metadata:', metadata);
         
-        // Get personality traits from avatar or metadata
-        let personalityTraits = {};
-        if (metadata?.personality_traits) {
-            personalityTraits = metadata.personality_traits;
-        } else if (avatarChatManager && avatarChatManager.getAvatarPersonalityTraits) {
-            personalityTraits = avatarChatManager.getAvatarPersonalityTraits(avatar);
+        // Check if TTS should be skipped (for historical messages)
+        if (metadata?.skip_tts) {
+            console.log('⏭️ Skipping TTS for historical message');
+            return;
         }
         
-        // Trigger emotional TTS with proper integration
-        setTimeout(async () => {
-            try {
-                console.log(`🔊 Auto-triggering TTS for avatar ${avatarId} with emotion: ${emotion}`);
-                await triggerEmotionalTTS(message, emotion, avatarId, personalityTraits, intensity);
-            } catch (error) {
-                console.warn('Failed to auto-trigger TTS:', error);
+        if (typeof triggerEmotionalTTS === 'function') {
+            // Extract TTS parameters from metadata or generate defaults
+            const emotion = metadata?.emotion || metadata?.primary_emotion || 'neutral';
+            const intensity = metadata?.emotion_intensity || metadata?.intensity || 0.5;
+            const avatarId = avatar.id || avatar.name || 'default';
+            
+            // Get personality traits from avatar or metadata
+            let personalityTraits = {};
+            if (metadata?.personality_traits) {
+                personalityTraits = metadata.personality_traits;
+            } else if (avatarChatManager && avatarChatManager.getAvatarPersonalityTraits) {
+                personalityTraits = avatarChatManager.getAvatarPersonalityTraits(avatar);
             }
-        }, 200); // Small delay to ensure UI is updated first
+            
+            // Trigger emotional TTS with proper integration
+            setTimeout(async () => {
+                try {
+                    console.log(`🔊 Auto-triggering TTS for avatar ${avatarId} with emotion: ${emotion}, message: "${message}"`);
+                    await triggerEmotionalTTS(message, emotion, avatarId, personalityTraits, intensity);
+                } catch (error) {
+                    console.warn('Failed to auto-trigger TTS:', error);
+                }
+            }, 200); // Small delay to ensure UI is updated first
+        } else {
+            console.warn('⚠️ triggerEmotionalTTS function not available');
+        }
+    } else if (validSender === 'ai' && (!message || message.trim() === '')) {
+        console.log('⏭️ Skipping TTS for empty message');
     }
     
     console.log('✅ Message added to chat messages container');
@@ -5600,15 +6252,28 @@ async function sendMessage() {
         if (activeAvatars.length > 0) {
             // Use multi-avatar system
             console.log('📤 Using multi-avatar chat mode');
-            const result = await avatarChatManager.sendMessageWithAvatar(text);
-            addMessage('ai', result.response.reply || '[No reply]', 'info', result.avatar, {
-                emotion: result.response.primary_emotion,
-                timestamp: new Date().toLocaleTimeString()
-            });
             
-            // Trigger avatar motion if available
-            if (result.avatar && result.avatar.pixiModel && result.response.primary_emotion) {
-                triggerAvatarMotion(result.avatar.pixiModel, result.response.primary_emotion);
+            // Check if message is addressing all avatars or could trigger multiple responses
+            const isOpenQuestion = avatarChatManager.isOpenQuestionForMultipleAvatars(text);
+            const addressedAvatars = avatarChatManager.getAddressedAvatars(text, activeAvatars);
+            
+            if (isOpenQuestion || addressedAvatars.length > 1) {
+                console.log('🗣️ Message could trigger multiple avatar responses');
+                await avatarChatManager.handleMultiAvatarConversation(text, activeAvatars);
+            } else {
+                // Single avatar response
+                const result = await avatarChatManager.sendMessageWithAvatar(text);
+                addMessage('ai', result.response.reply || '[No reply]', 'info', result.avatar, {
+                    emotion: result.response.primary_emotion,
+                    emotion_intensity: result.response.emotion_intensity,
+                    timestamp: new Date().toLocaleTimeString(),
+                    personality_traits: result.response.personality_traits
+                });
+                
+                // Trigger avatar motion if available
+                if (result.avatar && result.avatar.pixiModel && result.response.primary_emotion) {
+                    triggerAvatarMotion(result.avatar.pixiModel, result.response.primary_emotion);
+                }
             }
             
         } else {

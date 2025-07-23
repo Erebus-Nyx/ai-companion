@@ -150,8 +150,25 @@ def api_system_config():
     """Get server configuration for frontend."""
     try:
         # Get current server configuration from app globals or request
-        protocol = 'https' if request.is_secure else 'http'
-        host = request.host  # This includes port if present
+        # Check for proxy headers first (X-Forwarded-Proto)
+        forwarded_proto = request.headers.get('X-Forwarded-Proto', '').lower()
+        if forwarded_proto:
+            protocol = forwarded_proto
+        else:
+            protocol = 'https' if request.is_secure else 'http'
+        
+        # Get host from X-Forwarded-Host header if available (proxy setup)
+        forwarded_host = request.headers.get('X-Forwarded-Host')
+        if forwarded_host:
+            host = forwarded_host
+        elif request.headers.get('CF-Connecting-IP'):
+            # Cloudflare proxy detected - use the proxy domain
+            protocol = 'https'
+            host = 'chat.erebus-nyx.net'
+            logger.info(f"Cloudflare proxy detected, using domain: {host}")
+        else:
+            # Fallback to request host
+            host = request.host
         
         # Try to get config from app_globals if available
         server_config = {}

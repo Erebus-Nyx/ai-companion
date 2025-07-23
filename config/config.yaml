@@ -100,17 +100,11 @@ database:
 integrated_models:
   llm:
     # Primary SafeTensor model
-    model_name: "TheBloke/Wizard-Vicuna-13B-Uncensored-GPTQ"
-    model_path: "~/.local/share/ai2d_chat/models/llm/Wizard-Vicuna-13B-Uncensored-GPTQ"
-    model_format: "safetensors"
+    model_name: "Drakldol/Llama-3.1-8B-Instruct-1.2-Uncensored"
+    model_path: "~/.local/share/ai2d_chat/models/llm/Llama-3.1-8B-Instruct-1.2-Uncensored"
     max_tokens: 4096
     temperature: 0.7
     top_p: 1.0
-    # Alternative SafeTensor model if GPTQ causes llama.cpp integration issues
-    fallback_model:
-      model_name: "Drakldol/Llama-3.1-8B-Instruct-1.2-Uncensored"
-      model_path: "~/.local/share/ai2d_chat/models/llm/Llama-3.1-8B-Instruct-1.2-Uncensored"
-      model_format: "safetensors"
   tts:
     # NOTE: Updated Kokoro paths with separate voice directory
     model_name: "onnx-community/Kokoro-82M-ONNX"  # Updated model name

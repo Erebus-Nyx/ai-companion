@@ -22,8 +22,11 @@ function triggerEmotionalTTS(text, emotion, avatarId, personalityTraits = {}, in
             // Calculate enhanced personality-based parameters
             const enhancedParams = calculatePersonalityTTSParams(emotion, intensity, personalityTraits);
             
+            // Get API base URL
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+            
             // Request emotional TTS from backend
-            const response = await fetch('/api/tts/avatar', {
+            const response = await fetch(`${apiBaseUrl}/api/tts/avatar`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -402,8 +405,11 @@ async function fallbackEmotionalTTS(text, emotion, avatarId) {
     console.log('🔄 Using fallback TTS...');
     
     try {
+        // Get API base URL
+        const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+        
         // Use basic TTS endpoint
-        const response = await fetch('/api/tts', {
+        const response = await fetch(`${apiBaseUrl}/api/tts`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

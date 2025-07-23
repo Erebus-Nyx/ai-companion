@@ -22,7 +22,8 @@ class UserProfileManager {
 
     async loadCurrentUser() {
         try {
-            const response = await fetch('/api/users/current');
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+            const response = await fetch(`${apiBaseUrl}/api/users/current`);
             if (response.ok) {
                 this.currentUser = await response.json();
                 console.log('📱 Current user loaded:', this.currentUser.display_name);
@@ -76,7 +77,8 @@ class UserProfileManager {
 
     async loadUsers() {
         try {
-            const response = await fetch('/api/users');
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+            const response = await fetch(`${apiBaseUrl}/api/users`);
             if (response.ok) {
                 const data = await response.json();
                 return data.users || [];

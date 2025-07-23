@@ -19,7 +19,8 @@ class UserSelectionManager {
     
     async loadUsers() {
         try {
-            const response = await fetch('/api/users');
+            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+            const response = await fetch(`${apiBaseUrl}/api/users`);
             if (response.ok) {
                 this.users = await response.json();
                 if (this.users.users) {

@@ -59,6 +59,7 @@ class EnhancedLLMHandler:
         self.model_path = None
         self.model_loaded = False
         self.loading_lock = threading.Lock()
+        self.generation_lock = threading.Lock()  # Add generation lock for thread safety
         
         # Response caching
         self.enable_caching = True
@@ -201,14 +202,16 @@ class EnhancedLLMHandler:
             if streaming:
                 return self._generate_streaming_response(prompt, user_id, user_input, session_id, model_id)
             else:
-                response = self.model(
-                    prompt,
-                    max_tokens=self.max_tokens,
-                    temperature=self.temperature,
-                    top_p=self.top_p,
-                    stop=["Human:", "Assistant:", "\n\n", "User:"],
-                    echo=False
-                )
+                # Use generation lock to prevent concurrent access to LLM
+                with self.generation_lock:
+                    response = self.model(
+                        prompt,
+                        max_tokens=self.max_tokens,
+                        temperature=self.temperature,
+                        top_p=self.top_p,
+                        stop=["Human:", "Assistant:", "\n\n", "User:"],
+                        echo=False
+                    )
                 
                 generated_text = response['choices'][0]['text'].strip()
                 
@@ -469,15 +472,17 @@ Emoji Usage Examples:
     def _generate_streaming_response(self, prompt: str, user_id: str, user_input: str, session_id: str, model_id: str = "default") -> Generator[str, None, None]:
         """Generate streaming response for real-time output."""
         try:
-            response_stream = self.model(
-                prompt,
-                max_tokens=self.max_tokens,
-                temperature=self.temperature,
-                top_p=self.top_p,
-                stop=["Human:", "Assistant:", "\n\n", "User:"],
-                echo=False,
-                stream=True
-            )
+            # Use generation lock to prevent concurrent access to LLM
+            with self.generation_lock:
+                response_stream = self.model(
+                    prompt,
+                    max_tokens=self.max_tokens,
+                    temperature=self.temperature,
+                    top_p=self.top_p,
+                    stop=["Human:", "Assistant:", "\n\n", "User:"],
+                    echo=False,
+                    stream=True
+                )
             
             full_response = ""
             for chunk in response_stream:

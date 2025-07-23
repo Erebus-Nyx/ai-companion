@@ -7,6 +7,12 @@
 function populatePeopleModels() {
     const modelsList = document.getElementById('peopleModelsList');
     
+    // Safety check: if element doesn't exist, skip population
+    if (!modelsList) {
+        console.warn('peopleModelsList element not found - skipping people panel population');
+        return;
+    }
+    
     // Clear existing models
     modelsList.innerHTML = '';
     

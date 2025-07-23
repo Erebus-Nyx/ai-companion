@@ -219,19 +219,41 @@ class AutonomousAvatarUI {
         try {
             const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
             
-            const requestData = {
-                message_type: 'autonomous',
-                autonomous_type: messageType,
-                avatar_id: avatar.id,
-                avatar_name: avatar.name,
-                avatar_display_name: avatar.displayName,
-                context: context,
-                active_avatars: this.avatarChatManager ? this.avatarChatManager.getActiveAvatars().map(a => ({
+            // Sanitize avatar data to prevent circular references
+            const sanitizedAvatar = {
+                id: avatar.id,
+                name: avatar.name,
+                displayName: avatar.displayName,
+                // Only include safe properties, exclude Live2D model references
+            };
+            
+            // Sanitize active avatars to prevent circular references
+            const sanitizedActiveAvatars = this.avatarChatManager ? 
+                this.avatarChatManager.getActiveAvatars().map(a => ({
                     id: a.id,
                     name: a.name,
                     displayName: a.displayName
-                })) : [avatar],
-                conversation_history: this.avatarChatManager ? this.avatarChatManager.messageHistory.slice(-3) : [],
+                })) : [sanitizedAvatar];
+            
+            // Sanitize conversation history to remove any complex objects
+            const sanitizedHistory = this.avatarChatManager ? 
+                this.avatarChatManager.messageHistory.slice(-3).map(msg => ({
+                    id: msg.id,
+                    message: msg.message,
+                    sender: msg.sender,
+                    timestamp: msg.timestamp,
+                    // Remove any circular references or complex objects
+                })) : [];
+            
+            const requestData = {
+                message_type: 'autonomous',
+                autonomous_type: messageType,
+                avatar_id: sanitizedAvatar.id,
+                avatar_name: sanitizedAvatar.name,
+                avatar_display_name: sanitizedAvatar.displayName,
+                context: context, // Context should be simple object passed by caller
+                active_avatars: sanitizedActiveAvatars,
+                conversation_history: sanitizedHistory,
                 user_info: this.avatarChatManager?.currentUser ? {
                     user_id: this.avatarChatManager.currentUser.id,
                     display_name: this.avatarChatManager.currentUser.display_name || 'User'
@@ -240,10 +262,39 @@ class AutonomousAvatarUI {
 
             console.log(`🤖 Generating ${messageType} message for ${avatar.displayName}...`);
             
+            // Safe JSON stringify with circular reference protection
+            let requestBody;
+            try {
+                requestBody = JSON.stringify(requestData);
+            } catch (jsonError) {
+                console.error('❌ JSON serialization error:', jsonError);
+                console.log('🔧 Attempting to clean requestData...');
+                
+                // Fallback: create minimal safe request
+                const safeRequestData = {
+                    message_type: 'autonomous',
+                    autonomous_type: messageType,
+                    avatar_id: String(sanitizedAvatar.id),
+                    avatar_name: String(sanitizedAvatar.name),
+                    avatar_display_name: String(sanitizedAvatar.displayName),
+                    context: typeof context === 'string' ? context : JSON.stringify(context),
+                    active_avatars: [{ 
+                        id: sanitizedAvatar.id, 
+                        name: sanitizedAvatar.name, 
+                        displayName: sanitizedAvatar.displayName 
+                    }],
+                    conversation_history: [],
+                    user_info: null
+                };
+                
+                requestBody = JSON.stringify(safeRequestData);
+                console.log('✅ Using safe fallback request data');
+            }
+            
             const response = await fetch(`${apiBaseUrl}/api/chat/autonomous`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestData)
+                body: requestBody
             });
 
             if (!response.ok) {

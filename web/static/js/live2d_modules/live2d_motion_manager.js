@@ -404,5 +404,94 @@ class Live2DMotionManager {
     }
 }
 
+// Lipsync and Avatar Control Functions for TTS Integration
+function setAvatarMouthShape(avatarId, mouthShape, intensity = 0.7) {
+    try {
+        const pixiModel = findAvatarModel(avatarId);
+        if (pixiModel && typeof pixiModel.setMouthShape === 'function') {
+            pixiModel.setMouthShape(mouthShape, intensity);
+            console.log(`👄 Mouth shape "${mouthShape}" set for ${avatarId} with intensity ${intensity}`);
+        } else {
+            console.warn(`Avatar model not found or setMouthShape not available for ${avatarId}`);
+        }
+    } catch (error) {
+        console.warn('Failed to set avatar mouth shape:', error);
+    }
+}
+
+function setAvatarBlinkRate(avatarId, blinkRate = 1.0) {
+    try {
+        const pixiModel = findAvatarModel(avatarId);
+        if (pixiModel && typeof pixiModel.setBlinkRate === 'function') {
+            pixiModel.setBlinkRate(blinkRate);
+            console.log(`👁️ Blink rate ${blinkRate} set for ${avatarId}`);
+        }
+    } catch (error) {
+        console.warn('Failed to set avatar blink rate:', error);
+    }
+}
+
+function setAvatarBodySway(avatarId, swayIntensity = 0.3) {
+    try {
+        const pixiModel = findAvatarModel(avatarId);
+        if (pixiModel && typeof pixiModel.setBodySway === 'function') {
+            pixiModel.setBodySway(swayIntensity);
+            console.log(`🌊 Body sway ${swayIntensity} set for ${avatarId}`);
+        }
+    } catch (error) {
+        console.warn('Failed to set avatar body sway:', error);
+    }
+}
+
+function findAvatarModel(avatarId) {
+    // Find the PIXI model for an avatar ID
+    try {
+        // Check if avatarId is already a PIXI model
+        if (avatarId && typeof avatarId === 'object' && avatarId.motion) {
+            return avatarId;
+        }
+        
+        // Look in loaded avatars
+        if (window.loadedAvatars) {
+            for (let avatar of window.loadedAvatars) {
+                if (avatar.id === avatarId || avatar.name === avatarId) {
+                    return avatar.pixiModel;
+                }
+            }
+        }
+        
+        // Look in Live2D multi-model manager
+        if (window.live2dMultiModelManager && window.live2dMultiModelManager.getAllModels) {
+            const models = window.live2dMultiModelManager.getAllModels();
+            for (let model of models) {
+                if (model.name === avatarId || model.id === avatarId) {
+                    return model;
+                }
+            }
+        }
+        
+        // Look in Live2D model manager
+        if (window.live2dManager && window.live2dManager.models) {
+            for (let [modelId, model] of window.live2dManager.models) {
+                if (modelId === avatarId || model.name === avatarId) {
+                    return model.pixiModel || model;
+                }
+            }
+        }
+        
+        console.warn(`Avatar model not found for ID: ${avatarId}`);
+        return null;
+    } catch (error) {
+        console.warn('Error finding avatar model:', error);
+        return null;
+    }
+}
+
 // Export for use in other modules
 window.Live2DMotionManager = Live2DMotionManager;
+
+// Export lipsync and avatar control functions to window for global access
+window.setAvatarMouthShape = setAvatarMouthShape;
+window.setAvatarBlinkRate = setAvatarBlinkRate;
+window.setAvatarBodySway = setAvatarBodySway;
+window.findAvatarModel = findAvatarModel;

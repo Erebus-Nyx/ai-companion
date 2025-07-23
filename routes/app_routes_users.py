@@ -448,13 +448,21 @@ def api_update_user_profile(user_id):
             for field, column in field_mapping.items():
                 if field in data:
                     update_fields.append(f"{column} = ?")
-                    values.append(data[field])
+                    # Convert dict/list values to JSON strings for SQLite storage
+                    value = data[field]
+                    if isinstance(value, (dict, list)):
+                        value = json.dumps(value)
+                    values.append(value)
             
             if update_fields:
                 update_fields.append("last_updated = CURRENT_TIMESTAMP")
                 values.append(user_id)
                 
                 query = f"UPDATE user_profiles SET {', '.join(update_fields)} WHERE user_id = ?"
+                # Debug logging to identify the problematic value
+                print(f"DEBUG Query: {query}")
+                print(f"DEBUG Values: {values}")
+                print(f"DEBUG Value types: {[type(v) for v in values]}")
                 profiles_conn.execute(query, values)
                 profiles_conn.commit()
                 
