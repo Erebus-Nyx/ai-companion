@@ -162,6 +162,10 @@ class ConfigManager:
             return self.cache_dir / cache_type
         return self.cache_dir
         
+    def get_logs_path(self) -> Path:
+        """Get path to logs directory."""
+        return self.cache_dir / 'logs'
+        
     def _copy_default_config(self, destination: Path):
         """Copy default configuration template to destination."""
         try:
@@ -1051,6 +1055,10 @@ def get_live2d_models_path(model_name: str = '') -> Path:
 def get_cache_path(cache_type: str = '') -> Path:
     """Get path to cache directory."""
     return config_manager.get_cache_path(cache_type)
+
+def get_logs_path() -> Path:
+    """Get path to logs directory."""
+    return config_manager.get_logs_path()
 
 def get_rag_config() -> Dict[str, Any]:
     """Get RAG configuration."""

@@ -343,6 +343,83 @@ class CharacterSheetManager {
         }
     }
 
+    createNewCharacter() {
+        // Create a new character with default values
+        const newCharacterId = 'character_' + Date.now();
+        const newCharacter = {
+            basic_info: {
+                display_name: 'New Character',
+                character_id: newCharacterId,
+                description: '',
+                personality: '',
+                scenario: ''
+            },
+            avatar_config: {
+                model_path: '',
+                scale: 1.0,
+                position: { x: 0, y: 0 }
+            },
+            dialogue_config: {
+                voice_style: 'neutral',
+                speaking_style: 'casual',
+                response_length: 'medium'
+            }
+        };
+
+        // Add to local data
+        this.charactersData.characters[newCharacterId] = newCharacter;
+        
+        // Update UI
+        this.populateCharacterSelect();
+        
+        // Select the new character
+        const characterSelect = document.getElementById('characterSelect');
+        if (characterSelect) {
+            characterSelect.value = newCharacterId;
+            this.onCharacterChange();
+        }
+
+        console.log('✅ New character created:', newCharacterId);
+    }
+
+    duplicateCharacter() {
+        if (!this.currentCharacter) {
+            alert('No character selected to duplicate');
+            return;
+        }
+
+        const sourceCharacter = this.charactersData.characters[this.currentCharacter];
+        if (!sourceCharacter) {
+            alert('Selected character not found');
+            return;
+        }
+
+        // Create a deep copy of the character
+        const duplicatedCharacter = JSON.parse(JSON.stringify(sourceCharacter));
+        
+        // Generate new ID and update name
+        const newCharacterId = 'character_' + Date.now();
+        const originalName = duplicatedCharacter.basic_info?.display_name || 'Unnamed';
+        
+        duplicatedCharacter.basic_info.character_id = newCharacterId;
+        duplicatedCharacter.basic_info.display_name = `${originalName} (Copy)`;
+
+        // Add to local data
+        this.charactersData.characters[newCharacterId] = duplicatedCharacter;
+        
+        // Update UI
+        this.populateCharacterSelect();
+        
+        // Select the duplicated character
+        const characterSelect = document.getElementById('characterSelect');
+        if (characterSelect) {
+            characterSelect.value = newCharacterId;
+            this.onCharacterChange();
+        }
+
+        console.log('✅ Character duplicated:', newCharacterId);
+    }
+
     exportCharacter() {
         if (!this.currentCharacter) {
             alert('No character selected');
@@ -447,6 +524,18 @@ function deleteCharacter() {
     }
 }
 
+function createNewCharacter() {
+    if (characterSheetManager) {
+        characterSheetManager.createNewCharacter();
+    }
+}
+
+function duplicateCharacter() {
+    if (characterSheetManager) {
+        characterSheetManager.duplicateCharacter();
+    }
+}
+
 function exportCharacter() {
     if (characterSheetManager) {
         characterSheetManager.exportCharacter();
@@ -455,6 +544,9 @@ function exportCharacter() {
 
 // Set up form change detection
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize the character sheet manager
+    window.characterSheetManager = new CharacterSheetManager();
+    
     // Add change listeners to all form fields to track dirty state
     const formSelector = '#characterForm input, #characterForm select, #characterForm textarea';
     

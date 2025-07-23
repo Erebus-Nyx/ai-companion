@@ -119,32 +119,38 @@ async function loadAvailableModelsForDialog() {
     
     try {
         // Use the already-loaded model list from the multi-model manager
-        if (!live2dMultiModelManager || !live2dMultiModelManager.modelList || live2dMultiModelManager.modelList.length === 0) {
+        if (!window.live2dMultiModelManager || !window.live2dMultiModelManager.modelList || window.live2dMultiModelManager.modelList.length === 0) {
             // If not loaded yet, try to load
-            await live2dMultiModelManager.loadAvailableModels();
+            await window.live2dMultiModelManager.loadAvailableModels();
         }
         
-        const availableModels = live2dMultiModelManager.modelList;
+        const availableModels = window.live2dMultiModelManager.modelList;
         
         if (!availableModels || availableModels.length === 0) {
             modelGrid.innerHTML = '<div style="text-align: center; padding: 20px; color: #aaa;">No models available. Please check your model directory.</div>';
             return;
         }
         
+        console.log(`🎭 Displaying ${availableModels.length} available models in dialog`);
+        
         // Create model cards
         modelGrid.innerHTML = '';
-        availableModels.forEach(model => {
+        availableModels.forEach((model, index) => {
             const modelCard = document.createElement('div');
             modelCard.className = 'model-card';
-            modelCard.onclick = () => selectModelFromDialog(model.name, model.name);
+            // Use model_name field and model_name as the value for both parameters
+            const modelName = model.model_name || model.name || 'Unknown Model';
+            modelCard.onclick = () => selectModelFromDialog(modelName, modelName);
+            
+            console.log(`🎭 Creating card ${index + 1}: "${modelName}" (from model_name: "${model.model_name}")`);
             
             modelCard.innerHTML = `
                 <div class="model-preview">
                     <div class="model-icon">🎭</div>
                 </div>
                 <div class="model-info">
-                    <div class="model-name">${model.name}</div>
-                    <div class="model-description">Live2D Model</div>
+                    <div class="model-name">${modelName}</div>
+                    <div class="model-description">${model.description || 'Live2D Model'}</div>
                 </div>
             `;
             
@@ -161,17 +167,21 @@ function selectModelFromDialog(modelValue, modelName) {
     console.log('Selected model from dialog:', modelName, modelValue);
     
     // Add model using the multi-model manager
-    if (live2dMultiModelManager) {
-        live2dMultiModelManager.addModel(modelName).then(() => {
+    if (window.live2dMultiModelManager) {
+        window.live2dMultiModelManager.addModel(modelName).then(() => {
             console.log('Model added successfully:', modelName);
             // The people panel will be refreshed automatically by the multi-model manager
         }).catch(error => {
             console.error('Failed to add model:', error);
-            addSystemMessage(`Failed to add model: ${error.message}`, 'error');
+            if (typeof addSystemMessage === 'function') {
+                addSystemMessage(`Failed to add model: ${error.message}`, 'error');
+            }
         });
     } else {
         console.error('Multi-model manager not available');
-        addSystemMessage('Live2D system not ready', 'error');
+        if (typeof addSystemMessage === 'function') {
+            addSystemMessage('Live2D system not ready', 'error');
+        }
     }
     
     // Close dialog

@@ -311,6 +311,23 @@ class Live2DMultiModelManager {
                 populatePeopleModels();
             }
             
+            // Notify chat character manager about new model
+            if (window.chatCharacterManager) {
+                window.chatCharacterManager.addCharacter({
+                    id: modelId,
+                    name: modelInfo.name
+                });
+            }
+            
+            // Dispatch event for state manager
+            const event = new CustomEvent('live2d:modelLoaded', {
+                detail: { modelId, modelData }
+            });
+            
+            document.dispatchEvent(event);
+            console.log('📡 Event dispatched to document');
+            console.log('🚀 === END MODEL LOADED EVENT DISPATCH ===');
+            
             this.log(`Successfully added model: ${modelInfo.name}`, 'success');
             return true;
             
@@ -495,7 +512,10 @@ class Live2DMultiModelManager {
 
     async createCharacterIcon(modelData) {
         const iconsList = document.getElementById('characterIconsList');
-        if (!iconsList) return;
+        if (!iconsList) {
+            console.log('📝 Character icons list not found - skipping icon creation');
+            return;
+        }
 
         const iconElement = document.createElement('div');
         iconElement.className = 'character-icon';
@@ -763,12 +783,14 @@ class Live2DMultiModelManager {
         }
 
         // Save current model state if there is one
+        const previousModelId = this.activeModelId;
         if (this.activeModelId && this.models.has(this.activeModelId)) {
             this.saveCurrentModelState();
         }
 
         // Update active model
         this.activeModelId = modelId;
+        this.previousActiveModelId = previousModelId;
         
         // Update visual indicators
         document.querySelectorAll('.character-icon').forEach(icon => {
@@ -805,6 +827,11 @@ class Live2DMultiModelManager {
         if (typeof populatePeopleModels === 'function') {
             populatePeopleModels();
         }
+        
+        // Dispatch event for state manager
+        document.dispatchEvent(new CustomEvent('live2d:modelChanged', {
+            detail: { modelId, modelData, previousModelId: this.previousActiveModelId }
+        }));
 
         this.log(`Active model set to: ${modelData.name}`, 'info');
     }

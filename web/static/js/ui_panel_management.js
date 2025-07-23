@@ -427,13 +427,19 @@ function initializeDraggable() {
     const draggableElements = [
         { element: document.getElementById('chatWindow'), header: '.chat-header' },
         { element: document.getElementById('peoplePanel'), header: '.people-header' },
-        { element: document.getElementById('settingsPanel'), header: '.settings-header' }
+        { element: document.getElementById('settingsPanel'), header: '.settings-header' },
+        { element: document.getElementById('characterSheetPanel'), header: '.character-sheet-header' },
+        { element: document.getElementById('drawingPanel'), header: '.drawing-header' },
+        { element: document.getElementById('modelSelectionDialog'), header: '.dialog-header' },
+        { element: document.getElementById('userSelectionDialog'), header: '.dialog-header' }
     ];
     
     draggableElements.forEach(({ element, header }) => {
-        const headerElement = element.querySelector(header);
-        if (headerElement) {
-            headerElement.addEventListener('mousedown', (e) => startDrag(e, element));
+        if (element) {
+            const headerElement = element.querySelector(header);
+            if (headerElement) {
+                headerElement.addEventListener('mousedown', (e) => startDrag(e, element));
+            }
         }
     });
     

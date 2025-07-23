@@ -131,6 +131,71 @@
 - [ ] **Create logging system** - Implement structured logging for debugging and monitoring
 
 
+- [ ] **User Management System Backend** - Complete backend implementation for comprehensive user management
+  - [ ] **Database Schema** - Create/update user tables for comprehensive user profiles
+    - Add fields for password hashing, role management, demographics, characteristics
+    - Implement age range, gender, location, personality traits, interests, likes/dislikes
+    - Add communication preferences, language settings, content filtering preferences
+    - Create admin notes and public bio fields with proper access controls
+  - [ ] **API Endpoints** - Implement full CRUD operations for user management
+    - GET /api/users - List all users with filtering/pagination
+    - POST /api/users - Create new user with comprehensive profile data
+    - PUT /api/users/{id} - Update user profile and settings
+    - DELETE /api/users/{id} - Delete user with proper cascade handling
+    - POST /api/users/{id}/password-reset - Send password reset functionality
+  - [ ] **Authentication & Authorization** - Implement role-based access control
+    - Admin/Moderator/User role hierarchy with appropriate permissions
+    - Secure password hashing and verification (bcrypt/argon2)
+    - Session management and permission checking for user management access
+    - Audit logging for user management operations
+  - [ ] **Data Validation & Security** - Ensure data integrity and security
+    - Input validation for all user profile fields
+    - Age-appropriate content filtering based on user demographics
+    - Privacy controls for personal information sharing
+    - Data export/import functionality with security considerations
+  - [ ] **Integration Points** - Connect user management with existing systems
+    - Link user profiles with character chat preferences and memory system
+    - Integrate with drawing system for user-specific tool preferences
+    - Connect with RAG system for personalized conversation context
+    - Update personality system to use comprehensive user characteristics
+
+- [ ] **Drawing System Backend Implementation** - Complete backend functionality for comprehensive drawing tools
+  - [ ] **Core Drawing Engine** - Implement canvas drawing operations and tool handlers
+    - Implement brush engines (basic, textured, pattern, calligraphy brushes)
+    - Add shape tool backends (rectangle, ellipse, polygon, line tools)
+    - Create selection tool functionality (rectangle, ellipse, lasso, magic wand)
+    - Implement transform operations (move, rotate, scale, skew, perspective, liquify)
+  - [ ] **Advanced Drawing Features** - Smart drawing and AI-powered tools
+    - Add stroke stabilization and smoothing algorithms
+    - Implement shape recognition and auto-correction
+    - Create symmetry drawing modes (horizontal, vertical, radial)
+    - Add pressure sensitivity support for drawing tablets
+    - Implement vector mode drawing capabilities
+  - [ ] **AI-Powered Drawing Tools** - Integration with avatar and AI systems
+    - Connect avatar feedback system to drawing actions
+    - Implement auto-complete drawing suggestions
+    - Add style transfer capabilities for artistic effects
+    - Create smart background removal tools
+    - Add AI-powered smart selection enhancement
+  - [ ] **Live2D Drawing Integration** - Avatar interaction with drawing system
+    - Implement model tracing functionality
+    - Add motion recording during drawing sessions
+    - Create costume designer tools for avatar customization
+    - Add expression sketching that affects avatar emotions
+    - Implement emotion overlay visualization on drawings
+  - [ ] **Advanced History and File Management** - Professional drawing workflow support
+    - Create branching history system with timeline navigation
+    - Add snapshot system for major drawing milestones
+    - Implement history comparison and diff visualization
+    - Add drawing project save/load functionality
+    - Create export options (PNG, JPEG, SVG, PSD-like format)
+  - [ ] **Story Mode Integration** - Interactive storytelling features
+    - Implement dialogue bubble creation and positioning
+    - Add narration box tools with text formatting
+    - Create choice point interactive elements
+    - Add story branching visualization tools
+    - Connect story elements with avatar responses
+
 - [ ] **Lipsync Integration** - Connect TTS output with Live2D mouth movements
   - Implement audio analysis for mouth shape detection
   - Map TTS phonemes to Live2D mouth expressions

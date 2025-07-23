@@ -15,9 +15,9 @@ class Live2DInteraction {
         
         // Zoom state
         this.currentZoom = 1.0;
-        this.minZoom = 0.1;
-        this.maxZoom = 3.0;
-        this.zoomStep = 0.1;
+        this.minZoom = 0.5;
+        this.maxZoom = 1.5;
+        this.zoomStep = 0.02;
         
         // Frame visualization state
         this.showCanvasFrame = false;

@@ -362,14 +362,28 @@ document.addEventListener('DOMContentLoaded', function() {
             if (response.ok) {
                 const models = await response.json();
                 debugLog(`📦 Database models: ${models.length}`);
-                document.getElementById('debug-db-model-count').textContent = models.length;
-                document.getElementById('debug-db-connection').textContent = 'Connected';
+                
+                // Safely update UI elements if they exist
+                const modelCountEl = document.getElementById('debug-db-model-count');
+                if (modelCountEl) {
+                    modelCountEl.textContent = models.length;
+                }
+                
+                const connectionEl = document.getElementById('debug-db-connection');
+                if (connectionEl) {
+                    connectionEl.textContent = 'Connected';
+                }
             } else {
                 throw new Error(`HTTP ${response.status}`);
             }
         } catch (error) {
             debugLog(`❌ Database error: ${error.message}`, 'error');
-            document.getElementById('debug-db-connection').textContent = 'Error';
+            
+            // Safely update UI element if it exists
+            const connectionEl = document.getElementById('debug-db-connection');
+            if (connectionEl) {
+                connectionEl.textContent = 'Error';
+            }
         }
     };
     window.debugClearDatabase = async function() {

@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI2D Chat - Log Viewer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .log-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn:hover {
+            background-color: #45a049;
+        }
+        
+        .btn.secondary {
+            background-color: #2196F3;
+        }
+        
+        .btn.secondary:hover {
+            background-color: #1976D2;
+        }
+        
+        .btn.danger {
+            background-color: #f44336;
+        }
+        
+        .btn.danger:hover {
+            background-color: #d32f2f;
+        }
+        
+        .log-status {
+            background-color: #2a2a2a;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .log-tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .log-tab {
+            padding: 10px 20px;
+            background-color: #3a3a3a;
+            border: none;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px 5px 0 0;
+        }
+        
+        .log-tab.active {
+            background-color: #4CAF50;
+        }
+        
+        .log-content {
+            background-color: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 5px;
+            height: 500px;
+            overflow-y: auto;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .log-line {
+            margin-bottom: 5px;
+            white-space: pre-wrap;
+        }
+        
+        .log-line.error {
+            color: #ff6b6b;
+        }
+        
+        .log-line.warning {
+            color: #ffa726;
+        }
+        
+        .log-line.info {
+            color: #66bb6a;
+        }
+        
+        .log-line.debug {
+            color: #42a5f5;
+        }
+        
+        .auto-refresh {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #4CAF50;
+            display: inline-block;
+        }
+        
+        .status-indicator.error {
+            background-color: #f44336;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 AI2D Chat Log Viewer</h1>
+            <p>Monitor application and console logs in real-time</p>
+        </div>
+        
+        <div class="log-controls">
+            <button class="btn" onclick="refreshLogs()">🔄 Refresh</button>
+            <button class="btn secondary" onclick="downloadLogs()">📥 Download</button>
+            <button class="btn secondary" onclick="clearLogView()">🧹 Clear View</button>
+            <a href="/" class="btn">🏠 Back to App</a>
+            
+            <div class="auto-refresh">
+                <label>
+                    <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()"> Auto-refresh (5s)
+                </label>
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span id="statusText">Ready</span>
+            </div>
+        </div>
+        
+        <div class="log-status" id="logStatus">
+            <div class="loading">Loading log status...</div>
+        </div>
+        
+        <div class="log-tabs">
+            <button class="log-tab active" onclick="switchTab('app')">Application Logs</button>
+            <button class="log-tab" onclick="switchTab('chat')">Chat Activity</button>
+            <button class="log-tab" onclick="switchTab('frontend')">Frontend Console</button>
+        </div>
+        
+        <div class="log-content" id="logContent">
+            <div class="loading">Select a log type to view logs...</div>
+        </div>
+    </div>
+
+    <script>
+        let autoRefreshInterval = null;
+        let currentLogType = 'app';
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            loadLogStatus();
+            loadLogs(currentLogType);
+        });
+        
+        async function loadLogStatus() {
+            try {
+                const response = await fetch('/api/logs/status');
+                const status = await response.json();
+                
+                let statusHtml = '<h3>📊 Log Files Status</h3>';
+                statusHtml += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;">';
+                
+                for (const [filename, info] of Object.entries(status.log_files)) {
+                    const logType = filename.replace('.log', '').replace('_', ' ');
+                    statusHtml += `
+                        <div style="background-color: #3a3a3a; padding: 10px; border-radius: 5px;">
+                            <h4 style="margin: 0 0 10px 0; color: #4CAF50;">${logType}</h4>
+                            <p style="margin: 5px 0;">Size: ${info.size_mb} MB</p>
+                            <p style="margin: 5px 0;">Modified: ${new Date(info.modified).toLocaleString()}</p>
+                            <p style="margin: 5px 0;">Status: ${info.readable ? '✅ Readable' : '❌ Error'}</p>
+                        </div>
+                    `;
+                }
+                
+                statusHtml += '</div>';
+                document.getElementById('logStatus').innerHTML = statusHtml;
+                
+                updateStatus('success', 'Status loaded');
+                
+            } catch (error) {
+                console.error('Failed to load log status:', error);
+                document.getElementById('logStatus').innerHTML = 
+                    '<div style="color: #f44336;">❌ Failed to load log status</div>';
+                updateStatus('error', 'Status load failed');
+            }
+        }
+        
+        async function loadLogs(logType) {
+            try {
+                updateStatus('loading', 'Loading logs...');
+                
+                const response = await fetch(`/api/logs/download/${logType}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const logText = await response.text();
+                const logContent = document.getElementById('logContent');
+                
+                if (logText.trim()) {
+                    const lines = logText.split('\n').slice(-200); // Show last 200 lines
+                    let formattedLogs = '';
+                    
+                    lines.forEach(line => {
+                        if (line.trim()) {
+                            let className = 'log-line';
+                            if (line.includes('ERROR')) className += ' error';
+                            else if (line.includes('WARNING') || line.includes('WARN')) className += ' warning';
+                            else if (line.includes('INFO')) className += ' info';
+                            else if (line.includes('DEBUG')) className += ' debug';
+                            
+                            formattedLogs += `<div class="${className}">${escapeHtml(line)}</div>`;
+                        }
+                    });
+                    
+                    logContent.innerHTML = formattedLogs;
+                    logContent.scrollTop = logContent.scrollHeight; // Scroll to bottom
+                } else {
+                    logContent.innerHTML = '<div class="loading">No logs available</div>';
+                }
+                
+                updateStatus('success', `Loaded ${logType} logs`);
+                
+            } catch (error) {
+                console.error('Failed to load logs:', error);
+                document.getElementById('logContent').innerHTML = 
+                    `<div style="color: #f44336;">❌ Failed to load ${logType} logs: ${error.message}</div>`;
+                updateStatus('error', 'Load failed');
+            }
+        }
+        
+        function switchTab(logType) {
+            // Update tab appearance
+            document.querySelectorAll('.log-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Load new logs
+            currentLogType = logType;
+            loadLogs(logType);
+        }
+        
+        function refreshLogs() {
+            loadLogs(currentLogType);
+            loadLogStatus();
+        }
+        
+        function downloadLogs() {
+            window.open(`/api/logs/download/${currentLogType}`, '_blank');
+        }
+        
+        function clearLogView() {
+            document.getElementById('logContent').innerHTML = 
+                '<div class="loading">Log view cleared. Click refresh to reload.</div>';
+        }
+        
+        function toggleAutoRefresh() {
+            const checkbox = document.getElementById('autoRefresh');
+            
+            if (checkbox.checked) {
+                autoRefreshInterval = setInterval(() => {
+                    loadLogs(currentLogType);
+                }, 5000);
+                updateStatus('success', 'Auto-refresh enabled');
+            } else {
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
+                }
+                updateStatus('success', 'Auto-refresh disabled');
+            }
+        }
+        
+        function updateStatus(type, message) {
+            const indicator = document.getElementById('statusIndicator');
+            const text = document.getElementById('statusText');
+            
+            indicator.className = `status-indicator ${type === 'error' ? 'error' : ''}`;
+            text.textContent = message;
+            
+            if (type === 'loading') {
+                indicator.style.backgroundColor = '#ffa726';
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+        });
+    </script>
+</body>
+</html>

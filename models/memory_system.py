@@ -447,6 +447,28 @@ class MemorySystem:
         
         return memory_id
     
+    def store_conversation(self, user_message: str, assistant_response: str, 
+                          metadata: Optional[Dict[str, Any]] = None) -> int:
+        """
+        Wrapper method for backward compatibility with store_conversation calls.
+        Extracts user_id from metadata and delegates to add_conversation_memory.
+        """
+        if not metadata or 'user_id' not in metadata:
+            self.logger.error("store_conversation called without user_id in metadata")
+            return -1
+        
+        user_id = metadata['user_id']
+        model_id = metadata.get('avatar_id', 'default')
+        importance = metadata.get('importance', 'medium')
+        
+        return self.add_conversation_memory(
+            user_id=user_id,
+            user_message=user_message,
+            assistant_response=assistant_response,
+            model_id=model_id,
+            importance=importance
+        )
+    
     def search_conversation_history(self, user_id: str, query: str, limit: int = 5,
                                   model_id: str = "default") -> List[Dict[str, Any]]:
         """

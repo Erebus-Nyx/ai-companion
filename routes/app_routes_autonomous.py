@@ -192,6 +192,38 @@ def setup_autonomous_socketio_handlers(socketio):
         except Exception as e:
             logger.error(f"Error getting autonomous status: {e}")
             emit('error', {'message': 'Failed to get autonomous status'})
+    
+    @socketio.on('test_autonomous_message')
+    def handle_test_autonomous_message():
+        """Send a test autonomous message"""
+        try:
+            logger.info("🤖 Test autonomous message requested")
+            
+            # Send a test message immediately
+            test_avatar = {
+                'name': 'Haruka',
+                'id': 'haruka'
+            }
+            
+            test_message = "Hello! This is a test autonomous message. I'm checking if the autonomous conversation system is working properly."
+            
+            test_metadata = {
+                'emotion': 'happy',
+                'timestamp': time.time(),
+                'is_test': True
+            }
+            
+            emit('autonomous_avatar_message', {
+                'avatar': test_avatar,
+                'message': test_message,
+                'metadata': test_metadata
+            })
+            
+            logger.info("🤖 Test autonomous message sent")
+            
+        except Exception as e:
+            logger.error(f"Error sending test autonomous message: {e}")
+            emit('error', {'message': 'Failed to send test message'})
 
 # Enhanced autonomous message emission
 async def emit_autonomous_message(avatar_data, message, metadata=None):

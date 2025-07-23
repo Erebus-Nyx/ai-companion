@@ -822,5 +822,32 @@ class Live2DUIController {
     }
 }
 
+// Global function for backward compatibility
+function onModelChange() {
+    console.log('onModelChange called');
+    const modelSelect = document.getElementById('modelSelect');
+    const modelName = modelSelect?.value;
+    
+    if (!modelName) {
+        console.log('No model selected');
+        return;
+    }
+    
+    // Try to use the UI controller if available
+    if (window.live2dIntegration?.uiController) {
+        window.live2dIntegration.uiController.onModelChange(modelName);
+    } else {
+        // Fallback to direct model loading
+        const modelPath = `/static/live2d_models/${modelName}/${modelName}.model3.json`;
+        if (typeof loadLive2DModel === 'function') {
+            loadLive2DModel(modelPath).catch(error => {
+                console.error('Failed to load model:', error);
+                console.error(`❌ Failed to load ${modelName}\nError: ${error.message}`);
+            });
+        }
+    }
+}
+
 // Export for use in other modules
 window.Live2DUIController = Live2DUIController;
+window.onModelChange = onModelChange;

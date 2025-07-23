@@ -61,7 +61,8 @@ class EmotionalTTSHandler:
         self.model_path = self.model_dir / "onnx" / "model.onnx"
         self.config_path = self.model_dir / "config.json"
         self.tokenizer_path = self.model_dir / "tokenizer.json"
-        self.voices_dir = self.model_dir / "voices"
+        # Fix: voices are in the parent TTS directory, not under kokoro
+        self.voices_dir = user_data_dir / "models" / "tts" / "voices"
         
         # Voice management
         self.available_voices = {}

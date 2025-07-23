@@ -10,14 +10,13 @@ general:
   app_version: "0.5.0a"
   debug_mode: false
   developer_mode: false
-  logging_level: "INFO"
-  logging_file: "~/.local/share/ai2d_chat/.cache/logs/app.log"
   secrets_file: "~/.config/ai2d_chat/.secrets"
 
 # Server settings
 server:
   host: "0.0.0.0"
-  port: 19080
+  port: 19080  # Production port (used by pipx install)
+  dev_port: 19081  # Development port (used when running from repo)
   enable_ssl: false
   ssl_cert: ""
   ssl_key: ""
@@ -55,6 +54,13 @@ authentication:
     enabled: true  # Allow new user registration
     require_admin_approval: false  # Require admin approval for new users
     default_permissions: ["chat", "voice", "model_switch"]  # Default user permissions
+  default_user:
+    username: "admin"
+    password: "password"
+    display_name: "Administrator"
+    email: "admin@localhost"
+    is_admin: true
+    create_on_startup: true  # Create default user if no users exist
 
 # User Profile System
 user_profiles:
@@ -167,19 +173,38 @@ audio_processing:
 
 logging:
   enable_file_logging: true
-  file_log_path: "~/.local/share/ai2d_chat/.cache/logs/app.log"
+  logs_directory: "~/.cache/ai2d_chat/logs"
+  log_files:
+    main_app: "ai2d_chat.log"
+    chat_activity: "chat_activity.log"
+    frontend_console: "frontend_console.log"
   file_log_level: "DEBUG"
   enable_console_logging: true
   console_log_level: "INFO"
-  log_rotation:
+  # Enhanced timestamped log files with retention policy
+  timestamped_logs:
     enabled: true
-    max_size: "100MB"
-    backup_count: 5
-  structured_logging: true  # JSON format for production
+    include_timestamp: true  # Add timestamp to filename (e.g., ai2d_chat_20250122_143022.log)
+    retention_policy:
+      max_files: 5  # Keep last 5 files of each type
+      purge_oldest: true  # Automatically delete oldest files when max_files exceeded
+      archive_old: false  # Set to true to compress old files instead of deleting
+    rotation_schedule:
+      rotate_on_restart: true  # Create new timestamped file on each app restart
+      rotate_daily: false  # Daily rotation at midnight
+      rotate_weekly: false  # Weekly rotation on Sunday
+    # Legacy rotation settings (for fallback compatibility)
+    max_size: "100MB"  # Maximum size before rotation
+    backup_count: 5     # Number of backup files to keep
+  structured_logging: false  # Set to true for JSON format in production
+  log_viewer:
+    enabled: true
+    route: "/logs"
+    api_base: "/api/logs"
 
 # RAG (Retrieval-Augmented Generation) Configuration
 rag:
-  enabled: true  # RAG implementation is now complete and ready for use
+  enabled: true  # RAG implementation is now complete
   vector_database:
     type: "chroma"  # chroma, faiss, pinecone
     path: "~/.local/share/ai2d_chat/databases/vector_db"
@@ -233,3 +258,4 @@ service:
     memory_limit: "8G"
     cpu_limit: "4"
     max_file_descriptors: 1024
+

@@ -69,17 +69,36 @@ def init_user_tables():
                 conn.execute('CREATE INDEX idx_users_username ON users(username)')
                 logging.info("Created new users table with authentication schema")
             
-            # Create default user if none exists (compatible with existing schema)
+            # Create default user if none exists using config settings
             cursor = conn.execute('SELECT COUNT(*) FROM users')
             user_count = cursor.fetchone()[0]
             
             if user_count == 0:
-                # Create default user with dummy authentication data for now
-                conn.execute('''
-                    INSERT INTO users (username, display_name, password_hash, salt, email, is_admin) 
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', ('default_user', 'Default User', 'no_password_yet', 'no_salt_yet', 'default@local', 1))
-                logging.info("Created default admin user (password authentication disabled)")
+                # Get default user settings from config
+                try:
+                    from config.config_manager import ConfigManager
+                    config_manager = ConfigManager()
+                    default_user = config_manager.config.get('authentication', {}).get('default_user', {})
+                    
+                    username = default_user.get('username', 'admin')
+                    display_name = default_user.get('display_name', 'Administrator')
+                    email = default_user.get('email', 'admin@localhost')
+                    is_admin = default_user.get('is_admin', True)
+                    
+                    # Create default user with config settings
+                    conn.execute('''
+                        INSERT INTO users (username, display_name, password_hash, salt, email, is_admin, is_active) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ''', (username, display_name, 'no_password_yet', 'no_salt_yet', email, is_admin, 1))
+                    logging.info(f"Created default admin user: {username} (password authentication disabled)")
+                    
+                except Exception as e:
+                    # Fallback to hardcoded defaults if config loading fails
+                    conn.execute('''
+                        INSERT INTO users (username, display_name, password_hash, salt, email, is_admin, is_active) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ''', ('admin', 'Administrator', 'no_password_yet', 'no_salt_yet', 'admin@localhost', 1, 1))
+                    logging.info("Created fallback default admin user (config not available)")
                 
         # Initialize user profiles table with our custom fields
         with get_user_profiles_connection() as conn:
@@ -148,16 +167,17 @@ def init_user_tables():
             profile_count = cursor.fetchone()[0]
             
             if profile_count == 0:
+                # Create default profile for first user
                 conn.execute('''
-                    INSERT INTO user_profiles (user_id, display_name, gender, age_range) 
-                    VALUES (?, ?, ?, ?)
-                ''', (1, 'Default User', 'not_specified', 'adult'))
+                    INSERT INTO user_profiles (user_id, display_name, preferences)
+                    VALUES (?, ?, ?)
+                ''', (1, 'Administrator', '{}'))
                 logging.info("Created default user profile")
-        
-        logging.info("User tables initialized successfully with authentication compatibility")
+                
+        logging.info("User tables initialized successfully")
         
     except Exception as e:
-        logging.error(f"Error initializing user tables: {e}")
+        logging.error(f"Error initializing user tables: {str(e)}")
         raise
 
 @users_routes.route('/api/users', methods=['GET'])
@@ -168,10 +188,9 @@ def api_get_users():
         
         with get_users_connection() as conn:
             cursor = conn.execute('''
-                SELECT id, username, display_name, created_at, last_active, is_active 
+                SELECT id, username, display_name, email, created_at, last_login, is_active
                 FROM users 
-                WHERE is_active = 1
-                ORDER BY last_active DESC
+                ORDER BY created_at DESC
             ''')
             
             users = []
@@ -180,9 +199,10 @@ def api_get_users():
                     'id': row[0],
                     'username': row[1],
                     'display_name': row[2],
-                    'created_at': row[3],
-                    'last_active': row[4],
-                    'is_active': bool(row[5])
+                    'email': row[3],
+                    'created_at': row[4],
+                    'last_login': row[5],
+                    'is_active': bool(row[6])
                 })
         
         return jsonify({'users': users})
@@ -193,40 +213,50 @@ def api_get_users():
         return jsonify({'error': error_msg}), 500
 
 @users_routes.route('/api/users/current', methods=['GET'])
-def api_get_current_user():
-    """Get current user (defaults to first user for now)"""
+def get_current_user():
+    """Get the current active user."""
     try:
+        # Initialize tables first
         init_user_tables()
         
-        # Simple implementation - get the first active user
-        # In a real implementation, this would check session/authentication
         with get_users_connection() as conn:
-            cursor = conn.execute('''
-                SELECT id, username, display_name, created_at, last_active, is_active 
-                FROM users 
-                WHERE is_active = 1
-                ORDER BY last_active DESC
-                LIMIT 1
-            ''')
+            # Check if users table exists
+            cursor = conn.execute("""
+                SELECT name FROM sqlite_master 
+                WHERE type='table' AND name='users';
+            """)
             
-            row = cursor.fetchone()
-            if row:
-                user = {
-                    'id': row[0],
-                    'username': row[1],
-                    'display_name': row[2],
-                    'created_at': row[3],
-                    'last_active': row[4],
-                    'is_active': bool(row[5])
-                }
-                return jsonify(user)
+            if not cursor.fetchone():
+                return jsonify({'error': 'Users table not initialized'}), 404
+            
+            # Get the most recent active user
+            cursor = conn.execute("""
+                SELECT id, username, display_name, email, created_at, last_login, is_active
+                FROM users 
+                WHERE is_active = 1 
+                ORDER BY last_login DESC 
+                LIMIT 1
+            """)
+            
+            user = cursor.fetchone()
+            
+            if user:
+                return jsonify({
+                    'id': user[0],
+                    'username': user[1],
+                    'display_name': user[2],
+                    'email': user[3],
+                    'created_at': user[4],
+                    'last_active': user[5],
+                    'is_active': bool(user[6])
+                })
             else:
-                return jsonify({'error': 'No active user found'}), 404
-        
+                return jsonify({'error': 'No active users found'}), 404
+            
     except Exception as e:
-        error_msg = f"Current user API error: {str(e)}"
-        logging.error(f"{error_msg}\n{traceback.format_exc()}")
-        return jsonify({'error': error_msg}), 500
+        # Log the specific error for debugging
+        print(f"Error in get_current_user: {e}")
+        return jsonify({'error': 'Database error', 'details': str(e)}), 500
 
 @users_routes.route('/api/users/<int:user_id>/profile', methods=['GET'])
 def api_get_user_profile(user_id):
@@ -234,36 +264,65 @@ def api_get_user_profile(user_id):
     try:
         init_user_tables()
         
-        with get_user_profiles_connection() as conn:
-            cursor = conn.execute('''
-                SELECT up.*, u.username, u.display_name
-                FROM user_profiles up
-                JOIN users u ON up.user_id = u.id
-                WHERE up.user_id = ?
+        # First get user info from users table
+        with get_users_connection() as users_conn:
+            user_cursor = users_conn.execute('''
+                SELECT username, display_name FROM users WHERE id = ?
+            ''', (user_id,))
+            user_info = user_cursor.fetchone()
+            
+            if not user_info:
+                return jsonify({'error': 'User not found'}), 404
+        
+        # Then get profile info from user_profiles table
+        with get_user_profiles_connection() as profiles_conn:
+            profile_cursor = profiles_conn.execute('''
+                SELECT user_id, display_name, age, avatar_preferences, conversation_settings, 
+                       privacy_settings, theme_preferences, language_preference, timezone,
+                       gender, age_range, nsfw_enabled, explicit_enabled, bio, preferences
+                FROM user_profiles WHERE user_id = ?
             ''', (user_id,))
             
-            row = cursor.fetchone()
-            if row:
-                profile = {
-                    'id': row[0],
-                    'user_id': row[1],
-                    'gender': row[2],
-                    'age_range': row[3],
-                    'nsfw_enabled': bool(row[4]),
-                    'explicit_enabled': bool(row[5]),
-                    'preferences': json.loads(row[6]) if row[6] else {},
-                    'bio': row[7],
-                    'created_at': row[8],
-                    'updated_at': row[9],
-                    'username': row[10],
-                    'display_name': row[11]
-                }
-                return jsonify(profile)
-            else:
-                return jsonify({'error': f'Profile for user {user_id} not found'}), 404
-        
+            profile = profile_cursor.fetchone()
+            
+            if not profile:
+                # Create default profile if it doesn't exist
+                profiles_conn.execute('''
+                    INSERT INTO user_profiles (user_id, display_name, preferences)
+                    VALUES (?, ?, ?)
+                ''', (user_id, user_info[1] or user_info[0], '{}'))
+                
+                # Fetch the newly created profile
+                profile_cursor = profiles_conn.execute('''
+                    SELECT user_id, display_name, age, avatar_preferences, conversation_settings, 
+                           privacy_settings, theme_preferences, language_preference, timezone,
+                           gender, age_range, nsfw_enabled, explicit_enabled, bio, preferences
+                    FROM user_profiles WHERE user_id = ?
+                ''', (user_id,))
+                profile = profile_cursor.fetchone()
+                
+            return jsonify({
+                'user_id': profile[0],
+                'profile_display_name': profile[1],
+                'age': profile[2],
+                'avatar_preferences': profile[3],
+                'conversation_settings': profile[4],
+                'privacy_settings': profile[5],
+                'theme_preferences': profile[6],
+                'language_preference': profile[7],
+                'timezone': profile[8],
+                'gender': profile[9],
+                'age_range': profile[10],
+                'nsfw_enabled': bool(profile[11]) if profile[11] is not None else False,
+                'explicit_enabled': bool(profile[12]) if profile[12] is not None else False,
+                'bio': profile[13] or '',
+                'preferences': profile[14] or '{}',
+                'username': user_info[0],
+                'user_display_name': user_info[1]
+            })
+            
     except Exception as e:
-        error_msg = f"User profile API error: {str(e)}"
+        error_msg = f"Get user profile API error: {str(e)}"
         logging.error(f"{error_msg}\n{traceback.format_exc()}")
         return jsonify({'error': error_msg}), 500
 
@@ -271,52 +330,27 @@ def api_get_user_profile(user_id):
 def api_update_user_profile(user_id):
     """Update user profile"""
     try:
+        data = request.get_json()
         init_user_tables()
         
-        data = request.json
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
-        
-        # Validate data
-        gender = data.get('gender', 'not_specified')
-        age_range = data.get('age_range', 'adult')
-        nsfw_enabled = bool(data.get('nsfw_enabled', False))
-        explicit_enabled = bool(data.get('explicit_enabled', False))
-        preferences = data.get('preferences', {})
-        bio = data.get('bio', '')
-        
-        # Update user profile
         with get_user_profiles_connection() as conn:
-            # Check if profile exists
-            cursor = conn.execute('SELECT id FROM user_profiles WHERE user_id = ?', (user_id,))
-            profile_exists = cursor.fetchone()
-            
-            if profile_exists:
-                # Update existing profile
-                conn.execute('''
-                    UPDATE user_profiles 
-                    SET gender = ?, age_range = ?, nsfw_enabled = ?, explicit_enabled = ?, 
-                        preferences = ?, bio = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE user_id = ?
-                ''', (gender, age_range, nsfw_enabled, explicit_enabled, 
-                      json.dumps(preferences), bio, user_id))
-            else:
-                # Create new profile
-                conn.execute('''
-                    INSERT INTO user_profiles 
-                    (user_id, gender, age_range, nsfw_enabled, explicit_enabled, preferences, bio)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''', (user_id, gender, age_range, nsfw_enabled, explicit_enabled, 
-                      json.dumps(preferences), bio))
-        
-        # Update user's last_active timestamp
-        with get_users_connection() as conn:
+            # Update profile
             conn.execute('''
-                UPDATE users SET last_active = CURRENT_TIMESTAMP WHERE id = ?
-            ''', (user_id,))
-        
-        return jsonify({'success': True, 'message': 'Profile updated successfully'})
-        
+                UPDATE user_profiles SET 
+                    display_name = ?, 
+                    age = ?, 
+                    preferences = ?,
+                    last_updated = CURRENT_TIMESTAMP
+                WHERE user_id = ?
+            ''', (
+                data.get('display_name'),
+                data.get('age'),
+                json.dumps(data.get('preferences', {})),
+                user_id
+            ))
+            
+            return jsonify({'message': 'Profile updated successfully'})
+            
     except Exception as e:
         error_msg = f"Update user profile API error: {str(e)}"
         logging.error(f"{error_msg}\n{traceback.format_exc()}")
@@ -326,46 +360,50 @@ def api_update_user_profile(user_id):
 def api_create_user():
     """Create a new user"""
     try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['username']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
         init_user_tables()
-        
-        data = request.json
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
-        
-        username = data.get('username', '').strip()
-        display_name = data.get('display_name', '').strip()
-        email = data.get('email', '').strip()
-        
-        if not username:
-            return jsonify({'error': 'Username is required'}), 400
-        
-        if not display_name:
-            display_name = username
-            
-        if not email:
-            email = f"{username}@local"  # Default local email
         
         with get_users_connection() as conn:
             try:
-                # Create user with authentication fields (placeholder values for now)
+                # Insert new user
                 cursor = conn.execute('''
-                    INSERT INTO users (username, display_name, email, password_hash, salt, is_admin) 
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (username, display_name, email, 'no_password_yet', 'no_salt_yet', 0))
+                    INSERT INTO users (username, display_name, email, password_hash, salt, is_admin, is_active)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    data['username'],
+                    data.get('display_name', data['username']),
+                    data.get('email', ''),
+                    'no_password_yet',
+                    'no_salt_yet',
+                    data.get('is_admin', False),
+                    True
+                ))
                 
                 user_id = cursor.lastrowid
                 
-                # Create default profile for new user
+                # Create default profile
                 with get_user_profiles_connection() as profile_conn:
                     profile_conn.execute('''
-                        INSERT INTO user_profiles (user_id, display_name, gender, age_range) 
-                        VALUES (?, ?, ?, ?)
-                    ''', (user_id, display_name, 'not_specified', 'adult'))
+                        INSERT INTO user_profiles (user_id, display_name, preferences)
+                        VALUES (?, ?, ?)
+                    ''', (user_id, data.get('display_name', data['username']), '{}'))
                 
                 return jsonify({
-                    'success': True, 
                     'message': 'User created successfully',
-                    'user_id': user_id
+                    'user': {
+                        'id': user_id,
+                        'username': data['username'],
+                        'display_name': data.get('display_name', data['username']),
+                        'email': data.get('email', ''),
+                        'is_admin': data.get('is_admin', False)
+                    }
                 })
                 
             except sqlite3.IntegrityError as e:
@@ -390,7 +428,7 @@ def api_activate_user(user_id):
         with get_users_connection() as conn:
             # Update last_active for the selected user
             conn.execute('''
-                UPDATE users SET last_active = CURRENT_TIMESTAMP WHERE id = ?
+                UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?
             ''', (user_id,))
             
             # Verify user exists
@@ -407,6 +445,81 @@ def api_activate_user(user_id):
         
     except Exception as e:
         error_msg = f"Activate user API error: {str(e)}"
+        logging.error(f"{error_msg}\n{traceback.format_exc()}")
+        return jsonify({'error': error_msg}), 500
+
+@users_routes.route('/api/users/set-current', methods=['POST'])
+def api_set_current_user():
+    """Set current user for session"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        
+        if not user_id:
+            return jsonify({'error': 'User ID required'}), 400
+        
+        init_user_tables()
+        
+        with get_users_connection() as conn:
+            # Update last_login for the selected user and set as active
+            conn.execute('''
+                UPDATE users SET 
+                    last_login = CURRENT_TIMESTAMP,
+                    is_active = 1
+                WHERE id = ?
+            ''', (user_id,))
+            
+            # Set all other users as inactive
+            conn.execute('''
+                UPDATE users SET is_active = 0 WHERE id != ?
+            ''', (user_id,))
+            
+            # Verify user exists and get info
+            cursor = conn.execute('''
+                SELECT id, username, display_name, email, is_admin 
+                FROM users WHERE id = ?
+            ''', (user_id,))
+            user = cursor.fetchone()
+            
+            if not user:
+                return jsonify({'error': 'User not found'}), 404
+        
+        # Store in session (simple session management)
+        session['current_user_id'] = user_id
+        session['current_user'] = {
+            'id': user[0],
+            'username': user[1],
+            'display_name': user[2],
+            'email': user[3],
+            'is_admin': bool(user[4])
+        }
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Logged in as {user[2] or user[1]}',
+            'user': session['current_user']
+        })
+        
+    except Exception as e:
+        error_msg = f"Set current user API error: {str(e)}"
+        logging.error(f"{error_msg}\n{traceback.format_exc()}")
+        return jsonify({'error': error_msg}), 500
+
+@users_routes.route('/api/users/logout', methods=['POST'])
+def logout_user():
+    """Logout current user"""
+    try:
+        # Clear session
+        session.pop('current_user', None)
+        session.pop('current_user_id', None)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Logged out successfully'
+        })
+        
+    except Exception as e:
+        error_msg = f"Logout API error: {str(e)}"
         logging.error(f"{error_msg}\n{traceback.format_exc()}")
         return jsonify({'error': error_msg}), 500
 

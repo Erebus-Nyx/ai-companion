@@ -217,13 +217,74 @@ except ImportError:
                 self.app_state = {}
         app_globals = AppGlobals()
 
-# Configure logging with reduced verbosity
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+# Configure logging with file output and console
+import os
+from logging.handlers import RotatingFileHandler
+
+# Get logs directory from config manager
+try:
+    from config.config_manager import get_logs_path
+    logs_dir = str(get_logs_path())
+except ImportError:
+    # Fallback for development
+    from config.config_manager import ConfigManager
+    config_manager = ConfigManager()
+    logs_dir = str(config_manager.get_logs_path())
+
+# Ensure logs directory exists
+os.makedirs(logs_dir, exist_ok=True)
+
+# Create formatters
+file_formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+console_formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     datefmt='%H:%M:%S'
 )
+
+# Configure root logger
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+
+# Clear any existing handlers
+for handler in root_logger.handlers[:]:
+    root_logger.removeHandler(handler)
+
+# Console handler
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(console_formatter)
+root_logger.addHandler(console_handler)
+
+# File handler with rotation (10MB max, keep 5 files)
+file_handler = RotatingFileHandler(
+    os.path.join(logs_dir, 'ai2d_chat.log'),
+    maxBytes=10*1024*1024,  # 10MB
+    backupCount=5
+)
+file_handler.setLevel(logging.DEBUG)  # More detailed logging to file
+file_handler.setFormatter(file_formatter)
+root_logger.addHandler(file_handler)
+
+# Separate chat log file for autonomous conversations
+chat_handler = RotatingFileHandler(
+    os.path.join(logs_dir, 'chat_activity.log'),
+    maxBytes=5*1024*1024,  # 5MB
+    backupCount=3
+)
+chat_handler.setLevel(logging.INFO)
+chat_handler.setFormatter(file_formatter)
+
+# Create chat logger
+chat_logger = logging.getLogger('chat')
+chat_logger.addHandler(chat_handler)
+chat_logger.setLevel(logging.INFO)
+
 logger = logging.getLogger(__name__)
+logger.info("Enhanced logging system initialized")
+logger.info(f"Log files location: {logs_dir}")
 
 # Reduce verbosity for specific modules
 logging.getLogger('werkzeug').setLevel(logging.WARNING)  # Reduce Flask request logs
@@ -238,10 +299,11 @@ app = Flask(__name__,
            template_folder='web/templates',
            static_folder='web/static')
 app.config['SECRET_KEY'] = 'ai2d_chat-secret-key-change-in-production'
-CORS(app, resources={r"/*": {"origins": "*"}})
+# CORS(app, resources={r"/*": {"origins": "*"}})
 socketio = SocketIO(app, cors_allowed_origins="*", 
                    async_mode='threading',
-                   logger=False, engineio_logger=False)
+                   logger=False, engineio_logger=False,
+                   ping_timeout=60, ping_interval=25)
 
 # Set globals for blueprints
 app_globals.socketio = socketio
@@ -278,13 +340,21 @@ app.register_blueprint(characters_routes)
 app.register_blueprint(users_routes)
 app.register_blueprint(rag_blueprint)
 
+# Register logging blueprint
+try:
+    from routes.app_routes_logging import logging_bp
+    app.register_blueprint(logging_bp)
+    logger.info("✅ Logging routes registered")
+except ImportError as e:
+    logger.error(f"⚠️ Could not register logging routes: {e}")
+
 # Register autonomous avatar blueprint
 try:
     from routes.app_routes_autonomous import autonomous_bp
     app.register_blueprint(autonomous_bp)
-    print("✅ Autonomous avatar routes registered")
+    logger.info("✅ Autonomous avatar routes registered")
 except ImportError as e:
-    print(f"⚠️ Could not register autonomous routes: {e}")
+    logger.error(f"⚠️ Could not register autonomous routes: {e}")
 
 # Set app_state to globals for blueprint access
 app_globals.app_state = app_state
@@ -506,7 +576,57 @@ class AICompanionApp:
             audio_pipeline = create_basic_pipeline(["hey nyx", "nyx", "companion"])
             app_globals.audio_pipeline = audio_pipeline
             self._setup_audio_callbacks()
-            logger.info("Audio pipeline initialized")
+            logger.info("✅ Audio pipeline initialized")
+            app_state['audio_enabled'] = True
+            
+            # Initialize autonomous avatar system
+            app_state['initialization_status'] = 'Starting autonomous avatars...'
+            app_state['initialization_progress'] = 95
+            self._broadcast_status()
+            
+            try:
+                # Initialize autonomous manager directly
+                from models.autonomous_avatar_manager import AutonomousAvatarManager
+                if llm_handler and live2d_manager:
+                    # Create a simple chat manager proxy for autonomous system
+                    class ChatManagerProxy:
+                        def __init__(self, socketio_instance):
+                            self.socketio = socketio_instance
+                        
+                        def send_message_to_avatar(self, avatar_id, message, sender_id=None):
+                            """Send message via SocketIO"""
+                            self.socketio.emit('autonomous_message', {
+                                'avatar_id': avatar_id,
+                                'message': message,
+                                'sender_id': sender_id,
+                                'timestamp': time.time()
+                            })
+                    
+                    # Create autonomous manager with proxy
+                    import time
+                    chat_proxy = ChatManagerProxy(socketio)
+                    global autonomous_manager
+                    autonomous_manager = AutonomousAvatarManager(chat_proxy, llm_handler)
+                    
+                    # Set up in app_globals for routes to access
+                    app_globals.autonomous_manager = autonomous_manager
+                    
+                    # Start autonomous system if we have avatars
+                    models = live2d_manager.get_all_models()
+                    if models:
+                        logger.info(f"Starting autonomous system with {len(models)} available avatars")
+                        # Start the autonomous conversation system
+                        autonomous_manager.start_autonomous_system()
+                        logger.info("✅ Autonomous avatar system initialized and started")
+                    else:
+                        logger.info("No Live2D models available for autonomous system")
+                else:
+                    logger.warning("LLM handler or Live2D manager not available for autonomous system")
+            except Exception as e:
+                logger.error(f"Failed to initialize autonomous system: {e}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                # Continue without autonomous system for graceful degradation
             
             # Final update
             app_state['initialization_status'] = 'Ready!'
@@ -836,8 +956,8 @@ def run_server():
     if is_dev_mode:
         # Development mode: use dev_port
         port = server_config.get('dev_port', server_config.get('port', 19080) + 1)
-        debug = True  # Always use debug in dev mode
-        logger.info("🔧 Running in DEVELOPMENT mode")
+        debug = False  # Keep debug disabled to prevent reloader issues
+        logger.info("🔧 Running in DEVELOPMENT mode (debug disabled)")
         # Don't kill existing instances in dev mode - Flask debug mode handles this
     else:
         # Production mode: use regular port
@@ -852,7 +972,7 @@ def run_server():
     
     # Run the application
     logger.info(f"Starting AI Companion on http://{host}:{port}")
-    socketio.run(app, host=host, port=port, debug=debug, allow_unsafe_werkzeug=True)
+    socketio.run(app, host=host, port=port, debug=debug, use_reloader=False, allow_unsafe_werkzeug=True)
 
 def main():
     """Main entry point for the application."""

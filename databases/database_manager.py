@@ -6,53 +6,82 @@ Provides connection functions for the different databases.
 import sqlite3
 from pathlib import Path
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
 def get_user_data_dir() -> Path:
-    """Get the user data directory for AI Companion"""
-    return Path.home() / ".local/share/ai2d_chat"
+    """Get the user data directory for AI Companion using config manager"""
+    try:
+        # Import here to avoid circular imports
+        from config.config_manager import ConfigManager
+        config_manager = ConfigManager()
+        return config_manager.data_dir
+    except ImportError:
+        # Fallback if config manager not available
+        logger.warning("Config manager not available, using fallback path")
+        return Path.home() / ".local/share/ai2d_chat"
+
+def get_database_path(db_name: str) -> Path:
+    """Get database path using config manager"""
+    try:
+        from config.config_manager import ConfigManager
+        config_manager = ConfigManager()
+        return config_manager.get_database_path(db_name)
+    except ImportError:
+        # Fallback if config manager not available
+        logger.warning("Config manager not available, using fallback database path")
+        return get_user_data_dir() / "databases" / db_name
 
 def get_live2d_connection():
     """Get connection to the Live2D database"""
-    db_path = get_user_data_dir() / "databases" / "live2d.db"
+    db_path = get_database_path("live2d.db")
+    # Ensure the parent directory exists
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row  # Enable dictionary-like access to rows
     return conn
 
 def get_conversations_connection():
     """Get connection to the conversations database"""
-    db_path = get_user_data_dir() / "databases" / "conversations.db"
+    db_path = get_database_path("conversations.db")
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     return sqlite3.connect(str(db_path))
 
 def get_personality_connection():
     """Get connection to the personality database"""
-    db_path = get_user_data_dir() / "databases" / "personality.db"
+    db_path = get_database_path("personality.db")
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     return sqlite3.connect(str(db_path))
 
 def get_system_connection():
     """Get connection to the system database"""
-    db_path = get_user_data_dir() / "databases" / "system.db"
+    db_path = get_database_path("system.db")
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     return sqlite3.connect(str(db_path))
 
 def get_users_connection():
     """Get connection to the users database"""
-    db_path = get_user_data_dir() / "databases" / "users.db"
+    db_path = get_database_path("users.db")
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     return sqlite3.connect(str(db_path))
 
 def get_user_profiles_connection():
     """Get connection to the user profiles database"""
-    db_path = get_user_data_dir() / "databases" / "user_profiles.db"
+    db_path = get_database_path("user_profiles.db")
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     return sqlite3.connect(str(db_path))
 
 def get_user_sessions_connection():
     """Get connection to the user sessions database"""
-    db_path = get_user_data_dir() / "databases" / "user_sessions.db"
+    db_path = get_database_path("user_sessions.db")
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     return sqlite3.connect(str(db_path))
 
 def get_ai2d_chat_connection():
     """Get connection to the main AI2D chat database"""
-    db_path = get_user_data_dir() / "databases" / "ai2d_chat.db"
+    db_path = get_database_path("ai2d_chat.db")
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     return sqlite3.connect(str(db_path))
 
 class DatabaseManager:
@@ -548,6 +577,19 @@ def init_databases():
             )
         """)
         
+        # Create conversation_history table for chat routes compatibility
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS conversation_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT,
+                avatar_id TEXT,
+                user_message TEXT,
+                ai_response TEXT,
+                metadata TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
         # Create LLM cache with model awareness
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS llm_cache (
@@ -728,6 +770,7 @@ def init_databases():
                 email TEXT UNIQUE,
                 password_hash TEXT NOT NULL,
                 salt TEXT NOT NULL,
+                display_name TEXT,
                 is_active BOOLEAN DEFAULT 1,
                 is_admin BOOLEAN DEFAULT 0,
                 permissions TEXT DEFAULT '["chat", "voice", "model_switch"]',
@@ -736,6 +779,14 @@ def init_databases():
                 last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        
+        # Check if display_name column exists, add if missing (migration support)
+        try:
+            cursor.execute("SELECT display_name FROM users LIMIT 1")
+        except sqlite3.OperationalError:
+            # Column doesn't exist, add it
+            cursor.execute("ALTER TABLE users ADD COLUMN display_name TEXT")
+            print("Added missing display_name column to users table")
         
         # Create user authentication tokens
         cursor.execute("""

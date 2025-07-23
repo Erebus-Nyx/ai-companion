@@ -88,9 +88,10 @@ def api_chat():
         # Basic emotion detection (enhanced emotion system will be rebuilt later)
         emotions, primary_emotion = detect_basic_emotions(response_text)
         
-        # Store conversation in memory system if available
+        # Store conversation in memory system if available and user is authenticated
         try:
-            if hasattr(llm_handler, 'memory_system') and llm_handler.memory_system:
+            if (hasattr(llm_handler, 'memory_system') and llm_handler.memory_system and 
+                user_id is not None and user_id != ''):
                 llm_handler.memory_system.store_conversation(
                     user_message, 
                     response_text,
@@ -103,21 +104,26 @@ def api_chat():
                         'user_display_name': user_display_name
                     }
                 )
+                logging.info(f"Stored conversation in memory for user {user_id}")
+            else:
+                logging.info("Skipping memory storage - no authenticated user or memory system unavailable")
         except Exception as e:
             logging.warning(f"Failed to store conversation in memory: {e}")
-        
-        # Store in conversation history database
+
+        # Store in conversation history database (only if user is authenticated)
         try:
-            store_conversation_message(user_id, avatar_id, user_message, response_text, {
-                'user_display_name': user_display_name,
-                'avatar_name': avatar_name,
-                'primary_emotion': primary_emotion,
-                'active_avatars_count': len(active_avatars)
-            })
+            if user_id is not None and user_id != '':
+                store_conversation_message(user_id, avatar_id, user_message, response_text, {
+                    'user_display_name': user_display_name,
+                    'avatar_name': avatar_name,
+                    'primary_emotion': primary_emotion,
+                    'active_avatars_count': len(active_avatars)
+                })
+                logging.info(f"Stored conversation in database for user {user_id}")
+            else:
+                logging.info("Skipping database storage - no authenticated user")
         except Exception as e:
-            logging.warning(f"Failed to store conversation in database: {e}")
-        
-        # Log chat interaction
+            logging.warning(f"Failed to store conversation in database: {e}")        # Log chat interaction
         logging.info(f"Chat - User: {user_display_name} ({user_id}), "
                     f"Avatar: {avatar_name} ({avatar_id}), "
                     f"Active: {len(active_avatars)}, "

@@ -56,6 +56,13 @@ authentication:
     enabled: true  # Allow new user registration
     require_admin_approval: false  # Require admin approval for new users
     default_permissions: ["chat", "voice", "model_switch"]  # Default user permissions
+  default_user:
+    username: "admin"
+    password: "password"
+    display_name: "Administrator"
+    email: "admin@localhost"
+    is_admin: true
+    create_on_startup: true  # Create default user if no users exist
 
 # User Profile System
 user_profiles:

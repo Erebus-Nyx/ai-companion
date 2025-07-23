@@ -29,13 +29,33 @@ class UserProfileManager {
                 
                 // Load user profile
                 await this.loadUserProfile();
+            } else if (response.status === 404) {
+                // No current user exists yet - this is expected on first run
+                console.log('ℹ️ No current user found - using session user (normal on first run)');
+                this.createSessionUser();
             } else {
-                // No current user, might need to create one
-                console.warn('No current user found');
+                // Other error - log but continue with session user
+                console.warn(`User API returned ${response.status} - using session user`);
+                this.createSessionUser();
             }
         } catch (error) {
-            console.error('Error loading current user:', error);
+            // Network or other error - log but continue gracefully
+            console.log('ℹ️ User API not available - using session user:', error.message);
+            this.createSessionUser();
         }
+    }
+    
+    createSessionUser() {
+        // Create a default session user for this session
+        this.currentUser = {
+            id: 'session_user',
+            username: 'session_user',
+            display_name: 'User',
+            created_at: new Date().toISOString(),
+            last_active: new Date().toISOString(),
+            is_active: true
+        };
+        console.log('👤 Created session user:', this.currentUser.display_name);
     }
 
     async loadUserProfile() {
@@ -147,8 +167,25 @@ class UserProfileManager {
     showUserDialog() {
         this.populateUserDialog();
         const dialog = document.getElementById('userSelectionDialog');
+        console.log('Opening user selection dialog...');
+        console.log('Dialog element found:', !!dialog);
+        
         if (dialog) {
-            dialog.style.display = 'block';
+            // Remove dialog from current parent and re-append to body
+            if (dialog.parentNode) {
+                dialog.parentNode.removeChild(dialog);
+            }
+            document.body.appendChild(dialog);
+            
+            // Clear any inline styles
+            dialog.style.cssText = '';
+            
+            // Add the open class to show the dialog
+            dialog.classList.add('open');
+            
+            console.log('✅ User dialog opened as repositionable window');
+            console.log('Dialog classList:', dialog.className);
+            
             this.isVisible = true;
         }
     }
@@ -156,7 +193,7 @@ class UserProfileManager {
     hideUserDialog() {
         const dialog = document.getElementById('userSelectionDialog');
         if (dialog) {
-            dialog.style.display = 'none';
+            dialog.classList.remove('open');
             this.isVisible = false;
         }
     }

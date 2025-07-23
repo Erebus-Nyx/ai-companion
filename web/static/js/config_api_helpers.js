@@ -74,6 +74,15 @@ async function loadServerConfig() {
     return window.ai2d_chat_CONFIG._configPromise;
 }
 
+// Helper function to get API base URL (used by motion manager and other components)
+async function getApiBaseUrl() {
+    await loadServerConfig();
+    return window.ai2d_chat_CONFIG.API_BASE_URL;
+}
+
+// Make the function globally available
+window.getApiBaseUrl = getApiBaseUrl;
+
 // Helper function for making API calls with proper config loading
 window.makeApiCall = async function(endpoint, options = {}) {
     // Ensure config is loaded

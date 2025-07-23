@@ -1,6 +1,6 @@
 """
-OpenAPI 3.0.3 specification for AI Companion API
-Separated for better maintainability and organization
+OpenAPI 3.0.3 specification for AI Companion API v0.5.0a
+Comprehensive specification including RAG system, dynamic personality, and enhanced features
 """
 
 def get_openapi_spec():
@@ -9,31 +9,63 @@ def get_openapi_spec():
         "openapi": "3.0.3",
         "info": {
             "title": "AI Companion API",
-            "description": "Comprehensive AI Companion API with Live2D, LLM, and TTS integration. Enhanced with dynamic motion system and emotional responses.",
-            "version": "2.1.0",
+            "description": "Comprehensive AI Companion API with Live2D avatars, RAG system, dynamic personality, enhanced audio processing, and advanced AI integration features.",
+            "version": "0.5.0a",
             "contact": {
                 "name": "AI Companion Support",
-                "url": "https://github.com/ai2d_chat/api"
+                "url": "https://github.com/Erebus-Nyx/ai2d_chat"
             }
         },
         "servers": [
             {
-                "url": "http://localhost:13443",
+                "url": "http://localhost:19080",
+                "description": "Production server (default)"
+            },
+            {
+                "url": "http://localhost:19081", 
                 "description": "Development server"
             }
         ],
         "tags": [
             {
-                "name": "system",
-                "description": "Core system functionality including audio processing and memory management"
+                "name": "chat",
+                "description": "Chat system with RAG-enhanced responses and memory integration"
+            },
+            {
+                "name": "rag",
+                "description": "Retrieval-Augmented Generation system for semantic search and context"
             },
             {
                 "name": "live2d", 
-                "description": "Live2D model management and animation control"
+                "description": "Live2D model management, animations, and avatar control"
             },
             {
-                "name": "llm",
-                "description": "Large Language Model chat and response generation"
+                "name": "audio",
+                "description": "Audio processing, VAD, and voice interaction"
+            },
+            {
+                "name": "tts",
+                "description": "Text-to-speech with emotional synthesis"
+            },
+            {
+                "name": "users",
+                "description": "User management and profiles"
+            },
+            {
+                "name": "characters",
+                "description": "Character management and personality configuration"
+            },
+            {
+                "name": "system",
+                "description": "System information, health checks, and configuration"
+            },
+            {
+                "name": "logging",
+                "description": "Enhanced logging system with timestamped files"
+            },
+            {
+                "name": "autonomous",
+                "description": "Autonomous conversation and proactive AI behavior"
             }
         ],
         "components": {
@@ -44,34 +76,113 @@ def get_openapi_spec():
                     "properties": {
                         "message": {
                             "type": "string",
-                            "description": "User message to send to the AI live2d chat"
+                            "description": "User message to send to the AI companion"
                         },
                         "user_id": {
                             "type": "string",
-                            "description": "Optional user identifier",
-                            "default": "default_user"
+                            "description": "User identifier for conversation context"
+                        },
+                        "character_id": {
+                            "type": "string",
+                            "description": "Character identifier for personality context"
                         }
                     }
                 },
                 "ChatResponse": {
                     "type": "object",
                     "properties": {
+                        "success": {
+                            "type": "boolean",
+                            "description": "Response success status"
+                        },
                         "response": {
                             "type": "string",
-                            "description": "AI live2d chat response"
+                            "description": "AI companion response"
                         },
-                        "personality_state": {
-                            "$ref": "#/components/schemas/PersonalityState"
-                        },
-                        "animation_triggers": {
-                            "$ref": "#/components/schemas/AnimationTriggers"
-                        },
-                        "tts_audio": {
-                            "$ref": "#/components/schemas/TTSAudio"
+                        "emotion": {
+                            "type": "string",
+                            "description": "Current emotional state"
                         },
                         "timestamp": {
-                            "type": "number",
-                            "description": "Unix timestamp"
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Response timestamp"
+                        },
+                        "conversation_id": {
+                            "type": "string",
+                            "description": "Conversation identifier"
+                        }
+                    }
+                },
+                "RAGSearchRequest": {
+                    "type": "object",
+                    "required": ["query", "user_id"],
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Search query for semantic search"
+                        },
+                        "user_id": {
+                            "type": "string",
+                            "description": "User identifier for filtered results"
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum number of results",
+                            "default": 10
+                        }
+                    }
+                },
+                "RAGSearchResponse": {
+                    "type": "object",
+                    "properties": {
+                        "success": {
+                            "type": "boolean"
+                        },
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "content": {
+                                        "type": "string",
+                                        "description": "Retrieved conversation content"
+                                    },
+                                    "score": {
+                                        "type": "number",
+                                        "description": "Relevance score (0.0-1.0)"
+                                    },
+                                    "timestamp": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    },
+                                    "conversation_id": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "RAGStatus": {
+                    "type": "object",
+                    "properties": {
+                        "status": {
+                            "type": "string",
+                            "description": "RAG system status"
+                        },
+                        "vector_db_size": {
+                            "type": "integer",
+                            "description": "Number of documents in vector database"
+                        },
+                        "embedding_model": {
+                            "type": "string",
+                            "description": "Current embedding model"
+                        },
+                        "last_sync": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Last synchronization timestamp"
                         }
                     }
                 },
@@ -138,17 +249,112 @@ def get_openapi_spec():
                 "Live2DModel": {
                     "type": "object",
                     "properties": {
-                        "model_name": {
+                        "name": {
                             "type": "string",
-                            "description": "Name of the Live2D model"
+                            "description": "Model name"
                         },
-                        "model_path": {
+                        "path": {
                             "type": "string",
-                            "description": "Path to model assets"
+                            "description": "Model file path"
                         },
-                        "config_file": {
+                        "version": {
                             "type": "string",
-                            "description": "Model configuration file"
+                            "description": "Cubism version (cubism2, cubism3, cubism4, cubism5)"
+                        },
+                        "has_expressions": {
+                            "type": "boolean",
+                            "description": "Whether model has expressions"
+                        },
+                        "has_motions": {
+                            "type": "boolean",
+                            "description": "Whether model has motions"
+                        }
+                    }
+                },
+                "TTSRequest": {
+                    "type": "object",
+                    "required": ["text"],
+                    "properties": {
+                        "text": {
+                            "type": "string",
+                            "description": "Text to synthesize"
+                        },
+                        "voice": {
+                            "type": "string",
+                            "description": "Voice identifier",
+                            "default": "default"
+                        },
+                        "emotion": {
+                            "type": "string",
+                            "description": "Emotion for emotional TTS"
+                        },
+                        "intensity": {
+                            "type": "number",
+                            "description": "Emotion intensity (0.0-1.0)",
+                            "minimum": 0.0,
+                            "maximum": 1.0
+                        }
+                    }
+                },
+                "TTSResponse": {
+                    "type": "object",
+                    "properties": {
+                        "success": {
+                            "type": "boolean"
+                        },
+                        "audio_url": {
+                            "type": "string",
+                            "description": "URL to generated audio file"
+                        },
+                        "duration": {
+                            "type": "number",
+                            "description": "Audio duration in seconds"
+                        },
+                        "emotion_applied": {
+                            "type": "string",
+                            "description": "Applied emotion"
+                        }
+                    }
+                },
+                "User": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "string",
+                            "description": "User identifier"
+                        },
+                        "username": {
+                            "type": "string",
+                            "description": "Username"
+                        },
+                        "email": {
+                            "type": "string",
+                            "description": "User email"
+                        },
+                        "profile": {
+                            "type": "object",
+                            "description": "User profile data"
+                        },
+                        "preferences": {
+                            "type": "object",
+                            "description": "User preferences"
+                        }
+                    }
+                },
+                "Character": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "string",
+                            "description": "Character identifier"
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "Character name"
+                        },
+                        "personality": {
+                            "type": "object",
+                            "description": "Character personality traits"
                         }
                     }
                 },
@@ -176,26 +382,69 @@ def get_openapi_spec():
                 "SystemStatus": {
                     "type": "object",
                     "properties": {
-                        "is_initializing": {
-                            "type": "boolean",
-                            "description": "Whether system is still initializing"
+                        "status": {
+                            "type": "string",
+                            "description": "System health status"
                         },
-                        "audio_enabled": {
-                            "type": "boolean",
-                            "description": "Whether audio processing is enabled"
-                        },
-                        "connected_clients": {
+                        "uptime": {
                             "type": "integer",
-                            "description": "Number of connected clients"
+                            "description": "System uptime in seconds"
+                        },
+                        "memory_usage": {
+                            "type": "string",
+                            "description": "Memory usage percentage"
+                        },
+                        "cpu_usage": {
+                            "type": "string",
+                            "description": "CPU usage percentage"
+                        },
+                        "active_connections": {
+                            "type": "integer",
+                            "description": "Number of active connections"
+                        }
+                    }
+                },
+                "AutonomousStatus": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Whether autonomous mode is enabled"
+                        },
+                        "conversation_mode": {
+                            "type": "string",
+                            "description": "Current conversation mode"
+                        },
+                        "engagement_level": {
+                            "type": "number",
+                            "description": "Current engagement level (0.0-1.0)"
+                        },
+                        "last_interaction": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Last interaction timestamp"
                         }
                     }
                 },
                 "ErrorResponse": {
                     "type": "object",
                     "properties": {
+                        "success": {
+                            "type": "boolean",
+                            "example": False
+                        },
                         "error": {
                             "type": "string",
-                            "description": "Error message"
+                            "description": "Error description"
+                        },
+                        "code": {
+                            "type": "string",
+                            "description": "Error code"
+                        },
+                        "timestamp": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Error timestamp"
                         }
                     }
                 }
@@ -238,9 +487,9 @@ def get_openapi_spec():
             },
             "/api/chat": {
                 "post": {
-                    "tags": ["llm"],
-                    "summary": "Send message to AI live2d chat",
-                    "description": "Send a message to the AI live2d chat and receive a response with personality state and animation triggers",
+                    "tags": ["chat"],
+                    "summary": "Send message to AI companion",
+                    "description": "Send a message to the AI companion and receive a response with RAG-enhanced context",
                     "requestBody": {
                         "required": True,
                         "content": {
@@ -279,7 +528,7 @@ def get_openapi_spec():
             },
             "/api/v1/chat": {
                 "post": {
-                    "tags": ["llm"],
+                    "tags": ["chat"],
                     "summary": "Enhanced chat endpoint (v1)",
                     "description": "Enhanced version of the chat endpoint with additional features",
                     "requestBody": {
@@ -302,11 +551,132 @@ def get_openapi_spec():
                     }
                 }
             },
+            "/api/rag/status": {
+                "get": {
+                    "tags": ["rag"],
+                    "summary": "Get RAG system status",
+                    "description": "Returns the current status of the Retrieval-Augmented Generation system",
+                    "responses": {
+                        "200": {
+                            "description": "RAG system status",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/RAGStatus"}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/rag/search": {
+                "post": {
+                    "tags": ["rag"],
+                    "summary": "Semantic search",
+                    "description": "Perform semantic search across conversation history using RAG system",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/RAGSearchRequest"}
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "Search results",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/RAGSearchResponse"}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/rag/context": {
+                "post": {
+                    "tags": ["rag"],
+                    "summary": "Get enhanced context",
+                    "description": "Get enhanced conversation context using RAG system",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["message", "user_id"],
+                                    "properties": {
+                                        "message": {"type": "string"},
+                                        "user_id": {"type": "string"},
+                                        "context_limit": {"type": "integer", "default": 5}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "Enhanced context data",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "success": {"type": "boolean"},
+                                            "context": {"type": "array", "items": {"type": "object"}}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/rag/add_conversation": {
+                "post": {
+                    "tags": ["rag"],
+                    "summary": "Add conversation to RAG",
+                    "description": "Add a conversation to the RAG vector database",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["user_id", "user_message", "ai_response"],
+                                    "properties": {
+                                        "user_id": {"type": "string"},
+                                        "user_message": {"type": "string"},
+                                        "ai_response": {"type": "string"},
+                                        "metadata": {"type": "object"}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "Conversation added successfully",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "success": {"type": "boolean"},
+                                            "conversation_id": {"type": "string"}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             "/api/tts": {
                 "post": {
-                    "tags": ["llm"],
-                    "summary": "Text-to-Speech synthesis",
-                    "description": "Convert text to speech with optional emotional synthesis",
+                    "tags": ["tts"],
+                    "summary": "Basic Text-to-Speech synthesis",
+                    "description": "Convert text to speech with basic voice synthesis",
                     "requestBody": {
                         "required": True,
                         "content": {
@@ -343,6 +713,31 @@ def get_openapi_spec():
                             "content": {
                                 "application/json": {
                                     "schema": {"$ref": "#/components/schemas/TTSAudio"}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/tts/emotional": {
+                "post": {
+                    "tags": ["tts"],
+                    "summary": "Emotional Text-to-Speech synthesis",
+                    "description": "Convert text to speech with emotional synthesis capabilities (New in v0.5.0a)",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/TTSRequest"}
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "Emotional TTS audio data",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/TTSResponse"}
                                 }
                             }
                         }
@@ -471,11 +866,155 @@ def get_openapi_spec():
                     }
                 }
             },
+            "/api/live2d/models/detailed": {
+                "get": {
+                    "tags": ["live2d"],
+                    "summary": "Get detailed model information",
+                    "description": "Get comprehensive information about all Live2D models including expressions and motions",
+                    "responses": {
+                        "200": {
+                            "description": "Detailed model information",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "success": {"type": "boolean"},
+                                            "models": {
+                                                "type": "array",
+                                                "items": {"$ref": "#/components/schemas/Live2DModel"}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/live2d/model/{model_name}/expressions": {
+                "get": {
+                    "tags": ["live2d"],
+                    "summary": "Get model expressions",
+                    "description": "Get all available expressions for a specific Live2D model",
+                    "parameters": [
+                        {
+                            "name": "model_name",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                            "description": "Name of the Live2D model"
+                        }
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "List of expressions",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "success": {"type": "boolean"},
+                                            "expressions": {
+                                                "type": "array",
+                                                "items": {"type": "string"}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/live2d/model/{model_name}/animation_compatibility": {
+                "get": {
+                    "tags": ["live2d"],
+                    "summary": "Check animation compatibility",
+                    "description": "Check animation compatibility for a specific Live2D model",
+                    "parameters": [
+                        {
+                            "name": "model_name",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                            "description": "Name of the Live2D model"
+                        }
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Animation compatibility information",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "success": {"type": "boolean"},
+                                            "compatible": {"type": "boolean"},
+                                            "version": {"type": "string"},
+                                            "details": {"type": "object"}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/live2d/comprehensive_test": {
+                "get": {
+                    "tags": ["live2d"],
+                    "summary": "Run comprehensive Live2D test",
+                    "description": "Run comprehensive tests on the Live2D system",
+                    "responses": {
+                        "200": {
+                            "description": "Test results",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "success": {"type": "boolean"},
+                                            "tests_passed": {"type": "integer"},
+                                            "tests_failed": {"type": "integer"},
+                                            "details": {"type": "array", "items": {"type": "object"}}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/live2d/debug_paths": {
+                "get": {
+                    "tags": ["live2d"],
+                    "summary": "Debug Live2D paths",
+                    "description": "Get debug information about Live2D file paths and structure",
+                    "responses": {
+                        "200": {
+                            "description": "Debug path information",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "success": {"type": "boolean"},
+                                            "paths": {"type": "object"},
+                                            "file_counts": {"type": "object"}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             "/api/audio/start": {
                 "post": {
-                    "tags": ["system"],
+                    "tags": ["audio"],
                     "summary": "Start audio processing",
-                    "description": "Starts the audio pipeline for voice input processing",
+                    "description": "Starts the enhanced audio pipeline for voice input processing",
                     "responses": {
                         "200": {
                             "description": "Audio processing started",
@@ -496,9 +1035,9 @@ def get_openapi_spec():
             },
             "/api/audio/stop": {
                 "post": {
-                    "tags": ["system"],
+                    "tags": ["audio"],
                     "summary": "Stop audio processing",
-                    "description": "Stops the audio pipeline",
+                    "description": "Stops the enhanced audio pipeline",
                     "responses": {
                         "200": {
                             "description": "Audio processing stopped",
@@ -509,6 +1048,31 @@ def get_openapi_spec():
                                         "properties": {
                                             "status": {"type": "string"},
                                             "enabled": {"type": "boolean"}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/audio/status": {
+                "get": {
+                    "tags": ["audio"],
+                    "summary": "Get audio status",
+                    "description": "Get current status of the enhanced audio processing system",
+                    "responses": {
+                        "200": {
+                            "description": "Audio system status",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "status": {"type": "string"},
+                                            "mode": {"type": "string"},
+                                            "processing": {"type": "boolean"},
+                                            "vad_active": {"type": "boolean"}
                                         }
                                     }
                                 }
@@ -533,6 +1097,429 @@ def get_openapi_spec():
                         }
                     }
                 }
+            },
+            "/api/users": {
+                "get": {
+                    "tags": ["users"],
+                    "summary": "List users",
+                    "description": "Get a list of all users with optional filtering and pagination",
+                    "parameters": [
+                        {
+                            "name": "limit",
+                            "in": "query",
+                            "schema": {"type": "integer", "default": 20},
+                            "description": "Maximum number of users to return"
+                        },
+                        {
+                            "name": "offset",
+                            "in": "query",
+                            "schema": {"type": "integer", "default": 0},
+                            "description": "Number of users to skip"
+                        }
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "List of users",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "success": {"type": "boolean"},
+                                            "users": {
+                                                "type": "array",
+                                                "items": {"$ref": "#/components/schemas/User"}
+                                            },
+                                            "total": {"type": "integer"},
+                                            "has_more": {"type": "boolean"}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "post": {
+                    "tags": ["users"],
+                    "summary": "Create user",
+                    "description": "Create a new user account",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["username"],
+                                    "properties": {
+                                        "username": {"type": "string"},
+                                        "email": {"type": "string"},
+                                        "profile": {"type": "object"}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "201": {
+                            "description": "User created successfully",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/User"}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/users/current": {
+                "get": {
+                    "tags": ["users"],
+                    "summary": "Get current user",
+                    "description": "Get the currently active user profile",
+                    "responses": {
+                        "200": {
+                            "description": "Current user profile",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/User"}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/users/{user_id}/profile": {
+                "get": {
+                    "tags": ["users"],
+                    "summary": "Get user profile",
+                    "description": "Get a specific user's profile by ID",
+                    "parameters": [
+                        {
+                            "name": "user_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                            "description": "User identifier"
+                        }
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "User profile",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/User"}
+                                }
+                            }
+                        }
+                    }
+                },
+                "put": {
+                    "tags": ["users"],
+                    "summary": "Update user profile",
+                    "description": "Update a user's profile information",
+                    "parameters": [
+                        {
+                            "name": "user_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                            "description": "User identifier"
+                        }
+                    ],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "preferences": {"type": "object"}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "User profile updated",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/User"}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/characters": {
+                "get": {
+                    "tags": ["characters"],
+                    "summary": "List characters",
+                    "description": "Get a list of all available characters",
+                    "responses": {
+                        "200": {
+                            "description": "List of characters",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "success": {"type": "boolean"},
+                                            "characters": {
+                                                "type": "array",
+                                                "items": {"$ref": "#/components/schemas/Character"}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/characters/{character_id}": {
+                "get": {
+                    "tags": ["characters"],
+                    "summary": "Get character details",
+                    "description": "Get detailed information about a specific character",
+                    "parameters": [
+                        {
+                            "name": "character_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                            "description": "Character identifier"
+                        }
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Character details",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Character"}
+                                }
+                            }
+                        }
+                    }
+                },
+                "put": {
+                    "tags": ["characters"],
+                    "summary": "Update character",
+                    "description": "Update a character's configuration and personality",
+                    "parameters": [
+                        {
+                            "name": "character_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                            "description": "Character identifier"
+                        }
+                    ],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string"},
+                                        "personality": {"type": "object"}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "Character updated",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Character"}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/system/version": {
+                "get": {
+                    "tags": ["system"],
+                    "summary": "Get system version",
+                    "description": "Get the current application version and build information",
+                    "responses": {
+                        "200": {
+                            "description": "System version information",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "version": {"type": "string"},
+                                            "title": {"type": "string"},
+                                            "description": {"type": "string"}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/system/status": {
+                "get": {
+                    "tags": ["system"],
+                    "summary": "Get detailed system status",
+                    "description": "Get comprehensive system status including resource usage",
+                    "responses": {
+                        "200": {
+                            "description": "Detailed system status",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/SystemStatus"}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/system/health": {
+                "get": {
+                    "tags": ["system"],
+                    "summary": "Health check",
+                    "description": "Perform a comprehensive health check of all system components",
+                    "responses": {
+                        "200": {
+                            "description": "System health information",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "healthy": {"type": "boolean"},
+                                            "components": {"type": "object"},
+                                            "checks": {"type": "array", "items": {"type": "object"}}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/system/config": {
+                "get": {
+                    "tags": ["system"],
+                    "summary": "Get system configuration",
+                    "description": "Get current system configuration settings",
+                    "responses": {
+                        "200": {
+                            "description": "System configuration",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "success": {"type": "boolean"},
+                                            "config": {"type": "object"},
+                                            "version": {"type": "string"}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/system/info": {
+                "get": {
+                    "tags": ["system"],
+                    "summary": "Get system information",
+                    "description": "Get comprehensive system information including hardware and environment details",
+                    "responses": {
+                        "200": {
+                            "description": "System information",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "success": {"type": "boolean"},
+                                            "system": {"type": "object"},
+                                            "environment": {"type": "object"},
+                                            "resources": {"type": "object"}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/autonomous/status": {
+                "get": {
+                    "tags": ["autonomous"],
+                    "summary": "Get autonomous status",
+                    "description": "Get the current status of the autonomous conversation system (New in v0.5.0a)",
+                    "responses": {
+                        "200": {
+                            "description": "Autonomous system status",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/AutonomousStatus"}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/autonomous/enable": {
+                "post": {
+                    "tags": ["autonomous"],
+                    "summary": "Enable autonomous mode",
+                    "description": "Enable autonomous conversation mode with proactive AI behavior (New in v0.5.0a)",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "mode": {"type": "string", "default": "proactive"},
+                                        "engagement_threshold": {"type": "number", "default": 0.6}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "Autonomous mode enabled",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/AutonomousStatus"}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/autonomous/disable": {
+                "post": {
+                    "tags": ["autonomous"],
+                    "summary": "Disable autonomous mode",
+                    "description": "Disable autonomous conversation mode",
+                    "responses": {
+                        "200": {
+                            "description": "Autonomous mode disabled",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/AutonomousStatus"}
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -544,7 +1531,7 @@ def get_swagger_ui_html():
     <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title>AI Companion API Documentation v2.1</title>
+        <title>AI Companion API Documentation v0.5.0a</title>
         <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui.css" />
         <style>
             body { margin: 0; padding: 0; }

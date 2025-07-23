@@ -112,16 +112,47 @@ class EnhancedLLMHandler:
                 self.logger.info(f"Loading LLM model: {model_path}")
                 self.logger.info(f"Optimization flags: {optimization_flags}")
                 
-                # Initialize model with optimizations
-                self.model = Llama(
-                    model_path=str(model_path),
-                    n_ctx=self.context_length,
-                    n_threads=optimization_flags["n_threads"],
-                    n_gpu_layers=optimization_flags.get("n_gpu_layers", 0),
-                    use_mmap=optimization_flags.get("use_mmap", True),
-                    use_mlock=optimization_flags.get("use_mlock", False),
-                    verbose=False
-                )
+                # Initialize model with optimizations and terminal interference prevention
+                import sys
+                import os
+                from contextlib import redirect_stdout, redirect_stderr
+                
+                # Temporarily disable terminal manipulation and redirect output
+                old_stdout = sys.stdout
+                old_stderr = sys.stderr
+                
+                try:
+                    with open(os.devnull, 'w') as devnull:
+                        with redirect_stdout(devnull), redirect_stderr(devnull):
+                            # Set environment variables to prevent terminal manipulation
+                            old_term = os.environ.get('TERM')
+                            old_terminfo = os.environ.get('TERMINFO')
+                            os.environ['TERM'] = 'dumb'  # Use dumb terminal to prevent escape sequences
+                            if 'TERMINFO' in os.environ:
+                                del os.environ['TERMINFO']
+                            
+                            try:
+                                self.model = Llama(
+                                    model_path=str(model_path),
+                                    n_ctx=self.context_length,
+                                    n_threads=optimization_flags["n_threads"],
+                                    n_gpu_layers=optimization_flags.get("n_gpu_layers", 0),
+                                    use_mmap=optimization_flags.get("use_mmap", True),
+                                    use_mlock=optimization_flags.get("use_mlock", False),
+                                    verbose=False
+                                )
+                            finally:
+                                # Restore terminal environment
+                                if old_term is not None:
+                                    os.environ['TERM'] = old_term
+                                else:
+                                    os.environ.pop('TERM', None)
+                                if old_terminfo is not None:
+                                    os.environ['TERMINFO'] = old_terminfo
+                finally:
+                    # Ensure stdout/stderr are restored
+                    sys.stdout = old_stdout
+                    sys.stderr = old_stderr
                 
                 self.model_path = model_path
                 self.model_loaded = True

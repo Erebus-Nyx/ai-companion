@@ -200,12 +200,39 @@ function initializeAutonomousAvatarUI() {
         autonomousAvatarUI = new AutonomousAvatarUI(window.avatarChatManager);
         window.autonomousAvatarUI = autonomousAvatarUI;
         
-        // Enable by default when multiple avatars are loaded
+        console.log('🤖 Autonomous Avatar UI initialized successfully');
+        
+        // Enable by default when any avatars are loaded
         setTimeout(() => {
-            if (window.avatarChatManager.getActiveAvatars().length >= 2) {
+            const activeAvatars = window.avatarChatManager.getActiveAvatars();
+            console.log('🎭 Checking for active avatars:', activeAvatars.length);
+            
+            if (activeAvatars.length >= 1) {
+                console.log('🤖 Enabling autonomous conversations for', activeAvatars.length, 'avatar(s)');
                 autonomousAvatarUI.enableAutonomousConversations();
+                
+                // Also request a test autonomous message to verify the system
+                setTimeout(() => {
+                    if (typeof socket !== 'undefined' && socket.connected) {
+                        socket.emit('test_autonomous_message');
+                        console.log('🧪 Requested test autonomous message');
+                    }
+                }, 5000);
+            } else {
+                console.log('🤖 No active avatars yet, will check again...');
             }
         }, 2000);
+        
+        // Also check periodically for newly loaded avatars
+        setInterval(() => {
+            if (autonomousAvatarUI && !autonomousAvatarUI.autonomousEnabled) {
+                const activeAvatars = window.avatarChatManager.getActiveAvatars();
+                if (activeAvatars.length >= 1) {
+                    console.log('🎭 Found active avatars, enabling autonomous system');
+                    autonomousAvatarUI.enableAutonomousConversations();
+                }
+            }
+        }, 10000); // Check every 10 seconds
     }
 }
 
@@ -224,3 +251,37 @@ setInterval(() => {
 // Export to window
 window.AutonomousAvatarUI = AutonomousAvatarUI;
 window.initializeAutonomousAvatarUI = initializeAutonomousAvatarUI;
+
+// Add global test functions for debugging
+window.testAutonomousSystem = function() {
+    if (autonomousAvatarUI) {
+        console.log('🤖 Testing autonomous system...');
+        autonomousAvatarUI.enableAutonomousConversations();
+        
+        // Force trigger a test message after 5 seconds
+        setTimeout(() => {
+            if (typeof socket !== 'undefined' && socket.connected) {
+                socket.emit('test_autonomous_message');
+                console.log('🤖 Test autonomous message requested');
+            }
+        }, 5000);
+        
+        return true;
+    } else {
+        console.error('❌ Autonomous avatar UI not initialized');
+        return false;
+    }
+};
+
+window.getAutonomousStatus = function() {
+    if (autonomousAvatarUI) {
+        console.log('🤖 Autonomous system status:', {
+            enabled: autonomousAvatarUI.autonomousEnabled,
+            manager: !!autonomousAvatarUI.avatarChatManager,
+            lastActivity: autonomousAvatarUI.lastUserActivity,
+            socketConnected: typeof socket !== 'undefined' && socket.connected
+        });
+    } else {
+        console.log('❌ Autonomous system not initialized');
+    }
+};

@@ -1,5 +1,5 @@
-// Live2D Core - Simple sekai-viewer style implementation
-class Live2DCore {
+// Live2D Core Simple - Simple sekai-viewer style implementation
+class Live2DCoreSimple {
     constructor() {
         this.app = null;
         this.model = null;
@@ -269,4 +269,5 @@ class Live2DCore {
 }
 
 // Export for global access
-window.Live2DCore = Live2DCore;
+// Make Live2DCoreSimple globally available for sekai-viewer compatibility
+window.Live2DCoreSimple = Live2DCoreSimple;

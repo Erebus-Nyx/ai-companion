@@ -1,5 +1,7 @@
 ## .gitignore for a Python project
 
+## removing live2d models from dev until they are rebuilt for motions/expressions
+
 # Python
 *.so
 build/

@@ -8,14 +8,23 @@ class UIPanelManager {
         this.chatOpen = false;
         this.peopleOpen = false;
         this.settingsOpen = false;
-        this.chatSnapped = false;
-        this.peopleSnapped = false;
-        this.settingsSnapped = false;
+        this.characterProfilesOpen = false;
+        this.characterProfilesSnapped = false;
+        this.drawingOpen = false;
+        this.userManagementOpen = false;
+        this.userManagementSnapped = false;
+        this.windowLayout = this.loadWindowLayout();
+        
+        // Dragging system state
         this.draggingWindow = null;
         this.dragOffset = { x: 0, y: 0 };
         
+        this.init();
+    }
+    
+    init() {
         this.initializeEventListeners();
-        this.loadWindowLayout();
+        console.log('✅ UI Panel Manager initialized');
     }
     
     initializeEventListeners() {
@@ -27,16 +36,47 @@ class UIPanelManager {
         
         // Initialize draggable headers
         this.initializeDraggableHeaders();
+        
+        // Listen for user authentication events
+        document.addEventListener('userChanged', (event) => {
+            console.log('🔑 User authenticated, loading Live2D state:', event.detail.user);
+            // Load Live2D state now that user is authenticated
+            setTimeout(() => {
+                if (window.live2dStateManager) {
+                    window.live2dStateManager.loadState();
+                    console.log('🎭 Live2D state loaded after user authentication');
+                }
+            }, 1000);
+        });
     }
     
     initializeDraggableHeaders() {
-        const headers = document.querySelectorAll('.chat-header, .people-header, .settings-header');
+        const headers = document.querySelectorAll('.chat-header, .people-header, .settings-header, .dialog-header, .user-profile-header, .character-profiles-header, .user-management-header, .drawing-header, .feedback-header');
         headers.forEach(header => {
             header.addEventListener('mousedown', (e) => this.startDragging(e));
+            header.style.cursor = 'move'; // Add visual indicator
         });
         
         document.addEventListener('mousemove', (e) => this.handleDragging(e));
         document.addEventListener('mouseup', () => this.stopDragging());
+    }
+    
+    // Check if user is authenticated and logged in
+    isUserAuthenticated() {
+        // Check if user selection popup is closed (indicates user is logged in)
+        const userSelectionPopup = document.getElementById('userSelectionPopup');
+        if (userSelectionPopup && userSelectionPopup.style.display !== 'none') {
+            return false; // User selection popup is still shown
+        }
+        
+        // Check if current user exists in avatar chat manager
+        if (window.avatarChatManager && window.avatarChatManager.currentUser) {
+            return true;
+        }
+        
+        // Check for any other authentication indicators
+        const userName = localStorage.getItem('currentUser');
+        return userName !== null && userName !== '';
     }
     
     handleKeyboard(e) {
@@ -72,7 +112,7 @@ class UIPanelManager {
     // Window dragging system
     startDragging(e) {
         const header = e.currentTarget;
-        const window = header.closest('.chat-window, .people-panel, .settings-panel');
+        const window = header.closest('.chat-window, .people-panel, .settings-panel, .model-selection-dialog, .user-selection-dialog, .user-profile-panel, .character-profiles-panel, .user-management-panel, .drawing-panel, .resizable-panel');
         
         if (!window) return;
         
@@ -81,6 +121,8 @@ class UIPanelManager {
         this.dragOffset.x = e.clientX - rect.left;
         this.dragOffset.y = e.clientY - rect.top;
         
+        // Clear any existing transforms that might interfere with dragging
+        window.style.transform = 'none';
         window.style.position = 'fixed';
         window.style.zIndex = '9999';
         
@@ -191,6 +233,64 @@ class UIPanelManager {
         this.saveWindowLayout();
     }
     
+    openCharacterProfiles() {
+        this.characterProfilesOpen = !this.characterProfilesOpen;
+        const characterProfilesPanel = document.getElementById('characterProfilesPanel');
+        
+        if (this.characterProfilesOpen) {
+            characterProfilesPanel.classList.add('open');
+        } else {
+            characterProfilesPanel.classList.remove('open');
+        }
+        
+        this.updateNavIconStates();
+        this.saveWindowLayout();
+    }
+    
+    closeCharacterProfiles() {
+        this.characterProfilesOpen = false;
+        const characterProfilesPanel = document.getElementById('characterProfilesPanel');
+        characterProfilesPanel.classList.remove('open');
+        this.updateNavIconStates();
+        this.saveWindowLayout();
+    }
+    
+    toggleCharacterProfilesSnap() {
+        const panel = document.getElementById('characterProfilesPanel');
+        if (panel) {
+            panel.classList.toggle('snap-to-edge');
+        }
+    }
+    
+    openUserManagement() {
+        this.userManagementOpen = !this.userManagementOpen;
+        const userManagementPanel = document.getElementById('userManagementPanel');
+        
+        if (this.userManagementOpen) {
+            userManagementPanel.classList.add('open');
+        } else {
+            userManagementPanel.classList.remove('open');
+        }
+        
+        this.updateNavIconStates();
+        this.saveWindowLayout();
+    }
+    
+    closeUserManagement() {
+        this.userManagementOpen = false;
+        const userManagementPanel = document.getElementById('userManagementPanel');
+        userManagementPanel.classList.remove('open');
+        this.updateNavIconStates();
+        this.saveWindowLayout();
+    }
+    
+    toggleUserManagementSnap() {
+        const panel = document.getElementById('userManagementPanel');
+        if (panel) {
+            panel.classList.toggle('snap-to-edge');
+        }
+    }
+    
     // Navigation and fullscreen functions
     toggleFullscreen() {
         if (!document.fullscreenElement) {
@@ -265,6 +365,19 @@ class UIPanelManager {
         this.saveWindowLayout();
     }
     
+    toggleSettingsSnap() {
+        const settingsPanel = document.getElementById('settingsPanel');
+        this.settingsSnapped = !this.settingsSnapped;
+        
+        if (this.settingsSnapped) {
+            settingsPanel.classList.add('pinned');
+        } else {
+            settingsPanel.classList.remove('pinned');
+        }
+        
+        this.saveWindowLayout();
+    }
+    
     updateNavIconStates() {
         const navIcons = document.querySelectorAll('.nav-icon');
         navIcons.forEach(icon => {
@@ -279,6 +392,16 @@ class UIPanelManager {
         if (this.peopleOpen) {
             const peopleIcon = document.querySelector('.nav-icon[onclick*="People"]');
             if (peopleIcon) peopleIcon.classList.add('active');
+        }
+        
+        if (this.characterProfilesOpen) {
+            const characterIcon = document.querySelector('.nav-icon[onclick*="CharacterProfiles"]');
+            if (characterIcon) characterIcon.classList.add('active');
+        }
+        
+        if (this.userManagementOpen) {
+            const userIcon = document.querySelector('.nav-icon[onclick*="UserManagement"]');
+            if (userIcon) userIcon.classList.add('active');
         }
         
         if (this.settingsOpen) {
@@ -300,6 +423,11 @@ class UIPanelManager {
                 snapped: this.peopleSnapped,
                 position: this.getElementLayout(document.getElementById('peoplePanel'))
             },
+            characterProfiles: {
+                open: this.characterProfilesOpen,
+                snapped: this.characterProfilesSnapped,
+                position: this.getElementLayout(document.getElementById('characterProfilesPanel'))
+            },
             settings: {
                 open: this.settingsOpen,
                 snapped: this.settingsSnapped,
@@ -309,6 +437,12 @@ class UIPanelManager {
         
         try {
             localStorage.setItem('ai2d_chat_window_layout', JSON.stringify(layout));
+            
+            // Also save Live2D state when saving layout
+            if (window.live2dStateManager) {
+                window.live2dStateManager.saveState();
+            }
+            
         } catch (error) {
             console.warn('Failed to save window layout:', error);
         }
@@ -345,6 +479,18 @@ class UIPanelManager {
                 }
             }
             
+            // Restore character profiles panel
+            if (layout.characterProfiles) {
+                this.characterProfilesOpen = layout.characterProfiles.open;
+                this.characterProfilesSnapped = layout.characterProfiles.snapped;
+                const characterProfilesPanel = document.getElementById('characterProfilesPanel');
+                if (characterProfilesPanel) {
+                    if (this.characterProfilesOpen) characterProfilesPanel.classList.add('open');
+                    if (this.characterProfilesSnapped) characterProfilesPanel.classList.add('pinned');
+                    if (layout.characterProfiles.position) this.applyElementLayout(characterProfilesPanel, layout.characterProfiles);
+                }
+            }
+            
             // Restore settings panel
             if (layout.settings) {
                 this.settingsOpen = layout.settings.open;
@@ -359,6 +505,18 @@ class UIPanelManager {
             
             this.updateNavIconStates();
             console.log('Window layout loaded');
+            
+            // Load Live2D state only after user is authenticated
+            setTimeout(() => {
+                // Check if user is logged in before loading Live2D state
+                if (window.live2dStateManager && this.isUserAuthenticated()) {
+                    console.log('User authenticated, loading Live2D state...');
+                    window.live2dStateManager.loadState();
+                } else {
+                    console.log('Skipping Live2D state load - user not authenticated yet');
+                }
+            }, 2000);
+            
         } catch (error) {
             console.warn('Failed to load layout:', error);
         }
@@ -508,5 +666,12 @@ window.openSettings = () => uiPanelManager?.openSettings();
 window.closeSettings = () => uiPanelManager?.closeSettings();
 window.toggleChatSnap = () => uiPanelManager?.toggleChatSnap();
 window.togglePeopleSnap = () => uiPanelManager?.togglePeopleSnap();
+window.toggleSettingsSnap = () => uiPanelManager?.toggleSettingsSnap();
 window.toggleFullscreen = () => uiPanelManager?.toggleFullscreen();
 window.toggleHelp = () => uiPanelManager?.toggleHelp();
+window.openCharacterProfiles = () => uiPanelManager?.openCharacterProfiles();
+window.closeCharacterProfiles = () => uiPanelManager?.closeCharacterProfiles();
+window.toggleCharacterProfilesSnap = () => uiPanelManager?.toggleCharacterProfilesSnap();
+window.openUserManagement = () => uiPanelManager?.openUserManagement();
+window.closeUserManagement = () => uiPanelManager?.closeUserManagement();
+window.toggleUserManagementSnap = () => uiPanelManager?.toggleUserManagementSnap();

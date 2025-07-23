@@ -294,5 +294,57 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 });
 
-// Export for global access
+// Global voice recording instance and functions
+let globalVoiceRecording = null;
+
+// Initialize global voice recording system
+async function initializeVoiceRecording() {
+    if (!globalVoiceRecording) {
+        globalVoiceRecording = new VoiceRecording();
+        const initialized = await globalVoiceRecording.initialize();
+        if (!initialized) {
+            console.error('Failed to initialize voice recording system');
+            return false;
+        }
+    }
+    return true;
+}
+
+// Global toggle function for UI buttons
+async function toggleVoiceRecording() {
+    if (!globalVoiceRecording) {
+        const initialized = await initializeVoiceRecording();
+        if (!initialized) {
+            return;
+        }
+    }
+
+    try {
+        if (globalVoiceRecording.isRecording) {
+            await globalVoiceRecording.stopRecording();
+            console.log('🛑 Voice recording stopped');
+        } else {
+            await globalVoiceRecording.startRecording();
+            console.log('🎤 Voice recording started');
+        }
+    } catch (error) {
+        console.error('Error toggling voice recording:', error);
+        globalVoiceRecording.showError('Microphone access denied or not available');
+    }
+}
+
+// Fallback function for enhanced chat system compatibility
+async function sendAudioToServer(audioBlob) {
+    if (!globalVoiceRecording) {
+        globalVoiceRecording = new VoiceRecording();
+        await globalVoiceRecording.initialize();
+    }
+    
+    return await globalVoiceRecording.sendToSpeechAPI(audioBlob);
+}
+
+// Export functions for global access
 window.toggleVoiceRecording = toggleVoiceRecording;
+window.initializeVoiceRecording = initializeVoiceRecording;
+window.sendAudioToServer = sendAudioToServer;
+window.VoiceRecording = VoiceRecording;
