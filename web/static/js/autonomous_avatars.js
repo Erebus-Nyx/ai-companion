@@ -95,7 +95,9 @@ class AutonomousAvatarUI {
                 
                 // Fallback to basic TTS if enhanced fails
                 if (window.triggerEmotionalTTS) {
-                    window.triggerEmotionalTTS(message, emotion, avatar.id, {}, intensity)
+                    // Autonomous messages get normal priority (1) by default
+                    const priority = metadata?.priority || 1;
+                    window.triggerEmotionalTTS(message, emotion, avatar.id, {}, intensity, priority)
                         .catch(fallbackError => {
                             console.error('Fallback TTS also failed:', fallbackError);
                         });
@@ -638,3 +640,192 @@ window.testAutonomousGreeting = function() {
         return false;
     }
 };
+
+// Model tracking for autonomous conversations
+class Live2DModelTracker {
+    constructor() {
+        this.lastKnownModels = [];
+        this.checkInterval = null;
+        this.idleMotionInterval = null;
+        this.init();
+    }
+
+    init() {
+        console.log('🔍 Initializing Live2D model tracker for autonomous conversations');
+        
+        // Start tracking model changes
+        this.startTracking();
+        
+        // Start idle motion system to prevent T-pose
+        this.startIdleMotions();
+        
+        // Send initial model state
+        setTimeout(() => {
+            this.syncModelsWithBackend();
+        }, 2000); // Wait 2 seconds for models to load
+    }
+
+    startTracking() {
+        // Check for model changes every 5 seconds
+        this.checkInterval = setInterval(() => {
+            this.checkForModelChanges();
+        }, 5000);
+    }
+
+    startIdleMotions() {
+        // Trigger idle motions every 30 seconds to prevent T-pose
+        this.idleMotionInterval = setInterval(() => {
+            this.triggerIdleMotions();
+        }, 30000);
+    }
+
+    stopTracking() {
+        if (this.checkInterval) {
+            clearInterval(this.checkInterval);
+            this.checkInterval = null;
+        }
+        if (this.idleMotionInterval) {
+            clearInterval(this.idleMotionInterval);
+            this.idleMotionInterval = null;
+        }
+    }
+
+    triggerIdleMotions() {
+        if (window.live2dMultiModelManager) {
+            const models = window.live2dMultiModelManager.getAllModels();
+            models.forEach(model => {
+                const pixiModel = model?.model || model?.pixiModel;
+                if (pixiModel) {
+                    try {
+                        // Try to trigger idle motion to prevent T-pose
+                        if (typeof window.triggerSubtleIdleMotion === 'function') {
+                            window.triggerSubtleIdleMotion(pixiModel);
+                        } else if (typeof window.triggerAvatarMotion === 'function') {
+                            window.triggerAvatarMotion(pixiModel, 'idle');
+                        } else if (pixiModel.motion) {
+                            // Direct motion trigger as fallback
+                            pixiModel.motion('idle');
+                        }
+                        console.log('🎭 Triggered idle motion for', model.name);
+                    } catch (e) {
+                        console.warn('⚠️ Failed to trigger idle motion for', model.name, e);
+                    }
+                }
+            });
+        }
+    }
+
+    getCurrentModels() {
+        if (window.live2dMultiModelManager) {
+            const models = window.live2dMultiModelManager.getAllModels();
+            return models.map(model => ({
+                name: model.name,
+                id: model.name.toLowerCase(),
+                personality: this.getModelPersonality(model.name),
+                timestamp: Date.now()
+            }));
+        }
+        return [];
+    }
+
+    getModelPersonality(modelName) {
+        // Map model names to personalities based on the avatar manager personalities
+        const personalityMap = {
+            'haruka': 'extroverted_cheerful',
+            'haru': 'thoughtful_analytical', 
+            'epsilon': 'introverted_observant',
+            'tsumiki': 'curious_enthusiastic',
+            'iori': 'calm_supportive',
+            'hiyori': 'energetic_playful'
+        };
+        
+        const normalizedName = modelName.toLowerCase();
+        return personalityMap[normalizedName] || 'neutral';
+    }
+
+    checkForModelChanges() {
+        const currentModels = this.getCurrentModels();
+        
+        // Check if models have changed
+        if (this.modelsChanged(currentModels)) {
+            console.log('🔄 Detected model changes, syncing with backend');
+            this.syncModelsWithBackend(currentModels);
+            this.lastKnownModels = currentModels;
+        }
+    }
+
+    modelsChanged(currentModels) {
+        if (currentModels.length !== this.lastKnownModels.length) {
+            return true;
+        }
+        
+        const currentNames = currentModels.map(m => m.name).sort();
+        const lastNames = this.lastKnownModels.map(m => m.name).sort();
+        
+        return JSON.stringify(currentNames) !== JSON.stringify(lastNames);
+    }
+
+    syncModelsWithBackend(models = null) {
+        if (!models) {
+            models = this.getCurrentModels();
+        }
+        
+        console.log(`📡 Syncing ${models.length} loaded models with backend:`, models.map(m => m.name));
+        
+        // Send to backend via SocketIO
+        if (window.socket && window.socket.connected) {
+            window.socket.emit('live2d_models_updated', {
+                models: models,
+                timestamp: Date.now()
+            });
+        } else {
+            console.warn('⚠️ SocketIO not connected, cannot sync models');
+        }
+    }
+
+    // Manual trigger for when models are loaded/unloaded
+    onModelLoaded(modelName, modelInfo = {}) {
+        console.log('📥 Model loaded:', modelName);
+        
+        if (window.socket && window.socket.connected) {
+            window.socket.emit('live2d_model_loaded', {
+                modelName: modelName,
+                modelInfo: modelInfo,
+                timestamp: Date.now()
+            });
+        }
+        
+        // Update our tracking after a short delay
+        setTimeout(() => {
+            this.syncModelsWithBackend();
+        }, 1000);
+    }
+
+    onModelUnloaded(modelName) {
+        console.log('📤 Model unloaded:', modelName);
+        
+        if (window.socket && window.socket.connected) {
+            window.socket.emit('live2d_model_unloaded', {
+                modelName: modelName,
+                timestamp: Date.now()
+            });
+        }
+        
+        // Update our tracking after a short delay
+        setTimeout(() => {
+            this.syncModelsWithBackend();
+        }, 1000);
+    }
+}
+
+// Initialize the model tracker when the page loads
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        if (window.live2dMultiModelManager) {
+            window.live2dModelTracker = new Live2DModelTracker();
+            console.log('✅ Live2D model tracker initialized');
+        } else {
+            console.warn('⚠️ Live2D multi-model manager not available, model tracking disabled');
+        }
+    }, 3000); // Wait 3 seconds for everything to initialize
+});

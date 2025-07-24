@@ -45,6 +45,13 @@
                     <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
                 </svg>
             </button>
+            <button class="nav-icon" onclick="toggleAudioQueuePanel()" title="Audio Queue Control" data-tooltip="Audio Queue">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18V5l12-2v13"/>
+                    <circle cx="6" cy="18" r="3"/>
+                    <circle cx="18" cy="16" r="3"/>
+                </svg>
+            </button>
             <div class="nav-divider"></div>
             <button class="nav-icon" onclick="toggleFullscreen()" title="Fullscreen" data-tooltip="Fullscreen">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -140,7 +147,7 @@
         <!-- Settings Panel (Left Side Overlay) -->
         <div class="settings-panel" id="settingsPanel">
             <div class="settings-header">
-                <span class="settings-title">Live2D Settings</span>
+                <span class="settings-title">⚙️ Live2D Settings</span>
                 <div class="window-controls">
                     <button class="close-btn" onclick="closeSettings()">×</button>
                 </div>
@@ -150,12 +157,8 @@
                     <h4>Model Management</h4>
                     <div class="model-management-actions">
                         <div class="setting-item">
-                            <label>Add Model to Canvas:</label>
-                            <div class="model-add-controls">
-                                <input type="file" id="canvasModelFileInput" accept=".zip" multiple style="display: none;">
-                                <button class="btn btn-primary" onclick="document.getElementById('canvasModelFileInput').click()">
-                                    📁 Upload ZIP Model
-                                </button>
+                            <label>Canvas Actions:</label>
+                            <div class="model-canvas-controls">
                                 <select id="existingModelSelect" class="form-select">
                                     <option value="">Select existing model...</option>
                                 </select>
@@ -165,13 +168,47 @@
                             </div>
                         </div>
                         <div class="setting-item">
-                            <label>Remove Model:</label>
-                            <div class="model-delete-controls">
+                            <label>Model Files:</label>
+                            <div class="model-file-controls">
+                                <input type="file" id="canvasModelFileInput" accept=".zip" multiple style="display: none;">
+                                <button class="btn btn-primary" onclick="document.getElementById('canvasModelFileInput').click()">
+                                    📁 Upload ZIP Model
+                                </button>
                                 <select id="canvasModelSelect" class="form-select">
                                     <option value="">No models on canvas...</option>
                                 </select>
                                 <button class="btn btn-warning" onclick="removeModelFromCanvas()" disabled id="removeModelBtn">
                                     🗑️ Remove
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="settings-group">
+                    <h4>Voice Management</h4>
+                    <div class="voice-management-actions">
+                        <div class="setting-item">
+                            <label>Voice Files:</label>
+                            <div class="voice-file-controls">
+                                <input type="file" id="voiceFileInput" accept=".pth,.onnx,.zip" multiple style="display: none;">
+                                <button class="btn btn-primary" onclick="document.getElementById('voiceFileInput').click()">
+                                    🎤 Upload Voice Model
+                                </button>
+                                <select id="voiceSelect" class="form-select">
+                                    <option value="">No voices available...</option>
+                                </select>
+                                <button class="btn btn-warning" onclick="removeVoiceModel()" disabled id="removeVoiceBtn">
+                                    🗑️ Remove Voice
+                                </button>
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <label>Test Voice:</label>
+                            <div class="voice-test-controls">
+                                <input type="text" id="voiceTestText" placeholder="Enter text to test voice..." class="form-input">
+                                <button class="btn btn-secondary" onclick="testSelectedVoice()" disabled id="testVoiceBtn">
+                                    🔊 Test Voice
                                 </button>
                             </div>
                         </div>
@@ -353,7 +390,7 @@
     <!-- User Profile Panel -->
     <div class="user-profile-panel" id="userProfilePanel">
         <div class="user-profile-header">
-            <span class="user-profile-title">User Profile</span>
+            <span class="user-profile-title">👤 User Profile</span>
             <div class="window-controls">
                 <button class="close-btn" onclick="closeUserProfile()">×</button>
             </div>
@@ -412,7 +449,7 @@
     <!-- Character Profiles Panel -->
     <div class="character-profiles-panel" id="characterProfilesPanel">
         <div class="character-profiles-header">
-            <span class="character-profiles-title">Character Profiles</span>
+            <span class="character-profiles-title">🎭 Character Profiles</span>
             <div class="window-controls">
                 <button class="close-btn" onclick="closeCharacterProfiles()">×</button>
             </div>
@@ -455,6 +492,48 @@
                 </div>
             </div>
 
+            <!-- Model & Voice Assignment Section -->
+            <div class="character-section">
+                <h4>Model & Voice Assignment</h4>
+                <div class="form-group">
+                    <label for="characterDefaultModel">Default Model:</label>
+                    <select id="characterDefaultModel" class="form-select">
+                        <option value="">Select default model...</option>
+                    </select>
+                    <small class="form-help">Primary model file for this character (when multiple models exist)</small>
+                </div>
+                <div class="form-group">
+                    <label for="characterVoice">Assigned Voice:</label>
+                    <select id="characterVoice" class="form-select">
+                        <option value="">Select voice...</option>
+                    </select>
+                    <small class="form-help">Voice model for text-to-speech synthesis</small>
+                </div>
+                <div class="form-group">
+                    <label for="characterVoiceSettings">Voice Settings:</label>
+                    <div class="voice-settings-grid">
+                        <div class="voice-setting">
+                            <label for="voicePitch">Pitch: <span id="voicePitchValue">1.0</span></label>
+                            <input type="range" id="voicePitch" min="0.5" max="2.0" step="0.1" value="1.0" oninput="updateVoiceSetting('pitch', this.value)">
+                        </div>
+                        <div class="voice-setting">
+                            <label for="voiceSpeed">Speed: <span id="voiceSpeedValue">1.0</span></label>
+                            <input type="range" id="voiceSpeed" min="0.5" max="2.0" step="0.1" value="1.0" oninput="updateVoiceSetting('speed', this.value)">
+                        </div>
+                        <div class="voice-setting">
+                            <label for="voiceVolume">Volume: <span id="voiceVolumeValue">1.0</span></label>
+                            <input type="range" id="voiceVolume" min="0.1" max="2.0" step="0.1" value="1.0" oninput="updateVoiceSetting('volume', this.value)">
+                        </div>
+                    </div>
+                </div>
+                <div class="character-voice-test">
+                    <input type="text" id="characterVoiceTestText" placeholder="Test voice with this text..." class="form-input">
+                    <button class="btn btn-secondary" onclick="testCharacterVoice()" disabled id="testCharacterVoiceBtn">
+                        🔊 Test Character Voice
+                    </button>
+                </div>
+            </div>
+
             <!-- Character Appearance Section -->
             <div class="character-section">
                 <h4>Appearance</h4>
@@ -493,7 +572,7 @@
     <!-- User Management Panel -->
     <div class="user-management-panel" id="userManagementPanel">
         <div class="user-management-header">
-            <span class="user-management-title">User Management</span>
+            <span class="user-management-title">👥 User Management</span>
             <div class="window-controls">
                 <button class="close-btn" onclick="closeUserManagement()">×</button>
             </div>
@@ -690,7 +769,7 @@
     <!-- Drawing Panel -->
     <div class="drawing-panel resizable-panel" id="drawingPanel">
         <div class="drawing-header">
-            <span class="drawing-title">Drawing Tools</span>
+            <span class="drawing-title">🎨 Drawing Tools</span>
             <div class="window-controls">
                 <button class="control-btn" onclick="toggleDrawingResize()" title="Toggle Resize">⤡</button>
                 <button class="close-btn" onclick="closeDrawing()">×</button>
@@ -1252,6 +1331,10 @@ document.addEventListener('DOMContentLoaded', function() {
     <script src="/static/js/ui_modules/ui_debug_logger.js"></script>
 
     <!-- Audio Processing -->
+    <script src="/static/js/audio_modules/audio_context_manager.js"></script>
+    <script src="/static/js/audio_modules/audio_queue_manager.js"></script>
+    <script src="/static/js/audio_modules/audio_queue_control_panel.js"></script>
+    <script src="/static/js/audio_modules/audio_queue_testing.js"></script>
     <script src="/static/js/audio_modules/audio_voice_recording.js"></script>
     <script src="/static/js/audio_modules/audio_tts.js"></script> 
 
@@ -2281,6 +2364,18 @@ async function loadLive2DModel(modelPath) {
         }
     }
     
+    // Global function assignments for onclick handlers
+    window.openChat = openChat;
+    window.closeChat = closeChat;
+    window.openSettings = openSettings;
+    window.closeSettings = closeSettings;
+    window.openCharacterProfiles = openCharacterProfiles;
+    window.closeCharacterProfiles = closeCharacterProfiles;
+    window.openUserManagement = openUserManagement;
+    window.closeUserManagement = closeUserManagement;
+    window.openDrawing = openDrawing;
+    window.toggleFullscreen = toggleFullscreen;
+    
     // Character Management Functions
     function loadCharactersForProfiles() {
         fetch('/api/live2d/models')
@@ -2301,6 +2396,32 @@ async function loadLive2DModel(modelPath) {
                 console.error('Failed to load characters:', error);
             });
     }
+    
+    // User Management Functions
+    function loadUsersForManagement() {
+        fetch('/api/users')
+            .then(response => response.json())
+            .then(data => {
+                const userSelect = document.getElementById('userSelect');
+                if (userSelect && data.success) {
+                    userSelect.innerHTML = '<option value="">Select a user...</option>';
+                    data.users.forEach(user => {
+                        const option = document.createElement('option');
+                        option.value = user.username;
+                        option.textContent = user.display_name || user.username;
+                        userSelect.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Failed to load users:', error);
+            });
+    }
+    
+    // Assign management functions to window object
+    window.loadCharactersForProfiles = loadCharactersForProfiles;
+    window.loadUsersForManagement = loadUsersForManagement;
+    window.onCharacterChange = onCharacterChange;
     
     function onCharacterChange() {
         const characterSelect = document.getElementById('characterSelect');
@@ -2577,6 +2698,13 @@ async function loadLive2DModel(modelPath) {
         };
         input.click();
     }
+    
+    // Assign character management functions to window object
+    window.createNewCharacter = createNewCharacter;
+    window.duplicateCharacter = duplicateCharacter;
+    window.deleteCharacter = deleteCharacter;
+    window.exportCharacter = exportCharacter;
+    window.importCharacter = importCharacter;
 
     // Debug function to test chat functionality
     function testChatMessage() {
@@ -2642,6 +2770,453 @@ async function loadLive2DModel(modelPath) {
     
     // Model Management Functions for Settings Panel - Using Live2D Module
     // All model management functions are now handled by live2d_model_import_manager.js
+    
+    // Voice Management Functions
+    window.voiceModels = []; // Store available voice models
+    
+    // Initialize voice file input handler
+    document.addEventListener('DOMContentLoaded', function() {
+        const voiceFileInput = document.getElementById('voiceFileInput');
+        if (voiceFileInput) {
+            voiceFileInput.addEventListener('change', handleVoiceFileUpload);
+        }
+        
+        // Load existing voices on startup
+        loadAvailableVoices();
+    });
+    
+    function handleVoiceFileUpload(event) {
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
+        
+        console.log(`📤 Uploading ${files.length} voice file(s)...`);
+        
+        for (let file of files) {
+            uploadVoiceFile(file);
+        }
+        
+        // Clear the input
+        event.target.value = '';
+    }
+    
+    async function uploadVoiceFile(file) {
+        try {
+            const formData = new FormData();
+            formData.append('voice_file', file);
+            
+            console.log(`📤 Uploading voice file: ${file.name}`);
+            
+            const response = await fetch('/api/voices/upload', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Upload failed: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            console.log('✅ Voice file uploaded successfully:', result);
+            
+            // Show success message
+            showMessage(`Voice "${result.name}" uploaded successfully!`, 'success');
+            
+            // Reload voice list
+            await loadAvailableVoices();
+            
+        } catch (error) {
+            console.error('❌ Voice upload failed:', error);
+            showMessage(`Failed to upload voice file: ${error.message}`, 'error');
+        }
+    }
+    
+    async function loadAvailableVoices() {
+        try {
+            const response = await fetch('/api/voices/list');
+            if (!response.ok) {
+                throw new Error(`Failed to load voices: ${response.statusText}`);
+            }
+            
+            const voices = await response.json();
+            window.voiceModels = voices;
+            
+            console.log(`📋 Loaded ${voices.length} voice models`);
+            
+            // Update voice dropdowns
+            updateVoiceDropdowns(voices);
+            
+        } catch (error) {
+            console.error('❌ Failed to load voices:', error);
+            window.voiceModels = [];
+            updateVoiceDropdowns([]);
+        }
+    }
+    
+    function updateVoiceDropdowns(voices) {
+        const voiceSelect = document.getElementById('voiceSelect');
+        const characterVoice = document.getElementById('characterVoice');
+        
+        // Update settings voice dropdown
+        if (voiceSelect) {
+            voiceSelect.innerHTML = '<option value="">No voices available...</option>';
+            voices.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.id;
+                option.textContent = `${voice.name} (${voice.type})`;
+                voiceSelect.appendChild(option);
+            });
+            
+            // Update remove button state
+            const removeBtn = document.getElementById('removeVoiceBtn');
+            if (removeBtn) {
+                removeBtn.disabled = voices.length === 0;
+            }
+            
+            // Update test button state
+            const testBtn = document.getElementById('testVoiceBtn');
+            if (testBtn) {
+                testBtn.disabled = voices.length === 0;
+            }
+        }
+        
+        // Update character voice dropdown
+        if (characterVoice) {
+            const currentValue = characterVoice.value;
+            characterVoice.innerHTML = '<option value="">Select voice...</option>';
+            voices.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.id;
+                option.textContent = `${voice.name} (${voice.type})`;
+                if (voice.id === currentValue) {
+                    option.selected = true;
+                }
+                characterVoice.appendChild(option);
+            });
+        }
+    }
+    
+    async function removeVoiceModel() {
+        const voiceSelect = document.getElementById('voiceSelect');
+        const selectedVoice = voiceSelect.value;
+        
+        if (!selectedVoice) {
+            showMessage('Please select a voice to remove', 'warning');
+            return;
+        }
+        
+        if (!confirm('Are you sure you want to remove this voice model?')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/voices/${selectedVoice}`, {
+                method: 'DELETE'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to remove voice: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            console.log('✅ Voice removed successfully:', result);
+            
+            showMessage('Voice model removed successfully!', 'success');
+            
+            // Reload voice list
+            await loadAvailableVoices();
+            
+        } catch (error) {
+            console.error('❌ Failed to remove voice:', error);
+            showMessage(`Failed to remove voice: ${error.message}`, 'error');
+        }
+    }
+    
+    async function testSelectedVoice() {
+        const voiceSelect = document.getElementById('voiceSelect');
+        const testText = document.getElementById('voiceTestText');
+        
+        const selectedVoice = voiceSelect.value;
+        const text = testText.value.trim();
+        
+        if (!selectedVoice) {
+            showMessage('Please select a voice to test', 'warning');
+            return;
+        }
+        
+        if (!text) {
+            testText.value = 'Hello, this is a voice test.';
+            text = testText.value;
+        }
+        
+        try {
+            console.log(`🔊 Testing voice: ${selectedVoice} with text: "${text}"`);
+            
+            const response = await fetch('/api/voices/test', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    voice_id: selectedVoice,
+                    text: text
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Voice test failed: ${response.statusText}`);
+            }
+            
+            // The response should be audio data
+            const audioBlob = await response.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            
+            audio.play().catch(error => {
+                console.error('❌ Failed to play test audio:', error);
+                showMessage('Failed to play test audio', 'error');
+            });
+            
+        } catch (error) {
+            console.error('❌ Voice test failed:', error);
+            showMessage(`Voice test failed: ${error.message}`, 'error');
+        }
+    }
+    
+    async function testCharacterVoice() {
+        const characterVoice = document.getElementById('characterVoice');
+        const testText = document.getElementById('characterVoiceTestText');
+        
+        const selectedVoice = characterVoice.value;
+        const text = testText.value.trim();
+        
+        if (!selectedVoice) {
+            showMessage('Please select a voice for this character', 'warning');
+            return;
+        }
+        
+        if (!text) {
+            testText.value = 'Hello, this is my character voice.';
+            text = testText.value;
+        }
+        
+        // Get voice settings
+        const pitch = document.getElementById('voicePitch')?.value || 1.0;
+        const speed = document.getElementById('voiceSpeed')?.value || 1.0;
+        const volume = document.getElementById('voiceVolume')?.value || 1.0;
+        
+        try {
+            console.log(`🔊 Testing character voice: ${selectedVoice} with settings - pitch: ${pitch}, speed: ${speed}, volume: ${volume}`);
+            
+            const response = await fetch('/api/voices/test', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    voice_id: selectedVoice,
+                    text: text,
+                    settings: {
+                        pitch: parseFloat(pitch),
+                        speed: parseFloat(speed),
+                        volume: parseFloat(volume)
+                    }
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Character voice test failed: ${response.statusText}`);
+            }
+            
+            // The response should be audio data
+            const audioBlob = await response.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            
+            audio.play().catch(error => {
+                console.error('❌ Failed to play character test audio:', error);
+                showMessage('Failed to play character test audio', 'error');
+            });
+            
+        } catch (error) {
+            console.error('❌ Character voice test failed:', error);
+            showMessage(`Character voice test failed: ${error.message}`, 'error');
+        }
+    }
+    
+    function updateVoiceSetting(setting, value) {
+        // Update the display value
+        const valueDisplay = document.getElementById(`voice${setting.charAt(0).toUpperCase() + setting.slice(1)}Value`);
+        if (valueDisplay) {
+            valueDisplay.textContent = value;
+        }
+        
+        console.log(`🎚️ Updated voice ${setting} to ${value}`);
+    }
+    
+    // Character profile voice/model management functions
+    async function loadCharacterModelsAndVoices() {
+        try {
+            // Load available models for default model dropdown
+            const modelsResponse = await fetch('/api/live2d/models');
+            if (modelsResponse.ok) {
+                const models = await modelsResponse.json();
+                updateCharacterDefaultModelDropdown(models);
+            }
+            
+            // Load available voices (already loaded by loadAvailableVoices)
+            // Character voice dropdown is updated by updateVoiceDropdowns
+            
+        } catch (error) {
+            console.error('❌ Failed to load character models and voices:', error);
+        }
+    }
+    
+    function updateCharacterDefaultModelDropdown(models) {
+        const defaultModelSelect = document.getElementById('characterDefaultModel');
+        if (!defaultModelSelect) return;
+        
+        const currentValue = defaultModelSelect.value;
+        defaultModelSelect.innerHTML = '<option value="">Select default model...</option>';
+        
+        models.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model.id;
+            option.textContent = model.name;
+            if (model.id === currentValue) {
+                option.selected = true;
+            }
+            defaultModelSelect.appendChild(option);
+        });
+    }
+    
+    // Override character profile functions to include voice/model data
+    const originalSaveCharacterProfile = window.saveCharacterProfile;
+    window.saveCharacterProfile = async function() {
+        // Get voice and model assignment data
+        const voiceData = {
+            voice_id: document.getElementById('characterVoice')?.value || null,
+            default_model: document.getElementById('characterDefaultModel')?.value || null,
+            voice_settings: {
+                pitch: parseFloat(document.getElementById('voicePitch')?.value || 1.0),
+                speed: parseFloat(document.getElementById('voiceSpeed')?.value || 1.0),
+                volume: parseFloat(document.getElementById('voiceVolume')?.value || 1.0)
+            }
+        };
+        
+        console.log('💾 Saving character with voice/model data:', voiceData);
+        
+        // Call original save function if it exists
+        if (originalSaveCharacterProfile) {
+            await originalSaveCharacterProfile();
+        }
+        
+        // Save voice/model assignments separately
+        await saveCharacterVoiceAssignments(voiceData);
+    };
+    
+    async function saveCharacterVoiceAssignments(voiceData) {
+        const characterName = document.getElementById('characterName')?.value;
+        if (!characterName) {
+            console.warn('⚠️ No character name provided for voice assignment');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/characters/voice-assignment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    character_name: characterName,
+                    ...voiceData
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to save voice assignment: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            console.log('✅ Character voice assignment saved:', result);
+            
+        } catch (error) {
+            console.error('❌ Failed to save character voice assignment:', error);
+            showMessage(`Failed to save voice assignment: ${error.message}`, 'error');
+        }
+    }
+    
+    // Load character voice assignments when character is selected
+    const originalOnCharacterChange = window.onCharacterChange;
+    window.onCharacterChange = async function() {
+        // Call original function if it exists
+        if (originalOnCharacterChange) {
+            await originalOnCharacterChange();
+        }
+        
+        // Load voice assignments for selected character
+        await loadCharacterVoiceAssignments();
+    };
+    
+    async function loadCharacterVoiceAssignments() {
+        const characterName = document.getElementById('characterName')?.value;
+        if (!characterName) return;
+        
+        try {
+            const response = await fetch(`/api/characters/voice-assignment/${encodeURIComponent(characterName)}`);
+            if (!response.ok) {
+                if (response.status === 404) {
+                    // No voice assignment found - this is normal for new characters
+                    return;
+                }
+                throw new Error(`Failed to load voice assignment: ${response.statusText}`);
+            }
+            
+            const voiceAssignment = await response.json();
+            console.log('📋 Loaded character voice assignment:', voiceAssignment);
+            
+            // Update UI with loaded data
+            if (voiceAssignment.voice_id) {
+                const voiceSelect = document.getElementById('characterVoice');
+                if (voiceSelect) voiceSelect.value = voiceAssignment.voice_id;
+            }
+            
+            if (voiceAssignment.default_model) {
+                const modelSelect = document.getElementById('characterDefaultModel');
+                if (modelSelect) modelSelect.value = voiceAssignment.default_model;
+            }
+            
+            if (voiceAssignment.voice_settings) {
+                const settings = voiceAssignment.voice_settings;
+                if (settings.pitch && document.getElementById('voicePitch')) {
+                    document.getElementById('voicePitch').value = settings.pitch;
+                    updateVoiceSetting('pitch', settings.pitch);
+                }
+                if (settings.speed && document.getElementById('voiceSpeed')) {
+                    document.getElementById('voiceSpeed').value = settings.speed;
+                    updateVoiceSetting('speed', settings.speed);
+                }
+                if (settings.volume && document.getElementById('voiceVolume')) {
+                    document.getElementById('voiceVolume').value = settings.volume;
+                    updateVoiceSetting('volume', settings.volume);
+                }
+            }
+            
+        } catch (error) {
+            console.error('❌ Failed to load character voice assignment:', error);
+        }
+    }
+    
+    // Override character profiles open function to load models and voices
+    const originalOpenCharacterProfiles = window.openCharacterProfiles;
+    window.openCharacterProfiles = function() {
+        if (originalOpenCharacterProfiles) {
+            originalOpenCharacterProfiles();
+        }
+        
+        // Load models and voices for dropdowns
+        loadCharacterModelsAndVoices();
+    };
     
     // Override window.openSettings to initialize model lists
     const originalOpenSettings = window.openSettings;

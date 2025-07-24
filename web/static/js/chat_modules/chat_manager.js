@@ -644,7 +644,8 @@ class AvatarChatManager {
                     emotion, 
                     avatarId, 
                     personalityTraits, 
-                    intensity
+                    intensity,
+                    3  // Higher priority for user chat responses
                 );
             } catch (error) {
                 console.warn('⚠️ Error triggering TTS:', error);

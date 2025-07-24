@@ -55,7 +55,100 @@ def get_autonomous_status():
         logger.error(f"Error getting autonomous status: {e}")
         return jsonify({'error': str(e)}), 500
 
-@autonomous_bp.route('/api/autonomous/enable', methods=['POST'])
+@autonomous_bp.route('/api/autonomous/test_conversation')
+def test_autonomous_conversation():
+    """Test autonomous conversation with currently loaded models"""
+    try:
+        # Get currently loaded models
+        loaded_models = getattr(app_globals, 'loaded_models', [])
+        
+        if not loaded_models:
+            return jsonify({
+                'success': False,
+                'message': 'No models currently loaded. Please load some Live2D models first.',
+                'loaded_models': []
+            })
+        
+        # Get autonomous manager
+        autonomous_manager = getattr(app_globals, 'autonomous_manager', None)
+        if not autonomous_manager:
+            return jsonify({
+                'success': False,
+                'message': 'Autonomous manager not available',
+                'loaded_models': loaded_models
+            })
+        
+        # Check if system is running
+        is_running = getattr(autonomous_manager, 'is_running', False)
+        
+        return jsonify({
+            'success': True,
+            'autonomous_system_running': is_running,
+            'loaded_models': loaded_models,
+            'message': f'Found {len(loaded_models)} loaded models. Autonomous system {"running" if is_running else "not running"}.'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error testing autonomous conversation: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@autonomous_bp.route('/api/autonomous/force_conversation')
+def force_autonomous_conversation():
+    """Force trigger an autonomous conversation for testing"""
+    try:
+        # Get autonomous manager
+        autonomous_manager = getattr(app_globals, 'autonomous_manager', None)
+        if not autonomous_manager:
+            return jsonify({
+                'success': False,
+                'message': 'Autonomous manager not available'
+            })
+        
+        # Get currently loaded models
+        loaded_models = getattr(app_globals, 'loaded_models', [])
+        
+        if len(loaded_models) < 2:
+            return jsonify({
+                'success': False,
+                'message': f'Need at least 2 models for conversation, only {len(loaded_models)} loaded',
+                'loaded_models': loaded_models
+            })
+        
+        # Force trigger a conversation (bypass user inactivity check)
+        import asyncio
+        active_avatars = autonomous_manager._get_active_avatars()
+        
+        if len(active_avatars) >= 2:
+            # Run the conversation in the background
+            def run_conversation():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(autonomous_manager._trigger_autonomous_conversation(active_avatars))
+                finally:
+                    loop.close()
+            
+            import threading
+            thread = threading.Thread(target=run_conversation)
+            thread.start()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Forced conversation between {len(active_avatars)} avatars',
+                'avatars': [a['name'] for a in active_avatars]
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': f'Not enough active avatars found: {len(active_avatars)}',
+                'active_avatars': active_avatars
+            })
+        
+    except Exception as e:
+        logger.error(f"Error forcing autonomous conversation: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@autonomous_bp.route('/api/autonomous/test_message', methods=['POST'])
 def enable_autonomous_system():
     """Enable autonomous avatar conversations"""
     try:

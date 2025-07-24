@@ -205,6 +205,14 @@ except ImportError:
         rag_blueprint = Blueprint('rag', __name__)
 
 try:
+    from routes.app_routes_voices import voices_bp
+except ImportError:
+    try:
+        from .routes.app_routes_voices import voices_bp
+    except ImportError:
+        voices_bp = Blueprint('voices', __name__)
+
+try:
     import app_globals
 except ImportError:
     try:
@@ -322,6 +330,7 @@ app.register_blueprint(system_bp)
 app.register_blueprint(characters_routes)
 app.register_blueprint(users_routes)
 app.register_blueprint(rag_blueprint)
+app.register_blueprint(voices_bp, url_prefix='/api/voices')
 
 # Register logging blueprint
 try:
@@ -381,6 +390,14 @@ try:
     print("✅ Autonomous avatar SocketIO handlers registered")
 except ImportError as e:
     print(f"⚠️ Could not setup autonomous SocketIO handlers: {e}")
+
+# Setup Live2D SocketIO handlers
+try:
+    from routes.app_routes_live2d import setup_live2d_socketio_handlers
+    setup_live2d_socketio_handlers(socketio)
+    print("✅ Live2D SocketIO handlers registered")
+except ImportError as e:
+    print(f"⚠️ Could not setup Live2D SocketIO handlers: {e}")
 
 # =============================================================================
 # Helper Functions

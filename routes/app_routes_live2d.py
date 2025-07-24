@@ -4,6 +4,7 @@ Live2D-related Flask route definitions for the AI Companion backend.
 """
 from flask import Blueprint, jsonify, request
 import os
+import time
 from datetime import datetime
 import app_globals
 import logging
@@ -500,6 +501,16 @@ def api_live2d_models_detailed():
         return jsonify(detailed_models)
     except Exception as e:
         logger.error(f"Error getting detailed Live2D models: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@live2d_bp.route('/api/live2d/loaded_models')
+def api_live2d_loaded_models():
+    """Get currently loaded Live2D models from the frontend"""
+    try:
+        # Return the currently loaded models tracked by SocketIO
+        return jsonify(app_globals.loaded_models)
+    except Exception as e:
+        logger.error(f"Error getting loaded Live2D models: {e}")
         return jsonify({'error': str(e)}), 500
 
 @live2d_bp.route('/api/live2d/model/<model_name>/expressions')
@@ -1411,3 +1422,67 @@ def scan_and_import_models():
     except Exception as e:
         logger.error(f"Error scanning and importing models: {e}")
         return jsonify({'error': str(e)}), 500
+
+
+# SocketIO Events for Live2D Model Tracking
+def setup_live2d_socketio_handlers(socketio):
+    """Setup SocketIO handlers for Live2D model tracking"""
+    
+    @socketio.on('live2d_models_updated')
+    def handle_models_updated(data):
+        """Handle when the frontend updates the list of loaded models"""
+        try:
+            models = data.get('models', [])
+            app_globals.loaded_models = models
+            logger.info(f"Updated loaded models: {[m.get('name', 'Unknown') for m in models]}")
+            
+            # Emit to all clients that models have been updated
+            socketio.emit('loaded_models_changed', {'models': models})
+            
+        except Exception as e:
+            logger.error(f"Error handling models updated: {e}")
+    
+    @socketio.on('live2d_model_loaded')
+    def handle_model_loaded(data):
+        """Handle when a model is loaded"""
+        try:
+            model_name = data.get('modelName')
+            model_info = data.get('modelInfo', {})
+            
+            # Add to loaded models if not already present
+            existing = next((m for m in app_globals.loaded_models if m.get('name') == model_name), None)
+            if not existing:
+                new_model = {
+                    'name': model_name,
+                    'id': model_name.lower(),
+                    'personality': model_info.get('personality', 'neutral'),
+                    'loaded_at': data.get('timestamp', time.time())
+                }
+                app_globals.loaded_models.append(new_model)
+                logger.info(f"Model loaded: {model_name}")
+                
+                # Emit to all clients
+                socketio.emit('model_loaded', {'model': new_model})
+                socketio.emit('loaded_models_changed', {'models': app_globals.loaded_models})
+            
+        except Exception as e:
+            logger.error(f"Error handling model loaded: {e}")
+    
+    @socketio.on('live2d_model_unloaded')
+    def handle_model_unloaded(data):
+        """Handle when a model is unloaded"""
+        try:
+            model_name = data.get('modelName')
+            
+            # Remove from loaded models
+            app_globals.loaded_models = [m for m in app_globals.loaded_models if m.get('name') != model_name]
+            logger.info(f"Model unloaded: {model_name}")
+            
+            # Emit to all clients
+            socketio.emit('model_unloaded', {'modelName': model_name})
+            socketio.emit('loaded_models_changed', {'models': app_globals.loaded_models})
+            
+        except Exception as e:
+            logger.error(f"Error handling model unloaded: {e}")
+    
+    logger.info("Live2D SocketIO handlers setup complete")

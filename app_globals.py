@@ -16,5 +16,8 @@ system_detector = None
 model_downloader = None
 live2d_manager = None
 
+# Currently loaded Live2D models (updated by frontend via SocketIO)
+loaded_models = []
+
 # Import app_state from app.py to avoid circular import issues
 app_state = None

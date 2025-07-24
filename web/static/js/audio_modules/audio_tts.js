@@ -6,13 +6,90 @@ window.ttsState = {
     isPlaying: false,
     currentEmotion: 'neutral',
     currentIntensity: 0.5,
-    queue: []
+    queue: [],
+    audioQueueMode: 'queue' // 'queue', 'interrupt', 'priority'
 };
 
-function triggerEmotionalTTS(text, emotion, avatarId, personalityTraits = {}, intensity = 0.5) {
+// Audio queue management functions
+function setAudioQueueMode(mode) {
+    if (window.audioQueueManager) {
+        window.audioQueueManager.setPreemptionMode(mode);
+        window.ttsState.audioQueueMode = mode;
+        console.log(`🎵 Audio queue mode set to: ${mode}`);
+    } else {
+        console.warn('🎵 Audio queue manager not available');
+    }
+}
+
+function getAudioQueueStatus() {
+    if (window.audioQueueManager) {
+        return window.audioQueueManager.getStatus();
+    }
+    return { available: false };
+}
+
+function clearAudioQueue() {
+    if (window.audioQueueManager) {
+        window.audioQueueManager.clearQueue();
+        console.log('🎵 Audio queue cleared');
+    }
+}
+
+function stopCurrentAudio() {
+    if (window.audioQueueManager) {
+        window.audioQueueManager.stopCurrentAudio();
+        console.log('🎵 Current audio stopped');
+    }
+}
+
+function triggerEmotionalTTS(text, emotion, avatarId, personalityTraits = {}, intensity = 0.5, priority = 1) {
     return new Promise(async (resolve, reject) => {
         try {
             console.log(`🎤 Triggering emotional TTS: "${text}" with emotion: ${emotion} for avatar: ${avatarId}`);
+            
+            // Use audio queue manager to prevent overlap
+            if (window.audioQueueManager) {
+                console.log(`🎵 Using audio queue manager for avatar: ${avatarId}`);
+                
+                const audioRequest = {
+                    text: text,
+                    emotion: emotion || 'neutral',
+                    avatarId: avatarId,
+                    personalityTraits: personalityTraits || {},
+                    intensity: intensity || 0.5,
+                    priority: priority,
+                    type: 'tts'
+                };
+                
+                try {
+                    const result = await window.audioQueueManager.queueAudio(audioRequest);
+                    resolve(result || { queued: true });
+                } catch (queueError) {
+                    console.error('Audio queue manager failed, falling back to direct playback:', queueError);
+                    // Fallback to original method
+                    await triggerEmotionalTTSDirect(text, emotion, avatarId, personalityTraits, intensity);
+                    resolve({ fallback: true });
+                }
+                return;
+            }
+            
+            // Fallback to direct playback if queue manager not available
+            console.log(`🎤 Audio queue manager not available, using direct playback for: ${avatarId}`);
+            await triggerEmotionalTTSDirect(text, emotion, avatarId, personalityTraits, intensity);
+            resolve({ direct: true });
+            
+        } catch (error) {
+            console.error('Emotional TTS error:', error);
+            reject(error);
+        }
+    });
+}
+
+// Direct TTS function (original implementation)
+function triggerEmotionalTTSDirect(text, emotion, avatarId, personalityTraits = {}, intensity = 0.5) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            console.log(`🎤 Direct TTS: "${text}" with emotion: ${emotion} for avatar: ${avatarId}`);
             
             // Update TTS state
             window.ttsState.isPlaying = true;
@@ -74,7 +151,7 @@ function triggerEmotionalTTS(text, emotion, avatarId, personalityTraits = {}, in
             resolve(ttsData);
             
         } catch (error) {
-            console.error('Emotional TTS error:', error);
+            console.error('Direct TTS error:', error);
             window.ttsState.isPlaying = false;
             
             // Fallback to basic TTS if emotional TTS fails
@@ -804,6 +881,7 @@ function getEmotionIcon(emotion) {
 
 // Export to window for global access
 window.triggerEmotionalTTS = triggerEmotionalTTS;
+window.triggerEmotionalTTSDirect = triggerEmotionalTTSDirect;
 window.playEmotionalTTSAudio = playEmotionalTTSAudio;
 window.createEmotionalAudioEffects = createEmotionalAudioEffects;
 window.fallbackTTSPlayback = fallbackTTSPlayback;
@@ -813,3 +891,9 @@ window.triggerAvatarExpressionSync = triggerAvatarExpressionSync;
 window.applyLipsyncToAvatar = applyLipsyncToAvatar;
 window.createBasicLipsyncPattern = createBasicLipsyncPattern;
 window.estimateAudioDuration = estimateAudioDuration;
+
+// Export audio queue management functions
+window.setAudioQueueMode = setAudioQueueMode;
+window.getAudioQueueStatus = getAudioQueueStatus;
+window.clearAudioQueue = clearAudioQueue;
+window.stopCurrentAudio = stopCurrentAudio;

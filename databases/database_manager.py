@@ -48,6 +48,14 @@ def get_conversations_connection():
     db_path.parent.mkdir(parents=True, exist_ok=True)
     return sqlite3.connect(str(db_path))
 
+def get_voices_connection():
+    """Get connection to the voices database"""
+    db_path = get_database_path("voices.db")
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row  # Enable dictionary-like access to rows
+    return conn
+
 def get_personality_connection():
     """Get connection to the personality database"""
     db_path = get_database_path("personality.db")

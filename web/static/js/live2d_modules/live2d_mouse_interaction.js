@@ -108,7 +108,7 @@ function setupModelScaling(model) {
         const newScale = model.scale.x * scaleFactor;
         
         // Limit scale between 0.1 and 5.0
-        if (newScale >= 0.1 && newScale <= 5.0) {
+        if (newScale >= 0 && newScale <= 3.0) {
             model.scale.set(newScale);
             
             // Update UI slider if available

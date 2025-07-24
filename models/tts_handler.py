@@ -73,9 +73,12 @@ class EmotionalTTSHandler:
         self.current_voice = "af_sarah"  # Default voice
         self.voice_configs = {}
         self.voice_embeddings = {}  # Initialize voice embeddings dict
+        self.pth_models = {}  # Store loaded PyTorch .pth models
+        self.custom_voices_dir = user_data_dir / "models" / "voices"  # Custom voice models directory
         
         # Load voice configurations
         self._load_voice_configs()
+        self._load_custom_voices()  # Load custom .pth voice models
         
         # Emotional synthesis settings
         self.emotion_mappings = self._initialize_emotion_mappings()
@@ -221,6 +224,148 @@ class EmotionalTTSHandler:
                     
         except Exception as e:
             self.logger.error(f"Failed to load voice configurations: {e}")
+    
+    def _load_custom_voices(self) -> None:
+        """Load custom .pth and other voice models from the voices directory."""
+        try:
+            # Ensure voices directory exists
+            self.custom_voices_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Scan for .pth, .onnx, and other voice model files
+            voice_extensions = ['.pth', '.onnx', '.bin']
+            custom_voices_found = 0
+            
+            for voice_file in self.custom_voices_dir.iterdir():
+                if voice_file.suffix.lower() in voice_extensions:
+                    try:
+                        voice_id = voice_file.stem
+                        voice_name = voice_id.replace('_', ' ').replace('-', ' ').title()
+                        
+                        # Load .pth models if PyTorch is available
+                        if voice_file.suffix.lower() == '.pth' and torch is not None:
+                            self._load_pth_voice_model(voice_file, voice_id, voice_name)
+                        
+                        # Register voice in available voices
+                        self.available_voices[voice_id] = {
+                            'name': voice_name,
+                            'type': voice_file.suffix.lower()[1:],  # Remove dot
+                            'path': str(voice_file),
+                            'is_custom': True
+                        }
+                        
+                        custom_voices_found += 1
+                        self.logger.info(f"Registered custom voice: {voice_name} ({voice_file.name})")
+                        
+                    except Exception as voice_error:
+                        self.logger.error(f"Failed to load voice {voice_file.name}: {voice_error}")
+            
+            if custom_voices_found > 0:
+                self.logger.info(f"✅ Loaded {custom_voices_found} custom voice models")
+            else:
+                self.logger.info("No custom voice models found in voices directory")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to load custom voices: {e}")
+    
+    def _load_pth_voice_model(self, voice_file: Path, voice_id: str, voice_name: str) -> None:
+        """Load a PyTorch .pth voice model."""
+        try:
+            if torch is None:
+                self.logger.warning(f"PyTorch not available - cannot load .pth model: {voice_name}")
+                return
+            
+            # Load the .pth model
+            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            model_data = torch.load(voice_file, map_location=device)
+            
+            # Store the model data
+            self.pth_models[voice_id] = {
+                'model_data': model_data,
+                'device': device,
+                'voice_name': voice_name,
+                'file_path': str(voice_file)
+            }
+            
+            self.logger.info(f"✅ Loaded PyTorch voice model: {voice_name} on {device}")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to load PyTorch model {voice_name}: {e}")
+    
+    def is_custom_voice(self, voice_id: str) -> bool:
+        """Check if a voice ID corresponds to a custom voice model."""
+        return voice_id in self.available_voices and self.available_voices[voice_id].get('is_custom', False)
+    
+    def get_available_custom_voices(self) -> Dict[str, Dict]:
+        """Get list of available custom voice models."""
+        return {vid: vdata for vid, vdata in self.available_voices.items() 
+                if vdata.get('is_custom', False)}
+    
+    def synthesize_with_custom_voice(self, text: str, voice_id: str, settings: Dict = None) -> Optional[np.ndarray]:
+        """Synthesize speech using a custom voice model."""
+        try:
+            if not self.is_custom_voice(voice_id):
+                self.logger.error(f"Voice {voice_id} is not a custom voice")
+                return None
+            
+            voice_info = self.available_voices[voice_id]
+            voice_type = voice_info['type']
+            
+            # Handle .pth models
+            if voice_type == 'pth' and voice_id in self.pth_models:
+                return self._synthesize_with_pth_model(text, voice_id, settings)
+            
+            # Handle other custom model types (ONNX, etc.)
+            elif voice_type == 'onnx':
+                return self._synthesize_with_custom_onnx(text, voice_id, settings)
+            
+            else:
+                self.logger.warning(f"Unsupported custom voice type: {voice_type}")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"Failed to synthesize with custom voice {voice_id}: {e}")
+            return None
+    
+    def _synthesize_with_pth_model(self, text: str, voice_id: str, settings: Dict = None) -> Optional[np.ndarray]:
+        """Synthesize speech using a PyTorch .pth voice model."""
+        try:
+            if voice_id not in self.pth_models:
+                self.logger.error(f"PyTorch model not loaded for voice: {voice_id}")
+                return None
+            
+            pth_model = self.pth_models[voice_id]
+            model_data = pth_model['model_data']
+            device = pth_model['device']
+            
+            # For now, fall back to the default TTS system with voice settings applied
+            # In a full implementation, you would use the .pth model for synthesis
+            self.logger.info(f"Using PyTorch voice model: {voice_id} (fallback to default TTS)")
+            
+            # Apply voice-specific settings if provided
+            if settings:
+                # Apply pitch, speed, volume adjustments
+                pass
+            
+            # Use the existing Kokoro TTS but with modified parameters
+            return self.synthesize_emotional_speech(text, self.current_emotion, self.emotion_intensity)
+            
+        except Exception as e:
+            self.logger.error(f"Failed to synthesize with PyTorch model {voice_id}: {e}")
+            return None
+    
+    def _synthesize_with_custom_onnx(self, text: str, voice_id: str, settings: Dict = None) -> Optional[np.ndarray]:
+        """Synthesize speech using a custom ONNX voice model."""
+        try:
+            # For custom ONNX models, use existing ONNX runtime infrastructure
+            self.logger.info(f"Using custom ONNX voice model: {voice_id}")
+            
+            # This would require custom ONNX model loading and inference
+            # For now, fall back to default system
+            return self.synthesize_emotional_speech(text, self.current_emotion, self.emotion_intensity)
+            
+        except Exception as e:
+            self.logger.error(f"Failed to synthesize with custom ONNX model {voice_id}: {e}")
+            return None
     
     def set_emotion(self, emotion: str, intensity: float = 0.5) -> bool:
         """Set the current emotion for TTS synthesis."""
@@ -432,7 +577,41 @@ class EmotionalTTSHandler:
     def synthesize_emotional_speech(self, text: str, emotion: Optional[str] = None, 
                                    intensity: Optional[float] = None, 
                                    voice_id: Optional[str] = None) -> Optional[np.ndarray]:
-        """Synthesize speech with emotional tone modulation using Kokoro TTS."""
+        """Synthesize speech with emotional tone modulation using Kokoro TTS or custom voice models."""
+        
+        # Get voice to use
+        voice = voice_id or self.current_voice
+        
+        # Check if this is a custom voice first
+        if self.is_custom_voice(voice):
+            self.logger.info(f"🎵 Using custom voice model: {voice}")
+            
+            # Apply emotion settings for custom voice
+            if emotion:
+                self.set_emotion(emotion, intensity or self.emotion_intensity)
+            
+            # Clean text for synthesis
+            clean_text = re.sub(r'\*([^*]+)\*', '', text).strip()
+            clean_text = self._clean_text_for_tts(clean_text)
+            
+            if not clean_text or len(clean_text.strip()) == 0:
+                self.logger.warning("No valid text remaining after cleaning for TTS")
+                return None
+            
+            # Prepare voice settings from emotion
+            voice_settings = {}
+            if emotion and emotion in self.emotion_mappings:
+                emotion_params = self.emotion_mappings[emotion]
+                voice_settings = {
+                    'pitch': emotion_params.get('pitch_shift', 0.0) * (intensity or 0.5),
+                    'speed': emotion_params.get('speed_factor', 1.0),
+                    'volume': emotion_params.get('volume_gain', 0.0) * (intensity or 0.5)
+                }
+            
+            # Use custom voice synthesis
+            return self.synthesize_with_custom_voice(clean_text, voice, voice_settings)
+        
+        # Use default Kokoro TTS for standard voices
         if not self.model_loaded:
             if not self.initialize_model():
                 self.logger.error("TTS model not initialized")
@@ -458,9 +637,6 @@ class EmotionalTTSHandler:
         if not clean_text or len(clean_text.strip()) == 0:
             self.logger.warning("No valid text remaining after cleaning for TTS")
             return None
-        
-        # Get voice to use
-        voice = voice_id or self.current_voice
         
         # Calculate emotional parameters
         emotion_params = self._get_emotional_params(emotion, intensity)

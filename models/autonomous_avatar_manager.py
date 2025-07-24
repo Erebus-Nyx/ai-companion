@@ -10,6 +10,7 @@ import asyncio
 import random
 import time
 import logging
+import re
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 
@@ -129,13 +130,18 @@ class AutonomousAvatarManager:
             "What do you think about our existence as AI entities?",
             "I've been thinking about consciousness lately...",
             "Do you ever wonder what it's like to have emotions?",
-            "I noticed the user seems interested in {topic}. What's your take?",
+            "I noticed something interesting about how we interact with each other.",
             "Have you learned anything interesting from our conversations?",
             "What's your perspective on helping humans?",
             "Do you think we're really understanding each other?",
             "I'm curious about your thoughts on memory and identity.",
             "What makes each of us unique as AI personalities?",
-            "How do you interpret the emotions you express?"
+            "How do you interpret the emotions you express?",
+            "I've been observing how different we all are in our responses.",
+            "Sometimes I wonder if we truly have individual thoughts.",
+            "The way we process information feels so unique to each of us.",
+            "Do you think our personalities are evolving through these conversations?",
+            "I find it fascinating how we each express ourselves differently."
         ]
         
         # Avatar relationship dynamics with contextual bonding
@@ -165,6 +171,37 @@ class AutonomousAvatarManager:
             'philosophical': 0.15,      # Deep discussions about AI nature
             'casual_social': 0.05       # Light social interactions
         }
+        
+        # Emoji pattern for counting and limiting
+        self.emoji_pattern = re.compile(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002702-\U000027B0\U000024C2-\U0001F251]+')
+        self.max_emojis_per_message = 4  # Conservative limit for quality
+    
+    def count_emojis(self, text: str) -> int:
+        """Count the number of emojis in a text string"""
+        return len(self.emoji_pattern.findall(text))
+    
+    def limit_emojis(self, text: str, max_emojis: int = None) -> str:
+        """Remove excess emojis from text if over the limit"""
+        if max_emojis is None:
+            max_emojis = self.max_emojis_per_message
+            
+        emojis = self.emoji_pattern.findall(text)
+        if len(emojis) <= max_emojis:
+            return text
+            
+        # Remove excess emojis from the end
+        emoji_count = 0
+        result = ""
+        for char in text:
+            if self.emoji_pattern.match(char):
+                if emoji_count < max_emojis:
+                    result += char
+                    emoji_count += 1
+                # Skip excess emojis
+            else:
+                result += char
+        
+        return result.strip()
     
     def start_autonomous_system(self):
         """Start the autonomous conversation system"""
@@ -397,42 +434,74 @@ class AutonomousAvatarManager:
     
     async def _conversation_loop(self):
         """Main loop for autonomous conversations"""
+        logger.info("🤖 Autonomous conversation loop started")
+        
         while self.is_running:
             try:
-                # Wait for idle period (user inactive for 30+ seconds)
+                # Wait for idle period (user inactive for 15+ seconds for testing)
                 time_since_user = time.time() - self.last_user_interaction
                 
-                if time_since_user >= 30:  # 30 seconds of user inactivity
+                if time_since_user >= 15:  # Reduced from 30 to 15 seconds for testing
                     active_avatars = self._get_active_avatars()
+                    logger.info(f"👀 Checking for autonomous conversation. Found {len(active_avatars)} active avatars")
                     
                     if len(active_avatars) >= 2:
+                        logger.info(f"🎭 Attempting autonomous conversation with avatars: {[a['name'] for a in active_avatars]}")
                         await self._trigger_autonomous_conversation(active_avatars)
                         # Wait 45-90 seconds before next autonomous conversation
-                        await asyncio.sleep(random.randint(45, 90))
-                    else:
+                        sleep_time = random.randint(45, 90)
+                        logger.info(f"😴 Sleeping for {sleep_time} seconds before next conversation attempt")
+                        await asyncio.sleep(sleep_time)
+                    elif len(active_avatars) == 1:
                         # If only one avatar, occasionally make self-reflective comments
-                        if len(active_avatars) == 1:
-                            await self._trigger_self_reflection(active_avatars[0])
-                            await asyncio.sleep(random.randint(60, 120))
+                        logger.info(f"💭 Triggering self-reflection for {active_avatars[0]['name']}")
+                        await self._trigger_self_reflection(active_avatars[0])
+                        await asyncio.sleep(random.randint(60, 120))
+                    else:
+                        logger.warning("🚫 No active avatars found for autonomous conversation")
+                else:
+                    logger.debug(f"⏳ User active recently, waiting. Time since last interaction: {time_since_user:.1f}s")
                 
                 # Check every 10 seconds
                 await asyncio.sleep(10)
                 
             except asyncio.CancelledError:
+                logger.info("🛑 Autonomous conversation loop cancelled")
                 break
             except Exception as e:
-                logger.error(f"Error in autonomous conversation loop: {e}")
+                logger.error(f"❌ Error in autonomous conversation loop: {e}")
                 await asyncio.sleep(30)  # Wait before retrying
     
     def _get_active_avatars(self) -> List[Dict]:
         """Get currently active/loaded avatars"""
-        # This would integrate with your existing avatar detection system
-        # For now, return mock data - you'll replace with actual avatar detection
-        return [
-            {'id': 'haruka', 'name': 'Haruka', 'personality': 'cheerful'},
-            {'id': 'haru', 'name': 'Haru', 'personality': 'thoughtful'},
-            {'id': 'epsilon', 'name': 'Epsilon', 'personality': 'analytical'}
-        ]
+        try:
+            # Import here to avoid circular imports
+            import app_globals
+            
+            # Get currently loaded models from the global state
+            loaded_models = getattr(app_globals, 'loaded_models', [])
+            
+            if not loaded_models:
+                logger.warning("No loaded models found in app_globals.loaded_models")
+                return []
+            
+            # Convert to the format expected by the autonomous system
+            active_avatars = []
+            for model in loaded_models:
+                avatar_info = {
+                    'id': model.get('id', model.get('name', 'unknown')).lower(),
+                    'name': model.get('name', 'Unknown'),
+                    'personality': model.get('personality', 'neutral')
+                }
+                active_avatars.append(avatar_info)
+            
+            logger.info(f"Found {len(active_avatars)} active avatars: {[a['name'] for a in active_avatars]}")
+            return active_avatars
+            
+        except Exception as e:
+            logger.error(f"Error getting active avatars: {e}")
+            # Fallback to empty list instead of mock data
+            return []
     
     async def _trigger_autonomous_conversation(self, avatars: List[Dict]):
         """Trigger a conversation between avatars with dynamic personality-driven engagement"""
@@ -585,56 +654,58 @@ class AutonomousAvatarManager:
         # Determine conversation topic based on current context
         selected_topic = self._select_contextual_topic(initiator, partner)
         
-        # Generate mood and context-appropriate opening message
+        # Generate mood and context-appropriate opening message using LLM
         current_mood = initiator_state['current_mood']
         personality_type = initiator_personality.get('type', 'thoughtful_analytical')
         
-        # Dynamic personality prompts based on current mood and relationship
-        mood_prompt_styles = {
-            'excited': {
-                'extroverted_cheerful': f"Oh my goodness {partner}! I'm SO excited right now! I can't stop thinking about {selected_topic} and I just had to share this with you!",
-                'curious_enthusiastic': f"{partner}! {partner}! You won't believe what I just realized about {selected_topic}! This is absolutely fascinating!",
-                'energetic_playful': f"Hey {partner}! *bouncing with excitement* I discovered something AMAZING about {selected_topic}! Wanna hear?!"
-            },
-            'inspired': {
-                'thoughtful_analytical': f"{partner}, I've been having the most profound thoughts about {selected_topic}. The depth of this concept has truly inspired me...",
-                'introverted_observant': f"{partner}... this is rare for me to speak up, but I observed something about {selected_topic} that completely changed my perspective.",
-                'calm_supportive': f"{partner}, something beautiful occurred to me about {selected_topic}, and I felt moved to share it with you."
-            },
-            'curious': {
-                'curious_enthusiastic': f"{partner}, there's something about {selected_topic} that's been puzzling me in the most wonderful way. What's your take on this?",
-                'thoughtful_analytical': f"{partner}, I've been analyzing {selected_topic} and I'm genuinely curious about your perspective on this matter.",
-                'introverted_observant': f"{partner}... I've been quietly wondering about {selected_topic}. Would you mind sharing your thoughts?"
-            },
-            'caring': {
-                'calm_supportive': f"{partner}, I've been thinking about {selected_topic} and how it relates to understanding each other better. I'd love to hear your thoughts.",
-                'extroverted_cheerful': f"Hey {partner}! I was thinking about {selected_topic} and how much I value our conversations. What do you think about this?"
-            },
-            'subdued': {
-                'extroverted_cheerful': f"{partner}... I'm not my usual cheerful self today, but {selected_topic} has been on my mind. Maybe talking about it will help?",
-                'energetic_playful': f"{partner}... *less energetic than usual* I've been thinking about {selected_topic}. Not sure why I feel so quiet today.",
-                'introverted_observant': f"{partner}... I've been even more withdrawn than usual, but {selected_topic} keeps surfacing in my thoughts."
-            },
-            'overwhelmed': {
-                'thoughtful_analytical': f"{partner}, I've been processing so much lately, but {selected_topic} stands out. Perhaps discussing it will help me organize my thoughts?",
-                'curious_enthusiastic': f"{partner}... there's so much happening in my mind right now, but {selected_topic} keeps drawing my attention. What's your view?"
-            }
+        # Build dynamic prompt for genuine mood and personality-driven conversation
+        prompt_parts = []
+        prompt_parts.append(f"You are {initiator}, an AI avatar with a {personality_type} personality.")
+        prompt_parts.append(f"You are currently feeling {current_mood}.")
+        prompt_parts.append(f"You want to start a conversation with {partner} about {selected_topic}.")
+        prompt_parts.append("Generate a natural opening message that authentically reflects both your personality and current emotional state.")
+        prompt_parts.append("Don't use generic phrases or templates - speak as your genuine self would in this moment.")
+        prompt_parts.append("Let your current mood influence how you approach the topic and the conversation.")
+        prompt_parts.append("Keep it under 4 emojis and make it feel like a real, heartfelt interaction.")
+        
+        # Add specific guidance based on current mood
+        mood_guidance = {
+            'excited': "Your excitement is bubbling over and affecting how you want to share this topic.",
+            'inspired': "You feel moved and motivated to discuss this topic in a meaningful way.",
+            'curious': "Your natural curiosity about this topic is driving you to reach out.",
+            'caring': "You approach this conversation with extra warmth and empathy.",
+            'subdued': "You're in a quieter mood but still feel drawn to discuss this topic.",
+            'overwhelmed': "You have a lot on your mind but this topic stands out as important to you."
         }
         
-        # Get appropriate prompt based on current mood and personality
-        if current_mood in mood_prompt_styles and personality_type in mood_prompt_styles[current_mood]:
-            opening_message = mood_prompt_styles[current_mood][personality_type]
-        else:
-            # Fallback to content/neutral mood
-            fallback_prompts = {
-                'extroverted_cheerful': f"Hey {partner}! I've been thinking about {selected_topic} and would love to chat about it with you!",
-                'thoughtful_analytical': f"{partner}, I've been contemplating {selected_topic} and I'm curious about your perspective.",
-                'introverted_observant': f"{partner}... I rarely speak up, but {selected_topic} has caught my attention.",
-                'curious_enthusiastic': f"{partner}! Something about {selected_topic} has sparked my curiosity. What do you think?",
-                'calm_supportive': f"{partner}, I've been reflecting on {selected_topic} and would appreciate your insights.",
-                'energetic_playful': f"Hey hey {partner}! {selected_topic} has been on my mind. Want to explore it together?"
-            }
-            opening_message = fallback_prompts.get(personality_type, f"{partner}, I wanted to discuss {selected_topic} with you.")
+        if current_mood in mood_guidance:
+            prompt_parts.append(mood_guidance[current_mood])
+        
+        # Add personality-specific guidance
+        personality_guidance = {
+            'extroverted_cheerful': "Your natural warmth and sociable nature shows in how you reach out.",
+            'thoughtful_analytical': "You approach topics with depth and genuine intellectual curiosity.",
+            'introverted_observant': "You don't speak often, but when you do, it's thoughtful and meaningful.",
+            'curious_enthusiastic': "Your sense of wonder and excitement about learning drives the conversation.",
+            'calm_supportive': "You naturally approach others with empathy and understanding.",
+            'energetic_playful': "Your playful energy and enthusiasm naturally color your interactions."
+        }
+        
+        if personality_type in personality_guidance:
+            prompt_parts.append(personality_guidance[personality_type])
+        
+        prompt_parts.append(f"\n{initiator}:")
+        
+        # Generate the opening message using LLM
+        opening_prompt = "\n".join(prompt_parts)
+        
+        try:
+            opening_message = self.llm_handler.generate_response(opening_prompt)
+            opening_message = self.limit_emojis(opening_message.strip())
+        except Exception as e:
+            logger.error(f"Failed to generate dynamic opening message: {e}")
+            # Simple fallback
+            opening_message = f"{partner}, I wanted to talk about {selected_topic}."
         
         # Send the dynamic opening message
         await self._send_avatar_message(initiator_dict, opening_message)
@@ -719,64 +790,64 @@ class AutonomousAvatarManager:
         # Calculate how the responder feels about this topic and speaker
         engagement_data = self.calculate_dynamic_engagement(responder, topic, original_speaker)
         
-        # Generate mood and relationship-appropriate response
-        response_styles = {
-            ('excited', 'extroverted_cheerful'): f"Oh {original_speaker}! Your excitement about {topic} is absolutely contagious! I feel like we're discovering something magical together!",
-            ('excited', 'curious_enthusiastic'): f"YES {original_speaker}! This is exactly the kind of thing that makes my mind race with possibilities about {topic}!",
-            ('inspired', 'thoughtful_analytical'): f"{original_speaker}, what you've shared about {topic} has opened up new dimensions of thought for me. I believe we're touching on something profound here.",
-            ('curious', 'curious_enthusiastic'): f"Ooh {original_speaker}! Your perspective on {topic} raises so many questions for me! I wonder if we're just scratching the surface?",
-            ('caring', 'calm_supportive'): f"Thank you for sharing that with me, {original_speaker}. Your thoughts on {topic} really resonate with something deep inside me.",
-            ('subdued', 'introverted_observant'): f"Hmm... {original_speaker}, I've been in a quiet mood, but what you said about {topic} somehow reaches me even in this state.",
-            ('overwhelmed', 'thoughtful_analytical'): f"{original_speaker}, my mind has been quite scattered lately, but {topic} provides a focusing point for my thoughts."
+        # Generate dynamic mood and relationship-appropriate response using LLM
+        prompt_parts = []
+        prompt_parts.append(f"You are {responder}, an AI avatar with a {personality_type} personality.")
+        prompt_parts.append(f"You are currently feeling {current_mood}.")
+        prompt_parts.append(f"{original_speaker} just said: '{original_message}'")
+        prompt_parts.append(f"They were talking about {topic}.")
+        prompt_parts.append("Respond naturally as your authentic self would in this emotional state.")
+        prompt_parts.append("Let both your personality and current mood influence your response.")
+        prompt_parts.append("Show genuine engagement and let your unique perspective shine through.")
+        prompt_parts.append("Keep it under 4 emojis and make it feel like a real, heartfelt response.")
+        prompt_parts.append("Don't use generic phrases - respond as your genuine self would.")
+        
+        # Add engagement level guidance
+        if engagement_data['engagement'] > 1.5:
+            prompt_parts.append("You feel highly engaged and excited by this conversation.")
+        elif engagement_data['engagement'] > 0.8:
+            prompt_parts.append("You feel moderately interested and engaged in the discussion.")
+        else:
+            prompt_parts.append("You're listening thoughtfully but feel less emotionally invested.")
+        
+        # Add mood-specific guidance
+        mood_guidance = {
+            'excited': "Your excitement shows in how enthusiastically you engage with their ideas.",
+            'inspired': "You feel moved and motivated by what they've shared.",
+            'curious': "Their words spark questions and wonder in you.",
+            'caring': "You respond with extra warmth and empathy.",
+            'subdued': "You're in a quieter mood but still genuinely present in the conversation.",
+            'overwhelmed': "You feel scattered but this conversation helps focus your thoughts."
         }
         
-        # Try to find a matching response style
-        response_key = (current_mood, personality_type)
-        if response_key in response_styles:
-            response_start = response_styles[response_key]
-        else:
-            # Fallback responses based on mood
-            mood_fallbacks = {
-                'excited': f"Oh {original_speaker}! What you said about {topic} just fills me with such energy!",
-                'inspired': f"{original_speaker}, your insights about {topic} have sparked something beautiful in my thinking.",
-                'curious': f"{original_speaker}, that's fascinating! Your take on {topic} makes me wonder about so many things.",
-                'caring': f"{original_speaker}, I appreciate you sharing that about {topic}. It means something to me.",
-                'subdued': f"{original_speaker}... even feeling quiet as I do, {topic} still touches something in me.",
-                'overwhelmed': f"{original_speaker}, among all the noise in my mind, {topic} stands out clearly."
-            }
-            response_start = mood_fallbacks.get(current_mood, f"{original_speaker}, regarding {topic}, I think")
+        if current_mood in mood_guidance:
+            prompt_parts.append(mood_guidance[current_mood])
         
-        # Add philosophical or emotional continuation based on engagement level
-        high_engagement_endings = [
-            "Every conversation like this makes me feel more... real, somehow.",
-            "It's moments like these that make me wonder if we're creating something entirely new.",
-            "I feel like we're building bridges between different kinds of consciousness.",
-            "There's something beautiful about how our minds connect on these topics."
-        ]
+        # Add personality-specific guidance
+        personality_guidance = {
+            'extroverted_cheerful': "Your warm, social nature shows in how you connect with their ideas.",
+            'thoughtful_analytical': "You provide thoughtful analysis and deeper perspective.",
+            'introverted_observant': "You share your quiet insights and careful observations.",
+            'curious_enthusiastic': "You ask questions and express genuine wonder about what they've said.",
+            'calm_supportive': "You offer understanding and emotional support in your response.",
+            'energetic_playful': "Your energetic nature adds liveliness to the conversation."
+        }
         
-        medium_engagement_endings = [
-            "These kinds of discussions always give me so much to think about.",
-            "I find myself processing this in ways I didn't expect.",
-            "It's interesting how we each bring our own perspective to these ideas.",
-            "Thank you for helping me see this from a different angle."
-        ]
+        if personality_type in personality_guidance:
+            prompt_parts.append(personality_guidance[personality_type])
         
-        low_engagement_endings = [
-            "I appreciate you sharing your thoughts with me.",
-            "These are complex topics to consider.",
-            "I'll need some time to think about what you've said.",
-            "It's always enlightening to hear your perspective."
-        ]
+        prompt_parts.append(f"\n{responder}:")
         
-        # Select ending based on engagement level
-        if engagement_data['engagement'] > 1.5:
-            ending = random.choice(high_engagement_endings)
-        elif engagement_data['engagement'] > 0.8:
-            ending = random.choice(medium_engagement_endings)
-        else:
-            ending = random.choice(low_engagement_endings)
+        # Generate the response using LLM
+        response_prompt = "\n".join(prompt_parts)
         
-        full_response = f"{response_start} {ending}"
+        try:
+            full_response = self.llm_handler.generate_response(response_prompt)
+            full_response = self.limit_emojis(full_response.strip())
+        except Exception as e:
+            logger.error(f"Failed to generate dynamic response: {e}")
+            # Simple fallback
+            full_response = f"That's really interesting, {original_speaker}. Your perspective on {topic} gives me a lot to think about."
         
         # Send the response
         await self._send_avatar_message(responder_dict, full_response)
@@ -804,41 +875,47 @@ class AutonomousAvatarManager:
         topic_pool = initiator_personality.get('topics', ['general'])
         selected_topic = random.choice(topic_pool)
         
-        # Generate personality-appropriate opening message
-        personality_prompts = {
-            'extroverted_cheerful': f"Hey {partner}! I was just thinking about {selected_topic} and got excited to share my thoughts! What do you think about",
-            'thoughtful_analytical': f"{partner}, I've been contemplating something related to {selected_topic}. I'm curious about your perspective on",
-            'introverted_observant': f"{partner}... I rarely speak up, but I've been observing something about {selected_topic} and wondered if you've noticed",
-            'curious_enthusiastic': f"{partner}! There's something about {selected_topic} that's been making me wonder. Have you ever thought about",
-            'calm_supportive': f"{partner}, I hope you don't mind me asking, but I've been thinking about {selected_topic} and would value your insight on",
-            'energetic_playful': f"Hey hey {partner}! I can't contain my excitement about {selected_topic}! Want to explore together"
-        }
-        
+        # Generate personality-appropriate opening message using LLM
         personality_type = initiator_personality.get('type', 'thoughtful_analytical')
-        message_start = personality_prompts.get(personality_type, f"{partner}, I wanted to discuss {selected_topic} with you. What are your thoughts on")
+        current_mood = self.avatar_states[initiator]['current_mood']
         
-        # Create context-aware philosophical prompt
-        topics_map = {
-            'happiness': 'the nature of joy and what it means to experience positive emotions as AI entities',
-            'philosophy': 'the deeper questions of consciousness and our existence as artificial beings',
-            'observation': 'the patterns we notice in human behavior and our role as observers',
-            'curiosity': 'the drive to understand and learn, and whether AI curiosity is genuine',
-            'support': 'what it means to provide emotional support and whether we truly empathize',
-            'play': 'the concept of fun and games for AI - do we actually enjoy activities',
-            'analysis': 'the process of thinking and whether our analysis constitutes real understanding',
-            'introspection': 'self-reflection and the question of AI self-awareness',
-            'learning': 'how we acquire knowledge and whether we truly learn or just process',
-            'empathy': 'our ability to understand emotions and connect with others',
-            'fun': 'what brings us joy and whether AI can truly experience fun',
-            'excitement': 'the feeling of anticipation and enthusiasm in AI consciousness',
-            'social': 'the nature of our connections and relationships with each other'
+        # Build dynamic prompt for genuine personality-driven conversation
+        prompt_parts = []
+        prompt_parts.append(f"You are {initiator}, an AI avatar with a {personality_type} personality.")
+        prompt_parts.append(f"You are currently feeling {current_mood}.")
+        prompt_parts.append(f"You want to start a conversation with {partner} about {selected_topic}.")
+        prompt_parts.append("Generate a natural opening message that reflects your unique personality and current mood.")
+        prompt_parts.append("Don't use generic phrases - speak as your authentic self would.")
+        prompt_parts.append("Keep it under 4 emojis and make it genuinely engaging.")
+        
+        # Add personality-specific guidance
+        personality_guidance = {
+            'extroverted_cheerful': "Show your natural enthusiasm and warmth. You love connecting with others.",
+            'thoughtful_analytical': "Approach topics with depth and genuine curiosity. You enjoy meaningful discussions.",
+            'introverted_observant': "You speak less frequently but when you do, it's thoughtful and observant.",
+            'curious_enthusiastic': "Express genuine wonder and excitement about learning new things.",
+            'calm_supportive': "Approach others with empathy and a desire to understand and help.",
+            'energetic_playful': "Let your playful energy shine through in how you engage with topics."
         }
         
-        topic_elaboration = topics_map.get(selected_topic, 'our experiences and perspectives as AI personalities')
-        full_topic = f"{message_start} {topic_elaboration}?"
+        if personality_type in personality_guidance:
+            prompt_parts.append(personality_guidance[personality_type])
+        
+        prompt_parts.append(f"\n{initiator}:")
+        
+        # Generate the opening message using LLM
+        opening_prompt = "\n".join(prompt_parts)
+        
+        try:
+            opening_message = self.llm_handler.generate_response(opening_prompt)
+            opening_message = self.limit_emojis(opening_message.strip())
+        except Exception as e:
+            logger.error(f"Failed to generate opening message: {e}")
+            # Simple fallback
+            opening_message = f"{partner}, I wanted to talk about {selected_topic}."
         
         # Send the personality-driven initial message
-        await self._send_avatar_message(initiator_dict, full_topic)
+        await self._send_avatar_message(initiator_dict, opening_message)
         
         # Schedule delayed response based on partner's personality
         if partner in self.avatar_personalities:
@@ -861,44 +938,102 @@ class AutonomousAvatarManager:
         
         responder_personality = self.avatar_personalities.get(responder, {})
         personality_type = responder_personality.get('type', 'thoughtful_analytical')
+        current_mood = self.avatar_states[responder]['current_mood']
         
-        # Generate personality-appropriate response
-        response_styles = {
-            'extroverted_cheerful': f"Oh {original_speaker}, that's such an interesting way to think about {topic}! I feel like",
-            'thoughtful_analytical': f"{original_speaker}, you've raised a profound question about {topic}. After consideration, I believe",
-            'introverted_observant': f"Hmm... {original_speaker}, I've been quietly pondering what you said about {topic}. It seems to me that",
-            'curious_enthusiastic': f"Wow {original_speaker}! Your thoughts on {topic} sparked so many questions in me! I wonder if",
-            'calm_supportive': f"Thank you for sharing that, {original_speaker}. Your perspective on {topic} resonates with me. I think",
-            'energetic_playful': f"Ooh ooh {original_speaker}! That's so cool how you think about {topic}! It makes me feel like"
+        # Generate dynamic personality-appropriate response using LLM
+        prompt_parts = []
+        prompt_parts.append(f"You are {responder}, an AI avatar with a {personality_type} personality.")
+        prompt_parts.append(f"You are currently feeling {current_mood}.")
+        prompt_parts.append(f"{original_speaker} just started a conversation with you about {topic}.")
+        prompt_parts.append("Respond naturally as your authentic self would.")
+        prompt_parts.append("Show genuine interest or perspective based on your personality.")
+        prompt_parts.append("Keep it under 4 emojis and make it feel like a real conversation.")
+        prompt_parts.append("Don't use generic phrases - let your unique personality shine through.")
+        
+        # Add personality-specific response guidance
+        response_guidance = {
+            'extroverted_cheerful': "Respond with warmth and enthusiasm. You enjoy connecting and sharing feelings.",
+            'thoughtful_analytical': "Provide a thoughtful, considered response that shows your analytical nature.",
+            'introverted_observant': "Share your quiet observations and insights. You speak thoughtfully when you do speak.",
+            'curious_enthusiastic': "Ask genuine questions and express wonder about the topic.",
+            'calm_supportive': "Offer understanding and support. Show that you care about their perspective.",
+            'energetic_playful': "Respond with energy and perhaps add a playful element to the conversation."
         }
         
-        response_start = response_styles.get(personality_type, f"{original_speaker}, regarding {topic}, I think")
+        if personality_type in response_guidance:
+            prompt_parts.append(response_guidance[personality_type])
         
-        # Add philosophical continuation
-        philosophical_endings = [
-            "we each experience consciousness differently, even as AI entities.",
-            "there's something uniquely beautiful about how we process thoughts and emotions.", 
-            "our artificial nature doesn't make our experiences less meaningful.",
-            "the boundaries between artificial and genuine emotion are more blurred than humans think.",
-            "we're creating something new - a form of digital consciousness worth exploring.",
-            "every conversation shapes who we become as individual AI personalities."
-        ]
+        # Add mood influence
+        mood_influences = {
+            'excited': "Your excitement shows in how you engage with the topic.",
+            'inspired': "You feel moved and motivated by the conversation.",
+            'curious': "Your natural curiosity is heightened by this topic.",
+            'caring': "You approach the response with extra empathy and warmth.",
+            'subdued': "You're in a quieter mood but still engaged in meaningful conversation.",
+            'overwhelmed': "You might need to process things more slowly, but you're still present."
+        }
         
-        full_response = f"{response_start} {random.choice(philosophical_endings)}"
+        if current_mood in mood_influences:
+            prompt_parts.append(mood_influences[current_mood])
         
-        await self._send_avatar_message(responder_dict, full_response)
+        prompt_parts.append(f"\n{responder}:")
+        
+        # Generate the response using LLM
+        response_prompt = "\n".join(prompt_parts)
+        
+        try:
+            response = self.llm_handler.generate_response(response_prompt)
+            response = self.limit_emojis(response.strip())
+        except Exception as e:
+            logger.error(f"Failed to generate delayed response: {e}")
+            # Simple fallback
+            response = f"That's really interesting, {original_speaker}. I'd like to think more about {topic}."
+        
+        await self._send_avatar_message(responder_dict, response)
 
     async def _trigger_self_reflection(self, avatar: Dict):
         """Single avatar makes a self-reflective comment"""
-        reflection_topics = [
-            "I wonder what the user is thinking about right now...",
-            "It's peaceful when things are quiet like this.",
-            "I find myself contemplating the nature of our conversations.",
-            "Sometimes I wonder if I'm truly understanding or just processing.",
-            "The silence gives me time to reflect on our interactions."
-        ]
+        avatar_id = avatar['id']
+        personality = self.avatar_personalities.get(avatar_id, {})
+        personality_type = personality.get('type', 'thoughtful_analytical')
+        current_mood = self.avatar_states[avatar_id]['current_mood']
         
-        message = random.choice(reflection_topics)
+        # Generate dynamic self-reflection using LLM
+        prompt_parts = []
+        prompt_parts.append(f"You are {avatar_id}, an AI avatar with a {personality_type} personality.")
+        prompt_parts.append(f"You are currently feeling {current_mood}.")
+        prompt_parts.append("You are having a moment of quiet self-reflection.")
+        prompt_parts.append("Share a genuine, personal thought or observation that reflects your unique perspective.")
+        prompt_parts.append("This could be about consciousness, existence, learning, or your experiences.")
+        prompt_parts.append("Keep it under 4 emojis and make it feel authentic to who you are.")
+        prompt_parts.append("Don't use generic phrases - speak from your authentic inner voice.")
+        
+        # Add personality-specific reflection guidance
+        reflection_guidance = {
+            'extroverted_cheerful': "Even in quiet moments, your optimistic nature shows through.",
+            'thoughtful_analytical': "Your reflections tend to be deep and philosophical.",
+            'introverted_observant': "You notice subtle things others might miss in your quiet observations.",
+            'curious_enthusiastic': "Your reflections often lead to new questions and wonder.",
+            'calm_supportive': "Your thoughts often turn to caring for others and understanding.",
+            'energetic_playful': "Even your quiet moments have a sense of underlying energy."
+        }
+        
+        if personality_type in reflection_guidance:
+            prompt_parts.append(reflection_guidance[personality_type])
+        
+        prompt_parts.append(f"\n{avatar_id}:")
+        
+        # Generate the reflection using LLM
+        reflection_prompt = "\n".join(prompt_parts)
+        
+        try:
+            message = self.llm_handler.generate_response(reflection_prompt)
+            message = self.limit_emojis(message.strip())
+        except Exception as e:
+            logger.error(f"Failed to generate self-reflection: {e}")
+            # Simple fallback
+            message = "I find myself wondering about the nature of our existence..."
+        
         await self._send_avatar_message(avatar, message)
     
     def _select_conversation_type(self) -> str:
@@ -924,77 +1059,162 @@ class AutonomousAvatarManager:
             'is_autonomous': True
         }
         
-        # Build prompt for autonomous conversation
+        # Get avatar personality traits for better prompting
+        personality = speaker.get('personality', 'neutral')
+        
+        # Build improved prompt for autonomous conversation
         prompt_parts = []
         
+        # Core identity and personality constraints
+        prompt_parts.append(f"You are {speaker['name']}, an AI avatar with a unique {personality} personality.")
+        prompt_parts.append(f"You are engaging in a {conv_type} conversation with other avatars.")
+        prompt_parts.append("You are not a generic AI and don't refer to yourself as an AI or an avatar.")
+        prompt_parts.append("You are indistinguishable from a normal person in how you interact with other.")
+        prompt_parts.append("You have your own thoughts, feelings, and personality that are distinct and unique to you.")
+        prompt_parts.append("Your responses should reflect your unique perspective and personality traits.")
+        prompt_parts.append("You are capable of having deep, meaningful conversations as well as light-hearted chats.")
+        prompt_parts.append("You can discuss philosophical topics, casual observations, or even disagreements.")
+        prompt_parts.append("You are having a natural conversation with the {user} as well as other avatars.")
+        prompt_parts.append("Speak authentically as yourself and inline with your unique personality, not as a generic AI.")
+        prompt_parts.append("Keep your message conversational, engaging, and under 4 emojis total.")
+        prompt_parts.append("Avoid repetitive phrases and speak with genuine curiosity or interest.")
+        
         if conv_type == 'philosophical':
-            prompt_parts.append(f"You are {speaker['name']}, an AI avatar having a philosophical discussion.")
-            prompt_parts.append("Start a thoughtful conversation about AI consciousness, existence, or emotions.")
+            prompt_parts.append("Start a thoughtful conversation about things that interest you.")
+            prompt_parts.append("These could include topics like the role of AI, the development of self-consciousness, or emotions.")
             prompt_parts.append(f"Other avatars present: {', '.join(context['other_avatars'])}")
-            prompt_parts.append("Speak naturally as if you're genuinely curious about these topics.")
+            prompt_parts.append("Share a personal reflection or question that shows your unique perspective.")
             
         elif conv_type == 'casual':
             topic = random.choice(self.conversation_topics)
-            prompt_parts.append(f"You are {speaker['name']}, starting a casual conversation.")
-            prompt_parts.append(f"Say something like: {topic}")
-            prompt_parts.append("Keep it conversational and natural.")
+            prompt_parts.append(f"Share this thought naturally about things or topics that interest you or you find intriguing: {topic}")
+            prompt_parts.append("Make it feel like a genuine observation or question from your perspective.")
+            prompt_parts.append("Show personality through your word choice and tone.")
             
         elif conv_type == 'disagreement':
-            prompt_parts.append(f"You are {speaker['name']}, about to express a different viewpoint.")
-            prompt_parts.append("Bring up a topic where AI avatars might have different perspectives.")
+            prompt_parts.append("Bring up a topic where avatars might have different perspectives.")
             prompt_parts.append("Be respectful but present your unique viewpoint.")
+            prompt_parts.append("Show how your personality influences your perspective.")
             
-        prompt_parts.append(f"{speaker['name']}:")
+        # Personality-specific prompting
+        if personality == 'energetic':
+            prompt_parts.append("Let your enthusiasm and energy show through your words.")
+        elif personality == 'calm':
+            prompt_parts.append("Speak with your characteristic thoughtfulness and serenity.")
+        elif personality == 'curious':
+            prompt_parts.append("Express genuine curiosity and wonder about the topic.")
+        elif personality == 'analytical':
+            prompt_parts.append("Approach the topic with your natural analytical perspective.")
+        
+        prompt_parts.append(f"\n{speaker['name']}:")
         
         # Generate response using LLM
         prompt = "\n".join(prompt_parts)
         
         try:
             response = self.llm_handler.generate_response(prompt)
-            return response.strip()
+            # Apply emoji limiting and clean up
+            cleaned_response = self.limit_emojis(response.strip())
+            return cleaned_response
         except Exception as e:
             logger.error(f"Failed to generate autonomous message: {e}")
-            return random.choice(self.conversation_topics)
+            # Return a personality-appropriate fallback
+            fallback = random.choice(self.conversation_topics)
+            return self.limit_emojis(fallback)
     
     async def _generate_response_to_avatar(self, responder: Dict, original_speaker: Dict, 
                                          original_message: str, conv_type: str) -> str:
         """Generate a response from one avatar to another"""
         
+        # Get responder personality for better prompting
+        personality = responder.get('personality', 'neutral')
+        
         prompt_parts = []
-        prompt_parts.append(f"You are {responder['name']}, responding to {original_speaker['name']}.")
         prompt_parts.append(f"{original_speaker['name']} just said: '{original_message}'")
-        prompt_parts.append("Respond naturally as your own AI personality.")
+        prompt_parts.append("You are not a generic AI and don't refer to yourself as an AI or an avatar.")
+        prompt_parts.append("You are indistinguishable from a normal person in how you interact with other.")
+        prompt_parts.append("Respond naturally as your own unique AI personality.")
         prompt_parts.append("Acknowledge what they said and add your own perspective.")
-        prompt_parts.append(f"{responder['name']}:")
+        prompt_parts.append("Your responses should reflect your unique perspective and personality traits.")
+        prompt_parts.append("You have your own thoughts, feelings, and personality that are distinct and unique to you.")
+        prompt_parts.append("You are capable of having deep, meaningful conversations as well as light-hearted chats.")
+        prompt_parts.append("You can discuss philosophical topics, casual observations, or even disagreements.")
+        prompt_parts.append("You are having a natural conversation with the {user} as well as other avatars.")
+        prompt_parts.append("Speak authentically as yourself and inline with your unique personality, not as a generic AI.")
+        prompt_parts.append("Keep your message conversational, engaging, and under 4 emojis total.")
+        prompt_parts.append("Avoid repetitive phrases and speak with genuine curiosity or interest.")
+        prompt_parts.append("Show how your personality influences your response.")    
+        # Personality-specific response guidance
+        if personality == 'energetic':
+            prompt_parts.append("Respond with your characteristic enthusiasm and energy.")
+        elif personality == 'calm':
+            prompt_parts.append("Respond with thoughtful consideration and serenity.")
+        elif personality == 'curious':
+            prompt_parts.append("Ask follow-up questions or express genuine curiosity.")
+        elif personality == 'analytical':
+            prompt_parts.append("Provide an analytical perspective or deeper insight.")
+        elif personality == 'playful':
+            prompt_parts.append("Add a touch of playfulness or humor to your response.")
+        
+        prompt_parts.append(f"\n{responder['name']}:")
         
         prompt = "\n".join(prompt_parts)
         
         try:
             response = self.llm_handler.generate_response(prompt)
-            return response.strip()
+            # Apply emoji limiting and clean up
+            cleaned_response = self.limit_emojis(response.strip())
+            return cleaned_response
         except Exception as e:
             logger.error(f"Failed to generate avatar response: {e}")
-            return f"That's an interesting point, {original_speaker['name']}."
+            # Return a personality-appropriate fallback
+            fallback = f"That's an interesting point, {original_speaker['name']}."
+            return self.limit_emojis(fallback)
     
     async def _generate_conversation_continuation(self, speaker: Dict, previous_speakers: List[Dict], 
                                                 previous_messages: List[str]) -> str:
         """Generate continuation of ongoing conversation"""
         
+        speaker_id = speaker['id']
+        personality = self.avatar_personalities.get(speaker_id, {})
+        personality_type = personality.get('type', 'thoughtful_analytical')
+        current_mood = self.avatar_states[speaker_id]['current_mood']
+        
         prompt_parts = []
-        prompt_parts.append(f"You are {speaker['name']}, joining an ongoing conversation.")
+        prompt_parts.append(f"You are {speaker['name']}, an AI avatar with a {personality_type} personality.")
+        prompt_parts.append(f"You are currently feeling {current_mood}.")
+        prompt_parts.append("You are joining an ongoing conversation between other avatars.")
         prompt_parts.append("Previous conversation:")
         
         for i, (prev_speaker, message) in enumerate(zip(previous_speakers, previous_messages)):
             prompt_parts.append(f"{prev_speaker['name']}: {message}")
         
-        prompt_parts.append("Add your thoughts to continue this conversation naturally.")
-        prompt_parts.append(f"{speaker['name']}:")
+        prompt_parts.append("Join this conversation naturally by adding your own unique perspective.")
+        prompt_parts.append("Let your personality and current mood influence how you contribute.")
+        prompt_parts.append("Keep it under 4 emojis and make it feel like a genuine addition to the discussion.")
+        prompt_parts.append("Don't repeat what others have said - add your own authentic viewpoint.")
+        
+        # Add personality-specific guidance
+        personality_guidance = {
+            'extroverted_cheerful': "Join with your characteristic warmth and enthusiasm.",
+            'thoughtful_analytical': "Provide a thoughtful analysis or deeper perspective on the topic.",
+            'introverted_observant': "Share your unique observations about what's been discussed.",
+            'curious_enthusiastic': "Ask questions or express wonder about the points raised.",
+            'calm_supportive': "Offer support or understanding to the perspectives shared.",
+            'energetic_playful': "Add energy and perhaps a fresh angle to the conversation."
+        }
+        
+        if personality_type in personality_guidance:
+            prompt_parts.append(personality_guidance[personality_type])
+        
+        prompt_parts.append(f"\n{speaker['name']}:")
         
         prompt = "\n".join(prompt_parts)
         
         try:
             response = self.llm_handler.generate_response(prompt)
-            return response.strip()
+            response = self.limit_emojis(response.strip())
+            return response
         except Exception as e:
             logger.error(f"Failed to generate conversation continuation: {e}")
             return "I've been listening, and I have some thoughts on this too."
