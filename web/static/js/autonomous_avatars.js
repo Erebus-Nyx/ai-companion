@@ -64,6 +64,8 @@ class AutonomousAvatarUI {
     handleAutonomousMessage(data) {
         const { avatar, message, metadata } = data;
         
+        console.log('🤖 Handling autonomous message:', { avatar, message, metadata });
+        
         // Add autonomous message to chat with special styling
         if (window.addMessage && typeof window.addMessage === 'function') {
             window.addMessage('ai', message, 'autonomous', avatar, {
@@ -73,6 +75,34 @@ class AutonomousAvatarUI {
             });
         } else {
             console.warn('🤖 Cannot display autonomous message - addMessage not available');
+        }
+
+        // Trigger TTS with enhanced lipsync for autonomous message
+        if (window.triggerEnhancedTTSWithLipsync && avatar && avatar.id) {
+            const emotion = metadata?.emotion || 'neutral';
+            const intensity = metadata?.intensity || 0.6;
+            
+            console.log(`🎤 Triggering TTS for autonomous message from ${avatar.id}`);
+            
+            window.triggerEnhancedTTSWithLipsync(
+                message,
+                emotion,
+                avatar.id,
+                {},
+                intensity
+            ).catch(error => {
+                console.error('Failed to play autonomous TTS:', error);
+                
+                // Fallback to basic TTS if enhanced fails
+                if (window.triggerEmotionalTTS) {
+                    window.triggerEmotionalTTS(message, emotion, avatar.id, {}, intensity)
+                        .catch(fallbackError => {
+                            console.error('Fallback TTS also failed:', fallbackError);
+                        });
+                }
+            });
+        } else {
+            console.warn('🤖 Enhanced TTS not available for autonomous message');
         }
 
         // Add to chat history
@@ -97,12 +127,32 @@ class AutonomousAvatarUI {
     handleSelfReflection(data) {
         const { avatar, message, metadata } = data;
         
+        console.log('🧠 Handling self-reflection:', { avatar, message, metadata });
+        
         // Add self-reflection with special styling
         if (window.addMessage && typeof window.addMessage === 'function') {
             window.addMessage('ai', message, 'reflection', avatar, {
                 ...metadata,
                 is_self_reflection: true,
                 timestamp: new Date().toLocaleTimeString()
+            });
+        }
+
+        // Trigger TTS for self-reflection (usually more thoughtful/quiet)
+        if (window.triggerEnhancedTTSWithLipsync && avatar && avatar.id) {
+            const emotion = metadata?.emotion || 'thoughtful';
+            const intensity = metadata?.intensity || 0.4; // Quieter for self-reflection
+            
+            console.log(`🎤 Triggering TTS for self-reflection from ${avatar.id}`);
+            
+            window.triggerEnhancedTTSWithLipsync(
+                message,
+                emotion,
+                avatar.id,
+                {},
+                intensity
+            ).catch(error => {
+                console.error('Failed to play self-reflection TTS:', error);
             });
         }
 
@@ -197,9 +247,28 @@ class AutonomousAvatarUI {
                 // Trigger avatar motion if available
                 this.triggerAutonomousAvatarMotion(avatar, 'happy');
                 
-                // Trigger TTS if available
-                if (typeof triggerEmotionalTTS === 'function') {
-                    console.log('🔊 Triggering TTS for autonomous greeting...');
+                // Trigger enhanced TTS with lipsync if available
+                if (window.triggerEnhancedTTSWithLipsync) {
+                    console.log('🔊 Triggering enhanced TTS with lipsync for autonomous greeting...');
+                    try {
+                        await window.triggerEnhancedTTSWithLipsync(
+                            greeting,
+                            'happy',
+                            avatar.id,
+                            {}, // personality traits
+                            0.7  // intensity
+                        );
+                        console.log('✅ Enhanced TTS with lipsync triggered successfully');
+                    } catch (error) {
+                        console.warn('⚠️ Enhanced TTS failed, trying fallback:', error);
+                        
+                        // Fallback to basic TTS
+                        if (typeof triggerEmotionalTTS === 'function') {
+                            triggerEmotionalTTS(greeting, 'happy', avatar.id, {}, 0.7);
+                        }
+                    }
+                } else if (typeof triggerEmotionalTTS === 'function') {
+                    console.log('🔊 Triggering basic TTS for autonomous greeting...');
                     try {
                         triggerEmotionalTTS(
                             greeting,
@@ -208,12 +277,12 @@ class AutonomousAvatarUI {
                             {}, // personality traits
                             0.7  // intensity
                         );
-                        console.log('✅ TTS triggered successfully');
+                        console.log('✅ Basic TTS triggered successfully');
                     } catch (error) {
                         console.warn('⚠️ Error triggering TTS:', error);
                     }
                 } else {
-                    console.warn('⚠️ triggerEmotionalTTS function not available');
+                    console.warn('⚠️ No TTS functions available');
                 }
                 
                 console.log(`🎉 ${avatar.displayName} sent autonomous greeting: "${greeting}"`);

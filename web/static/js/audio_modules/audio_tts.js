@@ -53,13 +53,20 @@ function triggerEmotionalTTS(text, emotion, avatarId, personalityTraits = {}, in
                 await triggerAvatarExpressionSync(avatarId, ttsData.live2d_params, ttsData.duration);
             }
             
-            // Play emotional TTS audio
-            await playEmotionalTTSAudio(ttsData);
+            // Start lipsync and audio playback simultaneously
+            const audioPromise = playEmotionalTTSAudio(ttsData);
             
-            // Apply lipsync if available
-            if (ttsData.lipsync_data) {
+            // Apply enhanced lipsync
+            if (ttsData.lipsync_data && Array.isArray(ttsData.lipsync_data)) {
                 applyLipsyncToAvatar(avatarId, ttsData.lipsync_data);
+            } else {
+                // Use estimated duration for basic lipsync
+                const estimatedDuration = ttsData.duration || estimateAudioDuration(ttsData.audio_data);
+                createBasicLipsyncPattern(avatarId, estimatedDuration * 1000);
             }
+            
+            // Wait for audio to complete
+            await audioPromise;
             
             // Update TTS state
             window.ttsState.isPlaying = false;
@@ -380,10 +387,12 @@ function createTTSVisualIndicator(avatarId, emotion) {
 
 function applyLipsyncToAvatar(avatarId, lipsyncData) {
     if (!lipsyncData || !Array.isArray(lipsyncData)) {
+        // Create basic rhythm if no lipsync data
+        createBasicLipsyncPattern(avatarId);
         return;
     }
     
-    console.log(`👄 Applying lipsync to avatar ${avatarId}:`, lipsyncData);
+    console.log(`👄 Applying enhanced lipsync to avatar ${avatarId}:`, lipsyncData);
     
     lipsyncData.forEach((frame, index) => {
         setTimeout(() => {
@@ -399,6 +408,64 @@ function applyLipsyncToAvatar(avatarId, lipsyncData) {
             }
         }, frame.end_time * 1000);
     });
+}
+
+// Create basic lipsync pattern when no data is available
+function createBasicLipsyncPattern(avatarId, durationMs = 3000) {
+    const frameInterval = 150; // 150ms between changes (6.7 FPS)
+    const frames = Math.floor(durationMs / frameInterval);
+    const mouthShapes = ['A', 'I', 'U', 'E', 'O', 'default'];
+    
+    console.log(`👄 Creating basic lipsync pattern for ${avatarId} (${frames} frames)`);
+    
+    for (let i = 0; i < frames; i++) {
+        setTimeout(() => {
+            if (window.setAvatarMouthShape) {
+                // More varied pattern with weighted probabilities
+                let mouthShape;
+                const rand = Math.random();
+                if (rand < 0.3) mouthShape = 'A';        // Open mouth
+                else if (rand < 0.5) mouthShape = 'I';   // Narrow mouth
+                else if (rand < 0.65) mouthShape = 'U';  // Round mouth
+                else if (rand < 0.8) mouthShape = 'E';   // Medium open
+                else if (rand < 0.9) mouthShape = 'O';   // Wide round
+                else mouthShape = 'default';             // Closed
+                
+                const intensity = 0.6 + (Math.random() * 0.4); // 0.6-1.0 intensity
+                window.setAvatarMouthShape(avatarId, mouthShape, intensity);
+            }
+        }, i * frameInterval);
+    }
+    
+    // Ensure mouth closes at the end
+    setTimeout(() => {
+        if (window.setAvatarMouthShape) {
+            window.setAvatarMouthShape(avatarId, 'default', 0.3);
+        }
+    }, durationMs);
+}
+
+// Estimate audio duration from data (rough approximation)
+function estimateAudioDuration(audioData) {
+    if (!audioData) return 3; // Default 3 seconds
+    
+    if (typeof audioData === 'string') {
+        // For base64 strings, estimate based on length
+        // Rough calculation: 44.1kHz, 16-bit, mono WAV
+        const base64Length = audioData.replace(/^data:audio\/wav;base64,/, '').length;
+        const byteLength = (base64Length * 3) / 4; // Base64 to byte conversion
+        const sampleRate = 22050; // Common TTS sample rate
+        const bytesPerSample = 2; // 16-bit
+        const duration = byteLength / (sampleRate * bytesPerSample);
+        return Math.max(1, Math.min(10, duration)); // Clamp between 1-10 seconds
+    }
+    
+    if (Array.isArray(audioData)) {
+        // For float arrays, assume 22050 Hz sample rate
+        return audioData.length / 22050;
+    }
+    
+    return 3; // Default fallback
 }
 
 async function fallbackEmotionalTTS(text, emotion, avatarId) {
@@ -448,6 +515,46 @@ function playEmotionalTTSAudio(ttsData) {
                 return;
             }
             
+            console.log('🔊 Starting TTS audio playback with data type:', typeof audio_data);
+            
+            // Handle base64 data URL format (new backend format)
+            if (typeof audio_data === 'string' && audio_data.startsWith('data:audio/wav;base64,')) {
+                console.log('🔊 Playing TTS audio (base64 format)');
+                
+                // Use audio context manager for better browser compatibility
+                if (window.audioContextManager && window.audioContextManager.isAudioUnlocked()) {
+                    console.log('🔊 Using audio context manager');
+                    window.audioContextManager.playAudio(audio_data, {
+                        onStart: () => {
+                            console.log(`🔊 Playing emotional TTS: ${emotion} (intensity: ${intensity})`);
+                        },
+                        onEnd: () => {
+                            console.log('🔊 TTS audio playback completed');
+                            resolve();
+                        }
+                    }).catch(error => {
+                        console.error('Audio context manager playback failed:', error);
+                        // Fallback to direct playback
+                        fallbackDirectPlayback(audio_data, resolve, reject);
+                    });
+                } else {
+                    // Try to unlock audio first
+                    console.log('🔊 Audio not unlocked, attempting direct playback');
+                    fallbackDirectPlayback(audio_data, resolve, reject);
+                }
+                return;
+            }
+            
+            // Handle base64 string (convert to data URL)
+            if (typeof audio_data === 'string') {
+                const dataUrl = `data:audio/wav;base64,${audio_data}`;
+                console.log('🔊 Converting base64 string to data URL');
+                fallbackDirectPlayback(dataUrl, resolve, reject);
+                return;
+            }
+            
+            // Legacy float array format (fallback)
+            console.log('🔊 Using legacy float array audio format');
             if (!window.audioContext) {
                 window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             }
@@ -479,6 +586,31 @@ function playEmotionalTTSAudio(ttsData) {
             fallbackTTSPlayback(ttsData).then(resolve).catch(reject);
         }
     });
+}
+
+// Fallback direct playback method
+function fallbackDirectPlayback(audio_data, resolve, reject) {
+    const audio = new Audio();
+    audio.src = audio_data;
+    
+    audio.oncanplaythrough = () => {
+        audio.play().catch(error => {
+            console.error('TTS audio playback failed:', error);
+            reject(error);
+        });
+    };
+    
+    audio.onerror = (error) => {
+        console.error('TTS audio loading failed:', error);
+        reject(error);
+    };
+    
+    audio.onended = () => {
+        console.log('🔊 TTS audio playback completed');
+        resolve();
+    };
+    
+    audio.load();
 }
 
 function createEmotionalAudioEffects(emotion, intensity) {
@@ -658,3 +790,5 @@ window.showTTSPlaybackIndicator = showTTSPlaybackIndicator;
 window.calculatePersonalityTTSParams = calculatePersonalityTTSParams;
 window.triggerAvatarExpressionSync = triggerAvatarExpressionSync;
 window.applyLipsyncToAvatar = applyLipsyncToAvatar;
+window.createBasicLipsyncPattern = createBasicLipsyncPattern;
+window.estimateAudioDuration = estimateAudioDuration;

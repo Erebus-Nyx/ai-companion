@@ -7,9 +7,44 @@ import time
 import app_globals
 import logging
 import json
+import numpy as np
+import base64
+import io
+import wave
 
 logger = logging.getLogger(__name__)
 tts_bp = Blueprint('tts', __name__)
+
+def audio_array_to_base64(audio_data, sample_rate=22050):
+    """Convert audio array to base64 data URL for frontend compatibility"""
+    try:
+        # Ensure audio_data is a numpy array
+        if not isinstance(audio_data, np.ndarray):
+            audio_data = np.array(audio_data, dtype=np.float32)
+        
+        # Normalize to 16-bit integer range
+        if audio_data.dtype == np.float32 or audio_data.dtype == np.float64:
+            # Convert float [-1, 1] to int16 [-32768, 32767]
+            audio_data = (audio_data * 32767).astype(np.int16)
+        
+        # Create WAV file in memory
+        buffer = io.BytesIO()
+        with wave.open(buffer, 'wb') as wav_file:
+            wav_file.setnchannels(1)  # Mono
+            wav_file.setsampwidth(2)  # 16-bit
+            wav_file.setframerate(sample_rate)
+            wav_file.writeframes(audio_data.tobytes())
+        
+        # Get WAV data and convert to base64
+        wav_data = buffer.getvalue()
+        base64_data = base64.b64encode(wav_data).decode('utf-8')
+        
+        # Return as data URL
+        return f"data:audio/wav;base64,{base64_data}"
+        
+    except Exception as e:
+        logger.error(f"Error converting audio to base64: {e}")
+        return None
 
 @tts_bp.route('/api/tts', methods=['POST'])
 def api_tts():
@@ -28,13 +63,18 @@ def api_tts():
         # Generate basic TTS
         audio_data = app_globals.tts_handler.synthesize_speech(text)
         
-        if audio_data:
-            return jsonify({
-                'audio_data': audio_data.tolist() if hasattr(audio_data, 'tolist') else audio_data,
-                'text': text,
-                'timestamp': time.time(),
-                'sample_rate': 22050
-            })
+        if audio_data is not None and len(audio_data) > 0:
+            # Convert audio to base64 for frontend compatibility
+            audio_base64 = audio_array_to_base64(audio_data, 22050)
+            if audio_base64:
+                return jsonify({
+                    'audio_data': audio_base64,
+                    'text': text,
+                    'timestamp': time.time(),
+                    'sample_rate': 22050
+                })
+            else:
+                return jsonify({'error': 'Failed to convert audio to base64'}), 500
         else:
             return jsonify({'error': 'Failed to generate audio'}), 500
             
@@ -66,27 +106,31 @@ def api_emotional_tts():
             audio_data = app_globals.tts_handler.synthesize_emotional_speech(
                 text=text,
                 emotion=emotion,
-                intensity=intensity,
-                personality_traits=personality_traits
+                intensity=intensity
             )
         else:
             # Fallback to basic synthesis
             audio_data = app_globals.tts_handler.synthesize_speech(text)
             
-        if audio_data:
+        if audio_data is not None and len(audio_data) > 0:
             # Calculate TTS parameters based on emotion and personality
             tts_params = calculate_tts_parameters(emotion, intensity, personality_traits)
             
-            return jsonify({
-                'audio_data': audio_data.tolist() if hasattr(audio_data, 'tolist') else audio_data,
-                'text': text,
-                'emotion': emotion,
-                'intensity': intensity,
-                'avatar_id': avatar_id,
-                'tts_params': tts_params,
-                'timestamp': time.time(),
-                'sample_rate': 22050
-            })
+            # Convert audio to base64 for frontend compatibility
+            audio_base64 = audio_array_to_base64(audio_data, 22050)
+            if audio_base64:
+                return jsonify({
+                    'audio_data': audio_base64,
+                    'text': text,
+                    'emotion': emotion,
+                    'intensity': intensity,
+                    'avatar_id': avatar_id,
+                    'tts_params': tts_params,
+                    'timestamp': time.time(),
+                    'sample_rate': 22050
+                })
+            else:
+                return jsonify({'error': 'Failed to convert audio to base64'}), 500
         else:
             return jsonify({'error': 'Failed to generate emotional audio'}), 500
             
@@ -118,31 +162,35 @@ def api_avatar_tts():
             audio_data = app_globals.tts_handler.synthesize_emotional_speech(
                 text=text,
                 emotion=emotion,
-                intensity=intensity,
-                personality_traits=personality_traits
+                intensity=intensity
             )
         else:
             audio_data = app_globals.tts_handler.synthesize_speech(text)
             
-        if audio_data:
+        if audio_data is not None and len(audio_data) > 0:
             # Calculate comprehensive parameters for avatar synchronization
             tts_params = calculate_tts_parameters(emotion, intensity, personality_traits)
             live2d_params = calculate_live2d_sync_parameters(emotion, intensity, personality_traits)
             lipsync_data = generate_lipsync_data(text, audio_data) if sync_with_expressions else None
             
-            return jsonify({
-                'audio_data': audio_data.tolist() if hasattr(audio_data, 'tolist') else audio_data,
-                'text': text,
-                'emotion': emotion,
-                'intensity': intensity,
-                'avatar_id': avatar_id,
-                'tts_params': tts_params,
-                'live2d_params': live2d_params,
-                'lipsync_data': lipsync_data,
-                'timestamp': time.time(),
-                'sample_rate': 22050,
-                'duration': len(audio_data) / 22050 if audio_data else 0
-            })
+            # Convert audio to base64 for frontend compatibility
+            audio_base64 = audio_array_to_base64(audio_data, 22050)
+            if audio_base64:
+                return jsonify({
+                    'audio_data': audio_base64,
+                    'text': text,
+                    'emotion': emotion,
+                    'intensity': intensity,
+                    'avatar_id': avatar_id,
+                    'tts_params': tts_params,
+                    'live2d_params': live2d_params,
+                    'lipsync_data': lipsync_data,
+                    'timestamp': time.time(),
+                    'sample_rate': 22050,
+                    'duration': len(audio_data) / 22050 if audio_data is not None else 0
+                })
+            else:
+                return jsonify({'error': 'Failed to convert audio to base64'}), 500
         else:
             return jsonify({'error': 'Failed to generate avatar TTS'}), 500
             
@@ -499,7 +547,7 @@ def generate_lipsync_data(text, audio_data):
     words = text.split()
     word_count = len(words)
     
-    if not audio_data:
+    if audio_data is None or len(audio_data) == 0:
         return None
     
     # Calculate timing for mouth movements

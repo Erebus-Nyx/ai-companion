@@ -408,11 +408,77 @@ class Live2DMotionManager {
 function setAvatarMouthShape(avatarId, mouthShape, intensity = 0.7) {
     try {
         const pixiModel = findAvatarModel(avatarId);
-        if (pixiModel && typeof pixiModel.setMouthShape === 'function') {
+        if (!pixiModel) {
+            console.warn(`Avatar model not found for ${avatarId}`);
+            return;
+        }
+        
+        // Direct Live2D parameter manipulation for mouth shapes
+        if (pixiModel.internalModel && pixiModel.internalModel.coreModel) {
+            const coreModel = pixiModel.internalModel.coreModel;
+            
+            // Common Live2D mouth parameters
+            const mouthParams = {
+                'A': ['ParamMouthOpenY', 'PARAM_MOUTH_OPEN_Y'],
+                'I': ['ParamMouthForm', 'PARAM_MOUTH_FORM'],
+                'U': ['ParamMouthForm', 'PARAM_MOUTH_FORM'],
+                'E': ['ParamMouthOpenY', 'PARAM_MOUTH_OPEN_Y'],
+                'O': ['ParamMouthOpenY', 'PARAM_MOUTH_OPEN_Y'],
+                'default': ['ParamMouthOpenY', 'PARAM_MOUTH_OPEN_Y']
+            };
+            
+            const paramNames = mouthParams[mouthShape] || mouthParams['default'];
+            let paramSet = false;
+            
+            for (const paramName of paramNames) {
+                try {
+                    // Try to set the parameter if it exists
+                    const paramIndex = coreModel.getParameterIndex(paramName);
+                    if (paramIndex >= 0) {
+                        let value = 0;
+                        
+                        // Set parameter values based on mouth shape
+                        switch (mouthShape) {
+                            case 'A':
+                                value = intensity * 1.0; // Wide open
+                                break;
+                            case 'I':
+                                value = intensity * 0.3; // Slightly open, stretched
+                                break;
+                            case 'U':
+                                value = intensity * -0.8; // Pursed lips
+                                break;
+                            case 'E':
+                                value = intensity * 0.6; // Medium open
+                                break;
+                            case 'O':
+                                value = intensity * 0.8; // Round open
+                                break;
+                            default:
+                                value = 0; // Closed/neutral
+                                break;
+                        }
+                        
+                        coreModel.setParameterValueByIndex(paramIndex, value);
+                        paramSet = true;
+                        console.log(`👄 Set ${paramName} to ${value} for mouth shape "${mouthShape}"`);
+                        break; // Use first available parameter
+                    }
+                } catch (paramError) {
+                    // Continue to next parameter name
+                }
+            }
+            
+            if (!paramSet) {
+                console.warn(`No mouth parameters found for ${avatarId}`);
+            }
+            
+        } else if (pixiModel.setMouthShape && typeof pixiModel.setMouthShape === 'function') {
+            // Fallback to custom setMouthShape if available
             pixiModel.setMouthShape(mouthShape, intensity);
             console.log(`👄 Mouth shape "${mouthShape}" set for ${avatarId} with intensity ${intensity}`);
         } else {
-            console.warn(`Avatar model not found or setMouthShape not available for ${avatarId}`);
+            console.warn(`Avatar model found but no mouth control available for ${avatarId}`);
         }
     } catch (error) {
         console.warn('Failed to set avatar mouth shape:', error);
@@ -451,10 +517,13 @@ function findAvatarModel(avatarId) {
             return avatarId;
         }
         
+        console.log(`🔍 Searching for avatar model: ${avatarId}`);
+        
         // Look in loaded avatars
         if (window.loadedAvatars) {
             for (let avatar of window.loadedAvatars) {
                 if (avatar.id === avatarId || avatar.name === avatarId) {
+                    console.log(`✅ Found avatar in loadedAvatars: ${avatar.name || avatar.id}`);
                     return avatar.pixiModel;
                 }
             }
@@ -463,23 +532,43 @@ function findAvatarModel(avatarId) {
         // Look in Live2D multi-model manager
         if (window.live2dMultiModelManager && window.live2dMultiModelManager.getAllModels) {
             const models = window.live2dMultiModelManager.getAllModels();
+            console.log(`🔍 Checking ${models.length} models in multi-model manager`);
+            
             for (let model of models) {
+                console.log(`Model found: name="${model.name}", id="${model.id}", fileName="${model.fileName}"`);
+                
+                // Check direct name/id match
                 if (model.name === avatarId || model.id === avatarId) {
-                    return model;
+                    console.log(`✅ Found exact match for ${avatarId}`);
+                    return model.pixiModel || model;
+                }
+                
+                // Check filename match (e.g., "iori.model3.json" -> "iori")
+                if (model.fileName && model.fileName.toLowerCase().includes(avatarId.toLowerCase())) {
+                    console.log(`✅ Found filename match for ${avatarId}: ${model.fileName}`);
+                    return model.pixiModel || model;
+                }
+                
+                // Check if name contains avatarId
+                if (model.name && model.name.toLowerCase().includes(avatarId.toLowerCase())) {
+                    console.log(`✅ Found partial name match for ${avatarId}: ${model.name}`);
+                    return model.pixiModel || model;
                 }
             }
         }
         
         // Look in Live2D model manager
         if (window.live2dManager && window.live2dManager.models) {
+            console.log(`🔍 Checking live2dManager models`);
             for (let [modelId, model] of window.live2dManager.models) {
                 if (modelId === avatarId || model.name === avatarId) {
+                    console.log(`✅ Found model in live2dManager: ${modelId}`);
                     return model.pixiModel || model;
                 }
             }
         }
         
-        console.warn(`Avatar model not found for ID: ${avatarId}`);
+        console.warn(`❌ Avatar model not found for ID: ${avatarId}`);
         return null;
     } catch (error) {
         console.warn('Error finding avatar model:', error);

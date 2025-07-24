@@ -4,7 +4,7 @@
     "created": "2025-07-21",
     "description": "Avatar personality framework for AI2D Chat multi-character system",
     "schema_version": "1.0",
-    "last_updated": "2025-07-21T23:18:19.618012"
+    "last_updated": "2025-07-23T20:38:10.097618"
   },
   "personality_framework": {
     "trait_categories": {
