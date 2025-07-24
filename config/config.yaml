@@ -19,6 +19,7 @@ server:
   host: "0.0.0.0"
   port: 19080  # Production port (used by pipx install)
   dev_port: 19081  # Development port (used when running from repo)
+  background: true  # Run server in background by default (daemon mode)
   enable_ssl: false
   ssl_cert: ""
   ssl_key: ""

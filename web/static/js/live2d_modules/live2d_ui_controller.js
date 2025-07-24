@@ -759,9 +759,16 @@ class Live2DUIController {
     // Initialize the UI controller
     async initialize() {
         try {
-            // Wait for integration to be ready
+            // Wait for integration to be ready with timeout
+            let attempts = 0;
+            const maxAttempts = 50;
+            while (!this.integration.initialized && attempts < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms
+                attempts++;
+            }
+            
             if (!this.integration.initialized) {
-                throw new Error('Integration not initialized');
+                throw new Error('Integration failed to initialize within timeout');
             }
 
             // Populate model list

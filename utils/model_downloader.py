@@ -79,10 +79,10 @@ class ModelDownloader:
                 },
                 "small": {
                     "source_type": "huggingface",
-                    "repo_id": "TheBloke/Llama-2-7B-Chat-GGUF",
-                    "filename": "llama-2-7b-chat.Q4_0.gguf",
+                    "repo_id": "tensorblock/Phi-4-mini-instruct-abliterated-GGUF",
+                    "filename": "Phi-4-mini-instruct-abliterated.Q2_K.gguf",
                     "local_filename": "model.gguf",
-                    "size_mb": 4000,
+                    "size_mb": 2490,
                     "min_ram_gb": 8
                 },
                 "medium": {
@@ -91,15 +91,21 @@ class ModelDownloader:
                     "filename": "DarkIdol-Llama-3.1-8B-Instruct-1.2-Uncensored.Q5_K_M.gguf",
                     "local_filename": "model.gguf",
                     "size_mb": 4800,
-                    "min_ram_gb": 12
+                    "min_ram_gb": 16
                 },
                 "large": {
                     "source_type": "huggingface",
-                    "repo_id": "TheBloke/Wizard-Vicuna-13B-Uncensored-GGUF",
-                    "filename": "Wizard-Vicuna-13B-Uncensored.Q5_K_M.gguf",
+                    "repo_id": "QuantFactory/DarkIdol-Llama-3.1-8B-Instruct-1.2-Uncensored-GGUF",
+                    "filename": "DarkIdol-Llama-3.1-8B-Instruct-1.2-Uncensored.Q5_K_M.gguf",
                     "local_filename": "model.gguf",
-                    "size_mb": 9000,
+                    "size_mb": 4800,
                     "min_ram_gb": 16
+                    # "source_type": "huggingface",
+                    # "repo_id": "TheBloke/Wizard-Vicuna-13B-Uncensored-GGUF",
+                    # "filename": "Wizard-Vicuna-13B-Uncensored.Q5_K_M.gguf",
+                    # "local_filename": "model.gguf",
+                    # "size_mb": 9000,
+                    # "min_ram_gb": 24
                 }
             },
             "tts": {
@@ -239,7 +245,13 @@ class ModelDownloader:
             # Check if all required files exist
             tts_dir = self.models_dir / "tts" / model_variant
             if "files" in model_info:
-                for filename in model_info["files"]:
+                for file_info in model_info["files"]:
+                    # Handle both dict format (with filename/download_url) and string format
+                    if isinstance(file_info, dict):
+                        filename = file_info.get("filename", file_info)
+                    else:
+                        filename = file_info
+                    
                     if not (tts_dir / filename).exists():
                         return False
                 return True

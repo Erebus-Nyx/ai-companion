@@ -1582,7 +1582,7 @@ function setupModelScaling(model) {
         
         // Use 0.025 increments for wheel scaling
         const scaleIncrement = 0.025;
-        const direction = event.deltaY > 0 ? -1 : 1; // Negative for zoom out, positive for zoom in
+        const direction = event.deltaY > 0 ? -2 : 2; // Negative for zoom out, positive for zoom in
         const currentScale = model.scale.x;
         const newScale = currentScale + (direction * scaleIncrement);
         

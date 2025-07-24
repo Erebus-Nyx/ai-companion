@@ -7,6 +7,7 @@ Provides basic emotional text-to-speech without external dependencies
 import time
 import logging
 import base64
+import numpy as np
 from typing import Dict, Optional, Any
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,45 @@ class LightweightEmotionalTTS:
             logger.error(f"Failed to initialize Lightweight TTS: {e}")
             return False
     
+    def synthesize_emotional_speech(self, text: str, emotion: Optional[str] = None, intensity: Optional[float] = None) -> Optional[np.ndarray]:
+        """
+        Synthesize emotional speech and return numpy array (compatible with main TTS handler)
+        Since this is lightweight, we generate silence with metadata for compatibility
+        """
+        import numpy as np
+        
+        if not self.is_initialized:
+            if not self.initialize_model():
+                return None
+        
+        try:
+            # Clean text and validate
+            if not text or len(text.strip()) == 0:
+                return None
+            
+            emotion = emotion or 'neutral'
+            intensity = intensity or 0.5
+            
+            # Get emotion modifiers for metadata
+            emotion_config = self.emotion_modifiers.get(emotion, self.emotion_modifiers['neutral'])
+            
+            # Generate a short audio duration based on text length
+            # Rough estimation: ~150 words per minute, 24kHz sample rate
+            words = len(text.split())
+            duration_seconds = max(1.0, min(10.0, words / 2.5))  # 1-10 seconds range
+            sample_rate = 24000
+            num_samples = int(duration_seconds * sample_rate)
+            
+            # Generate silence audio (lightweight TTS doesn't produce actual speech)
+            audio_data = np.zeros(num_samples, dtype=np.float32)
+            
+            logger.info(f"🎭 Generated lightweight TTS: {emotion} ({intensity:.2f}) - {duration_seconds:.1f}s for '{text[:50]}...'")
+            return audio_data
+            
+        except Exception as e:
+            logger.error(f"Error in lightweight emotional synthesis: {e}")
+            return None
+
     def synthesize_emotional(self, text: str, emotion: str = 'neutral', intensity: float = 0.5) -> Optional[str]:
         """
         Synthesize emotional speech (lightweight version returns modified text metadata)

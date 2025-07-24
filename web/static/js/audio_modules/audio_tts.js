@@ -412,26 +412,47 @@ function applyLipsyncToAvatar(avatarId, lipsyncData) {
 
 // Create basic lipsync pattern when no data is available
 function createBasicLipsyncPattern(avatarId, durationMs = 3000) {
-    const frameInterval = 150; // 150ms between changes (6.7 FPS)
+    const frameInterval = 80; // Increased frequency: 80ms between changes (12.5 FPS)
     const frames = Math.floor(durationMs / frameInterval);
     const mouthShapes = ['A', 'I', 'U', 'E', 'O', 'default'];
     
-    console.log(`👄 Creating basic lipsync pattern for ${avatarId} (${frames} frames)`);
+    console.log(`👄 Creating enhanced lipsync pattern for ${avatarId} (${frames} frames)`);
     
     for (let i = 0; i < frames; i++) {
         setTimeout(() => {
             if (window.setAvatarMouthShape) {
-                // More varied pattern with weighted probabilities
+                // Enhanced pattern with speech-like rhythm
                 let mouthShape;
                 const rand = Math.random();
-                if (rand < 0.3) mouthShape = 'A';        // Open mouth
-                else if (rand < 0.5) mouthShape = 'I';   // Narrow mouth
-                else if (rand < 0.65) mouthShape = 'U';  // Round mouth
-                else if (rand < 0.8) mouthShape = 'E';   // Medium open
-                else if (rand < 0.9) mouthShape = 'O';   // Wide round
-                else mouthShape = 'default';             // Closed
+                const speechPhase = Math.sin((i / frames) * Math.PI * 4) * 0.5 + 0.5; // Create speech rhythm
                 
-                const intensity = 0.6 + (Math.random() * 0.4); // 0.6-1.0 intensity
+                // Weight probabilities based on speech phase for more natural rhythm
+                if (speechPhase > 0.7) {
+                    // High activity - more open mouth shapes
+                    if (rand < 0.4) mouthShape = 'A';        // Wide open
+                    else if (rand < 0.6) mouthShape = 'E';   // Medium open  
+                    else if (rand < 0.8) mouthShape = 'O';   // Round open
+                    else mouthShape = 'I';                   // Narrow
+                } else if (speechPhase > 0.3) {
+                    // Medium activity - mixed shapes
+                    if (rand < 0.3) mouthShape = 'I';        // Narrow mouth
+                    else if (rand < 0.5) mouthShape = 'U';   // Round mouth
+                    else if (rand < 0.7) mouthShape = 'E';   // Medium open
+                    else if (rand < 0.85) mouthShape = 'A';  // Open mouth
+                    else mouthShape = 'default';             // Brief pause
+                } else {
+                    // Low activity - more closed shapes and pauses
+                    if (rand < 0.4) mouthShape = 'default';  // Closed
+                    else if (rand < 0.6) mouthShape = 'I';   // Narrow
+                    else if (rand < 0.8) mouthShape = 'U';   // Small round
+                    else mouthShape = 'E';                   // Small open
+                }
+                
+                // Enhanced intensity variation based on speech rhythm
+                const baseIntensity = 0.5 + (speechPhase * 0.4); // 0.5-0.9 range
+                const randomVariation = 0.8 + (Math.random() * 0.4); // 0.8-1.2 multiplier
+                const intensity = Math.min(1.0, baseIntensity * randomVariation);
+                
                 window.setAvatarMouthShape(avatarId, mouthShape, intensity);
             }
         }, i * frameInterval);

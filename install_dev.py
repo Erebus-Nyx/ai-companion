@@ -25,10 +25,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 class AI2DChatInstaller:
-    def __init__(self, force_reinstall: bool = False, auto_setup: bool = True, verbose: bool = False):
+    def __init__(self, force_reinstall: bool = False, auto_setup: bool = True, verbose: bool = False, dev_mode: bool = True):
         self.force_reinstall = force_reinstall
         self.auto_setup = auto_setup
         self.verbose = verbose
+        self.dev_mode = dev_mode  # Default to True for dev_install.py
         self.project_root = Path(__file__).parent.resolve()
         self.dist_dir = self.project_root / 'dist'
         self._spinner_active = False
@@ -229,6 +230,7 @@ class AI2DChatInstaller:
                 'command': [sys.executable, '-m', 'pip', 'install', '--user', 'pipx'],
                 'check': lambda: True
             }
+
         ]
         
         for method in installation_methods:
@@ -379,6 +381,9 @@ class AI2DChatInstaller:
     
     def install_package(self) -> bool:
         """Install the package using pipx."""
+        if self.dev_mode:
+            return self.install_dev_package()
+        
         if not self.verbose:
             spinner = self._show_spinner("Installing AI2D Chat with pipx")
         else:
@@ -409,6 +414,47 @@ class AI2DChatInstaller:
             if not self.verbose:
                 self._stop_spinner()
             print(f"❌ Installation failed: {e}")
+            if self.verbose and hasattr(e, 'stderr'):
+                print(f"   Error details: {e.stderr}")
+            return False
+    
+    def install_dev_package(self) -> bool:
+        """Install the package in development mode using pipx."""
+        if not self.verbose:
+            spinner = self._show_spinner("Installing AI2D Chat in development mode")
+        else:
+            print("📦 Installing AI2D Chat in development mode...")
+        
+        try:
+            # Clean any existing dev installation
+            try:
+                subprocess.run(['pipx', 'uninstall', 'ai2d_chat'], 
+                             capture_output=True, check=False)
+            except:
+                pass
+            
+            # Install with dev dependencies in editable mode
+            cmd = [
+                'pipx', 'install', 
+                '--editable', str(self.project_root),
+                '--pip-args=--extra-index-url https://download.pytorch.org/whl/cpu --extra dev'
+            ]
+            if self.force_reinstall:
+                cmd.append('--force')
+            
+            self._run_command(cmd, "Installing in development mode", capture_output=not self.verbose)
+            
+            if not self.verbose:
+                self._stop_spinner()
+            
+            print("✅ Development package installed successfully")
+            print("✅ Development CLI 'ai2d_chat_dev' available via entry point")
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            if not self.verbose:
+                self._stop_spinner()
+            print(f"❌ Development installation failed: {e}")
             if self.verbose and hasattr(e, 'stderr'):
                 print(f"   Error details: {e.stderr}")
             return False
@@ -471,87 +517,102 @@ class AI2DChatInstaller:
             print(f"  ⚠️  Failed to install packaged models: {e}")
             print("  📝 Continuing with other model installation...")
         
-        # Enhanced model copying with registry awareness
-        print("  📦 Installing repository models with registry awareness...")
+        # Use model downloader to identify what models need to be copied from repo
+        print("  📦 Copying repository models using model registry...")
         try:
             sys.path.insert(0, str(self.project_root))
             from utils.model_downloader import ModelDownloader
             
+            # Initialize model downloader to access model registry
             model_downloader = ModelDownloader()
             
-            # Handle PyAnnote models (local_git type in registry)
-            pyannote_src = self.project_root / "models" / "pyannote"
-            if pyannote_src.exists():
-                model_info = model_downloader.model_registry.get("pyannote")
-                if model_info and model_info.get("type") == "local_git":
-                    print("  🧠 Installing PyAnnote speaker diarization models...")
-                    # Use registry-aware copying for PyAnnote models
-                    pyannote_models = [
-                        ("speaker-diarization-3.1", "pyannote/speaker-diarization-3.1"),
-                        ("segmentation-3.0", "pyannote/segmentation-3.0")
-                    ]
+            # Find local_git models that need to be copied
+            copied_count = 0
+            for model_type, variants in model_downloader.model_registry.items():
+                for variant_name, model_info in variants.items():
+                    source_type = model_info.get("source_type")
                     
-                    for src_name, dest_path in pyannote_models:
-                        src_path = pyannote_src / src_name
-                        dest_full_path = user_data_dir / "models" / dest_path
+                    if source_type == "local_git":
+                        local_path = self.project_root / model_info["local_path"]
                         
-                        if src_path.exists():
-                            dest_full_path.parent.mkdir(parents=True, exist_ok=True)
-                            if dest_full_path.exists():
-                                shutil.rmtree(dest_full_path)
-                            shutil.copytree(src_path, dest_full_path)
-                            print(f"    ✅ {dest_path}")
+                        if local_path.exists():
+                            # Use the model downloader's copy method
+                            success = model_downloader._use_local_git_model(
+                                model_type, variant_name, model_info
+                            )
+                            
+                            if success:
+                                copied_count += 1
+                                if self.verbose:
+                                    print(f"  📦 Copied: {model_type}:{variant_name}")
+                                else:
+                                    print(f"  📦 Copied: {model_info['local_path'].split('/')[-1]}")
+                            else:
+                                if self.verbose:
+                                    print(f"  ⚠️  Failed to copy: {model_type}:{variant_name}")
                         else:
-                            print(f"    ⚠️  {src_name} not found in repository")
-                else:
-                    print("  🔄 Using fallback copy method for PyAnnote models...")
-                    # Fallback to direct copying
-                    for item in pyannote_src.iterdir():
-                        if item.is_dir():
-                            dest_path = user_data_dir / "models" / "pyannote" / item.name
-                            dest_path.parent.mkdir(parents=True, exist_ok=True)
-                            if dest_path.exists():
-                                shutil.rmtree(dest_path)
-                            shutil.copytree(item, dest_path)
-                            print(f"    ✅ pyannote/{item.name}")
+                            if self.verbose:
+                                print(f"  ⚠️  Not found: {model_info['local_path']}")
+            
+            if copied_count > 0:
+                print(f"✅ {copied_count} repository models copied to user data directory")
             else:
-                print("  ⚠️  Repository PyAnnote models not found - will be downloaded separately")
+                print("ℹ️  No repository models found to copy")
                 
-        except ImportError as e:
-            print(f"  ⚠️  Could not import model registry: {e}")
-            print("  🔄 Using standard model copying...")
+        except Exception as e:
+            print(f"⚠️  Failed to copy repository models: {e}")
+            if self.verbose:
+                import traceback
+                traceback.print_exc()
+            
+            # Fallback to manual copying for critical models
+            print("  🔄 Falling back to manual model copying...")
+            self._fallback_copy_models(user_data_dir)
+    
+    def _fallback_copy_models(self, user_data_dir):
+        """Fallback method to manually copy essential models from repository."""
+        import shutil
         
-        # Other models to copy from repo (non-Live2D, non-PyAnnote)
-        other_models_to_copy = [
+        # Essential models to copy manually if model downloader fails
+        essential_models = [
             ("models/silero_vad", "models/silero_vad"),
-            ("models/voices", "models/tts/voices"),  # Map voices to tts/voices
+            ("models/voices", "models/tts/voices"),
+            ("models/pyannote/segmentation-3.0", "models/pyannote/segmentation-3.0"),
+            ("models/pyannote/speaker-diarization-3.1", "models/pyannote/speaker-diarization-3.1"),
         ]
         
-        for source_path, dest_path in other_models_to_copy:
+        copied_count = 0
+        for source_path, dest_path in essential_models:
             source = self.project_root / source_path
             destination = user_data_dir / dest_path
             
             if source.exists():
-                # Create destination directory
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                
-                if destination.exists():
-                    shutil.rmtree(destination)
-                
-                # Copy the directory
-                shutil.copytree(source, destination)
-                
-                if self.verbose:
-                    print(f"  📦 Copied: {source_path} -> {dest_path}")
-                else:
-                    print(f"  📦 Copied: {source_path.split('/')[-1]}")
+                try:
+                    # Create destination directory
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    if destination.exists():
+                        shutil.rmtree(destination)
+                    
+                    # Copy the directory
+                    shutil.copytree(source, destination)
+                    copied_count += 1
+                    
+                    if self.verbose:
+                        print(f"  📦 Copied: {source_path} -> {dest_path}")
+                    else:
+                        print(f"  📦 Copied: {source_path.split('/')[-1]}")
+                        
+                except Exception as e:
+                    print(f"  ⚠️  Failed to copy {source_path}: {e}")
             else:
                 if self.verbose:
                     print(f"  ⚠️  Not found: {source_path}")
-                else:
-                    print(f"  ⚠️  Missing: {source_path.split('/')[-1]}")
         
-        print(f"✅ Repository models copied to {user_data_dir / 'models'}")
+        if copied_count > 0:
+            print(f"✅ {copied_count} essential models copied manually")
+        else:
+            print("⚠️  No essential models found to copy")
         
     
     def _setup_configuration_files(self):
@@ -782,24 +843,52 @@ class AI2DChatInstaller:
             
             # Step 6: AI Model Downloads
             print("\n🤖 Step 6: Downloading recommended AI models...")
-            # Use the pipx environment Python that has huggingface_hub installed
+            print("   This will download models optimized for your system capabilities")
+            
+            # Use the pipx environment Python that has all dependencies installed
             pipx_python = self._get_pipx_python_path()
             if pipx_python:
+                # Show download summary first
+                print("\n📋 Checking download requirements...")
+                try:
+                    summary_result = self._run_command([
+                        str(pipx_python),
+                        str(self.project_root / "utils" / "model_downloader.py"),
+                        "--summary"
+                    ], "Getting download summary", capture_output=True)
+                    
+                    if summary_result.stdout:
+                        print(summary_result.stdout)
+                except Exception as e:
+                    if self.verbose:
+                        print(f"   Could not get download summary: {e}")
+                
+                # Proceed with downloads
                 if self.verbose:
                     # Verbose mode shows full output
+                    print("\n🔽 Starting model downloads (verbose mode)...")
                     result = self._run_command([
                         str(pipx_python),
                         str(self.project_root / "utils" / "model_downloader.py"),
                         "--download-recommended"
-                    ], "Downloading AI models")
+                    ], "Downloading AI models", capture_output=False)
+                    print("✅ AI model downloads completed")
                 else:
                     # Non-verbose mode with progress indication
-                    self._download_models_with_progress(pipx_python)
-                print("✅ AI models downloaded")
+                    print("\n🔽 Starting model downloads...")
+                    success = self._download_models_with_progress(pipx_python)
+                    if success:
+                        print("✅ AI models downloaded successfully")
+                    else:
+                        print("⚠️  Some models may not have downloaded completely")
+                        print("   You can retry with: ai2d_chat --download-models")
+                        
             else:
-                print("⚠️  Could not find pipx Python environment")
+                print("⚠️  Could not find pipx Python environment for model downloads")
                 print("🔧 You can download models manually later with:")
                 print("   ai2d_chat --download-models")
+                print("   Or use the model downloader directly:")
+                print("   python utils/model_downloader.py --download-recommended")
                 # Don't fail installation for this
             
             
@@ -840,6 +929,16 @@ class AI2DChatInstaller:
                                   capture_output=True, text=True, check=True, timeout=10)
             print("✅ Server command working")
             
+            # Test dev CLI if in dev mode
+            if self.dev_mode:
+                try:
+                    result = subprocess.run(['ai2d_chat_dev', '--help'], 
+                                          capture_output=True, text=True, check=True, timeout=10)
+                    print("✅ Development CLI working")
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    print("⚠️  Development CLI not found in PATH")
+                    print("   You can still use: ai2d_chat and ai2d_chat_dev commands")
+            
             return True
             
         except subprocess.CalledProcessError as e:
@@ -853,17 +952,26 @@ class AI2DChatInstaller:
     
     def run_installation(self) -> bool:
         """Run the complete installation process."""
-        print("🚀 Starting AI2D Chat installation...")
+        if self.dev_mode:
+            print("🚀 Starting AI2D Chat Development Installation...")
+        else:
+            print("🚀 Starting AI2D Chat installation...")
         print("="*60)
         
         steps = [
             ("Checking prerequisites", self.check_prerequisites),
             ("Cleaning previous installation", self.clean_previous_installation),
-            ("Building package", self.build_package),
+        ]
+        
+        # Skip build step for dev mode (uses editable install)
+        if not self.dev_mode:
+            steps.append(("Building package", self.build_package))
+        
+        steps.extend([
             ("Installing package", self.install_package),
             ("Running post-install setup", self.run_post_install_setup),
             ("Verifying installation", self.verify_installation),
-        ]
+        ])
         
         for step_name, step_function in steps:
             print(f"\n🔄 {step_name}...")
@@ -884,14 +992,19 @@ class AI2DChatInstaller:
         
         self.print_success_message()
         return True
-    
     def print_success_message(self):
         """Print installation success message."""
         print("\n" + "="*60)
-        print("🎉 AI2D Chat Installation Completed Successfully!")
+        if self.dev_mode:
+            print("🎉 AI2D Chat Development Installation Completed Successfully!")
+        else:
+            print("🎉 AI2D Chat Installation Completed Successfully!")
         print("="*60)
         print("\n📋 Installation Summary:")
-        print("✅ Package built and installed via pipx")
+        if self.dev_mode:
+            print("✅ Development package installed via pipx (editable)")
+        else:
+            print("✅ Package built and installed via pipx")
         print("✅ User directories initialized")
         print("✅ Configuration files created")
         print("✅ Log files setup")
@@ -903,24 +1016,97 @@ class AI2DChatInstaller:
             print("✅ AI models downloaded")
         
         print("\n🚀 Getting Started:")
-        print("1. Start the server:")
-        print("   ai2d_chat_server")
-        print("\n2. Or use the CLI:")
-        print("   ai2d_chat --help")
+        if self.dev_mode:
+            print("1. Start the development server (port 5001):")
+            print("   ai2d_chat_dev server")
+            print("\n2. Test TTS functionality:")
+            print("   ai2d_chat_dev test")
+            print("\n3. Debug mode with maximum logging:")
+            print("   ai2d_chat_dev debug")
+            print("\n4. Reset development environment:")
+            print("   ai2d_chat_dev reset")
+            print("\n5. Or use regular commands:")
+            print("   ai2d_chat_server --port 5001 --debug")
+        else:
+            print("1. Start the server:")
+            print("   ai2d_chat_server")
+            print("\n2. Or use the CLI:")
+            print("   ai2d_chat --help")
+        
         print("\n3. Access the web interface:")
-        # Try to get the actual configured port
+        # Try to get the actual configured port from config files
         try:
-            from config.config_manager import ConfigManager
-            manager = ConfigManager()
-            config = manager.load_config()
-            server_config = config.get('server', {})
-            host = server_config.get('host', 'localhost')
-            port = server_config.get('port', 19080)
-            if host == '0.0.0.0':
-                host = 'localhost'
-            print(f"   http://{host}:{port}")
-        except Exception:
-            print("   http://localhost:19080")
+            import yaml
+            from pathlib import Path
+            
+            # Check local user config first
+            local_config_path = Path.home() / ".config" / "ai2d_chat" / "config.yaml"
+            app_config_path = self.project_root / "config" / "config.yaml"
+            
+            config = None
+            
+            # Try local config first
+            if local_config_path.exists():
+                try:
+                    with open(local_config_path, 'r') as f:
+                        config = yaml.safe_load(f)
+                    if self.verbose:
+                        print(f"   Using config from: {local_config_path}")
+                except Exception as e:
+                    if self.verbose:
+                        print(f"   Could not load local config: {e}")
+            
+            # Fall back to app config
+            if config is None and app_config_path.exists():
+                try:
+                    with open(app_config_path, 'r') as f:
+                        config = yaml.safe_load(f)
+                    if self.verbose:
+                        print(f"   Using config from: {app_config_path}")
+                except Exception as e:
+                    if self.verbose:
+                        print(f"   Could not load app config: {e}")
+            
+            # Extract port information
+            if config and 'server' in config:
+                server_config = config['server']
+                host = server_config.get('host', 'localhost')
+                
+                if self.dev_mode:
+                    # Use dev_port for development mode
+                    port = server_config.get('dev_port', 5001)
+                else:
+                    # Use regular port for production
+                    port = server_config.get('port', 19080)
+                
+                # Convert 0.0.0.0 to localhost for display
+                if host == '0.0.0.0':
+                    host = 'localhost'
+                    
+                print(f"   http://{host}:{port}")
+                
+                if self.verbose:
+                    print(f"   Detected port from config: {port} (dev_mode: {self.dev_mode})")
+            else:
+                # Ultimate fallback to hardcoded values
+                if self.dev_mode:
+                    port = 5001
+                    print("   http://localhost:5001")
+                else:
+                    port = 19080
+                    print("   http://localhost:19080")
+                    
+                if self.verbose:
+                    print(f"   Using fallback port: {port}")
+                    
+        except Exception as e:
+            # Final fallback if all else fails
+            if self.verbose:
+                print(f"   Error reading config: {e}")
+            if self.dev_mode:
+                print("   http://localhost:5001")
+            else:
+                print("   http://localhost:19080")
         
         if not self.auto_setup:
             print("\n🔧 Complete setup (if not done automatically):")
@@ -931,19 +1117,28 @@ class AI2DChatInstaller:
         print("   Data:   ~/.local/share/ai2d_chat/")
         print("   Cache:  ~/.cache/ai2d_chat/")
         
+        if self.dev_mode:
+            print("\n🔧 Development notes:")
+            print("   - All dependencies (including kokoro-onnx) are auto-installed")
+            print("   - Development server runs on port 5001 by default")
+            print("   - Enhanced logging and debugging enabled")
+            print("   - Editable install - changes reflect immediately")
+        
         print("\n📚 Documentation:")
         print("   https://github.com/Erebus-Nyx/ai2d_chat")
         print("="*60)
 
 def main():
     """Main installation function."""
-    parser = argparse.ArgumentParser(description='AI2D Chat Automated Installer')
+    parser = argparse.ArgumentParser(description='AI2D Chat Development Installer')
     parser.add_argument('--force', action='store_true', 
                        help='Force reinstall (remove existing installation)')
     parser.add_argument('--no-auto-setup', action='store_true',
                        help='Skip automatic setup (models, Live2D, etc.)')
     parser.add_argument('--build-only', action='store_true',
                        help='Only build the package, do not install')
+    parser.add_argument('--prod', action='store_true',
+                       help='Install in production mode instead of development mode')
     parser.add_argument('-v', '--verbose', action='store_true',
                        help='Show detailed build and installation output')
     
@@ -971,7 +1166,8 @@ def main():
     installer = AI2DChatInstaller(
         force_reinstall=args.force,
         auto_setup=not args.no_auto_setup,
-        verbose=args.verbose
+        verbose=args.verbose,
+        dev_mode=not args.prod  # Default to dev mode unless --prod is specified
     )
     
     if args.build_only:

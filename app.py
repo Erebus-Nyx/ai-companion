@@ -295,11 +295,14 @@ logging.getLogger('urllib3').setLevel(logging.WARNING)  # Reduce HTTP logs
 # =============================================================================
 # Flask App & Global State
 # =============================================================================
+# Note: create_app function is defined after AICompanionApp class to avoid forward reference issues
+
+# Temporary Flask app creation for module-level initialization
 app = Flask(__name__, 
            template_folder='web/templates',
            static_folder='web/static')
 app.config['SECRET_KEY'] = 'ai2d_chat-secret-key-change-in-production'
-# CORS(app, resources={r"/*": {"origins": "*"}})
+
 socketio = SocketIO(app, cors_allowed_origins="*", 
                    async_mode='threading',
                    logger=False, engineio_logger=False,
@@ -308,27 +311,7 @@ socketio = SocketIO(app, cors_allowed_origins="*",
 # Set globals for blueprints
 app_globals.socketio = socketio
 
-db_manager = None
-llm_handler = None
-memory_system = None
-tts_handler = None
-personality_system = None
-audio_pipeline = None
-system_detector = None
-model_downloader = None
-live2d_manager = None
-
-app_state = {
-    'is_initializing': True,
-    'initialization_progress': 0,
-    'initialization_status': 'Starting...',
-    'audio_enabled': False,
-    'connected_clients': 0,
-    'last_interaction': None,
-    'system_info': {}
-}
-
-# Register the Live2D blueprint
+# Register blueprints
 app.register_blueprint(live2d_bp)
 app.register_blueprint(chat_bp)
 app.register_blueprint(chat_routes)
@@ -356,53 +339,37 @@ try:
 except ImportError as e:
     logger.error(f"⚠️ Could not register autonomous routes: {e}")
 
+db_manager = None
+llm_handler = None
+memory_system = None
+tts_handler = None
+personality_system = None
+audio_pipeline = None
+system_detector = None
+model_downloader = None
+live2d_manager = None
+
+app_state = {
+    'is_initializing': True,
+    'initialization_progress': 0,
+    'initialization_status': 'Starting...',
+    'audio_enabled': False,
+    'connected_clients': 0,
+    'last_interaction': None,
+    'system_info': {}
+}
+
+# Register additional blueprints not included in create_app
+# (all main blueprints are now registered in create_app function)
+
 # Set app_state to globals for blueprint access
 app_globals.app_state = app_state
 
 # =============================================================================
-# Main Routes
+# SocketIO Event Handlers  
 # =============================================================================
-@app.route('/')
-def index():
-    """Serve the main application page - redirects to Live2D interface"""
-    return send_from_directory('web/static', 'live2d_pixi.html')
-
-@app.route('/live2d')
-def live2d_interface():
-    """Serve the Live2D interface"""
-    return send_from_directory('web/static', 'live2d_pixi.html')
-
-@app.route('/live2d_models/<path:filename>')
-def serve_live2d_models(filename):
-    """Serve Live2D models from user data directory"""
-    user_data_dir = os.path.expanduser("~/.local/share/ai2d_chat")
-    live2d_models_path = os.path.join(user_data_dir, "live2d_models")
-    return send_from_directory(live2d_models_path, filename)
-
-@app.route('/api/docs')
-def api_docs():
-    """Serve Swagger UI documentation"""
-    json_param = request.args.get('json')
-    if json_param:
-        return jsonify(get_openapi_spec())
-    return get_swagger_ui_html()
-
-@app.route('/docs') 
-def docs_redirect():
-    """Redirect /docs to /api/docs"""
-    return redirect('/api/docs')
-
-@app.route('/api/status')
-def api_status():
-    """Get application status"""
-    return jsonify({
-        'status': 'running',
-        'initialized': not app_state['is_initializing'],
-        'initialization_progress': app_state['initialization_progress'],
-        'initialization_status': app_state['initialization_status'],
-        'connected_clients': app_state['connected_clients'],
-        'audio_enabled': app_state['audio_enabled']
-    })
+# Move SocketIO event handlers to a new module for further modularization
+# Remove all @socketio.on handlers from app.py
 
 # Import SocketIO event handlers to register them
 from routes import socketio_handlers
@@ -779,6 +746,113 @@ class AICompanionApp:
             logger.info("Audio processing stopped")
 
 # =============================================================================
+# Application Factory Function
+# =============================================================================
+def create_app(debug=False, auto_initialize=True):
+    """Create and configure the Flask application"""
+    app = Flask(__name__, 
+               template_folder='web/templates',
+               static_folder='web/static')
+    app.config['SECRET_KEY'] = 'ai2d_chat-secret-key-change-in-production'
+    app.config['DEBUG'] = debug
+    # CORS(app, resources={r"/*": {"origins": "*"}})
+    
+    socketio = SocketIO(app, cors_allowed_origins="*", 
+                       async_mode='threading',
+                       logger=False, engineio_logger=False,
+                       ping_timeout=60, ping_interval=25)
+
+    # Set globals for blueprints
+    app_globals.socketio = socketio
+    
+    # Register blueprints
+    app.register_blueprint(live2d_bp)
+    app.register_blueprint(chat_bp)
+    app.register_blueprint(chat_routes)
+    app.register_blueprint(tts_bp)
+    app.register_blueprint(audio_bp)
+    app.register_blueprint(debug_bp)
+    app.register_blueprint(system_bp)
+    app.register_blueprint(characters_routes)
+    app.register_blueprint(users_routes)
+    app.register_blueprint(rag_blueprint)
+    
+    # Register logging blueprint
+    try:
+        from routes.app_routes_logging import logging_bp
+        app.register_blueprint(logging_bp)
+        logger.info("✅ Logging routes registered")
+    except ImportError as e:
+        logger.error(f"⚠️ Could not register logging routes: {e}")
+
+    # Register autonomous avatar blueprint
+    try:
+        from routes.app_routes_autonomous import autonomous_bp
+        app.register_blueprint(autonomous_bp)
+        logger.info("✅ Autonomous avatar routes registered")
+    except ImportError as e:
+        logger.error(f"⚠️ Could not register autonomous routes: {e}")
+    
+    # Register main application routes
+    @app.route('/')
+    def index():
+        """Serve the main application page - redirects to Live2D interface"""
+        return send_from_directory('web/static', 'live2d_pixi.html')
+
+    @app.route('/live2d')
+    def live2d_interface():
+        """Serve the Live2D interface"""
+        return send_from_directory('web/static', 'live2d_pixi.html')
+
+    @app.route('/live2d_models/<path:filename>')
+    def serve_live2d_models(filename):
+        """Serve Live2D models from user data directory"""
+        user_data_dir = os.path.expanduser("~/.local/share/ai2d_chat")
+        live2d_models_path = os.path.join(user_data_dir, "live2d_models")
+        return send_from_directory(live2d_models_path, filename)
+
+    @app.route('/api/docs')
+    def api_docs():
+        """Serve Swagger UI documentation"""
+        json_param = request.args.get('json')
+        if json_param:
+            return jsonify(get_openapi_spec())
+        return get_swagger_ui_html()
+
+    @app.route('/docs') 
+    def docs_redirect():
+        """Redirect /docs to /api/docs"""
+        return redirect('/api/docs')
+
+    @app.route('/api/status')
+    def api_status():
+        """Get application status"""
+        return jsonify({
+            'status': 'running',
+            'initialized': not app_state['is_initializing'],
+            'initialization_progress': app_state['initialization_progress'],
+            'initialization_status': app_state['initialization_status'],
+            'connected_clients': app_state['connected_clients'],
+            'audio_enabled': app_state['audio_enabled']
+        })
+    
+    # Initialize the AI companion app if requested
+    if auto_initialize:
+        # Create the AI companion app instance
+        ai_app = AICompanionApp()
+        ai_app.app = app
+        ai_app.socketio = socketio
+        
+        # Set global for blueprints
+        app_globals.ai_app = ai_app
+        
+        # Initialize components in background thread to avoid blocking
+        init_thread = threading.Thread(target=initialize_app_with_instance, args=(ai_app,), daemon=True)
+        init_thread.start()
+    
+    return app
+
+# =============================================================================
 # Process Management
 # =============================================================================
 def kill_existing_instances():
@@ -919,8 +993,21 @@ app_globals.ai_app = ai_app
 # =============================================================================
 # Initialization & Entrypoint
 # =============================================================================
+def initialize_app_with_instance(ai_app_instance):
+    """Initialize the application with a specific AI app instance"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    try:
+        loop.run_until_complete(ai_app_instance.initialize_components())
+    except Exception as e:
+        logger.error(f"Failed to initialize application: {e}")
+    finally:
+        loop.close()
+
 def initialize_app():
     """Initialize the application"""
+    global ai_app
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     
@@ -931,16 +1018,62 @@ def initialize_app():
     finally:
         loop.close()
 
-# Run initialization in background thread only when imported, not when running as main
-if __name__ != '__main__':
-    # When imported, start initialization in background
-    init_thread = threading.Thread(target=initialize_app, daemon=True)
-    init_thread.start()
-else:
-    # When running as main, don't auto-initialize in background
-    pass
+# Only auto-initialize when running as main script, not when imported
+# This prevents duplicate initialization when using create_app() from other modules
 
-def run_server():
+def daemonize():
+    """Daemonize the current process (Unix/Linux only)"""
+    try:
+        # First fork
+        pid = os.fork()
+        if pid > 0:
+            # Parent process - exit
+            sys.exit(0)
+    except OSError as e:
+        logger.error(f"Fork #1 failed: {e}")
+        sys.exit(1)
+    
+    # Become session leader
+    os.setsid()
+    
+    # Second fork
+    try:
+        pid = os.fork()
+        if pid > 0:
+            # Parent process - exit
+            sys.exit(0)
+    except OSError as e:
+        logger.error(f"Fork #2 failed: {e}")
+        sys.exit(1)
+    
+    # Change working directory to root to avoid unmount issues
+    os.chdir("/")
+    
+    # Set file creation mask
+    os.umask(0)
+    
+    # Redirect standard file descriptors to /dev/null
+    import resource
+    maxfd = resource.getrlimit(resource.RLIMIT_NOFILE)[1]
+    if maxfd == resource.RLIM_INFINITY:
+        maxfd = 1024
+    
+    # Close all file descriptors except for our logging handlers
+    for fd in range(0, maxfd):
+        try:
+            if fd not in [handler.stream.fileno() for handler in logging.getLogger().handlers if hasattr(handler, 'stream')]:
+                os.close(fd)
+        except OSError:
+            pass
+    
+    # Redirect stdin, stdout, stderr to /dev/null
+    os.open(os.devnull, os.O_RDWR)  # stdin
+    os.dup2(0, 1)  # stdout
+    os.dup2(0, 2)  # stderr
+    
+    logger.info("Process daemonized successfully")
+
+def run_server(background=True):
     """Entry point for pipx installation to run the server."""
     # Load configuration first
     config_manager = ConfigManager()
@@ -949,6 +1082,7 @@ def run_server():
     # Get server settings from config
     server_config = config.get('server', {})
     host = server_config.get('host', '0.0.0.0')
+    background_mode = server_config.get('background', background)  # Allow config override
     
     # Determine if we're running in development mode
     is_dev_mode = config_manager.is_dev_mode
@@ -967,12 +1101,118 @@ def run_server():
         # Only kill existing instances in production mode
         kill_existing_instances()
     
+    # Create PID file for daemon management
+    pid_file = None
+    if background_mode:
+        try:
+            # Create PID file directory
+            pid_dir = os.path.expanduser("~/.local/share/ai2d_chat/run")
+            os.makedirs(pid_dir, exist_ok=True)
+            
+            # Set PID file path
+            mode_suffix = "dev" if is_dev_mode else "prod"
+            pid_file = os.path.join(pid_dir, f"ai2d_chat_{mode_suffix}.pid")
+            
+            # Check if already running
+            if os.path.exists(pid_file):
+                try:
+                    with open(pid_file, 'r') as f:
+                        old_pid = int(f.read().strip())
+                    
+                    # Check if process is still running
+                    try:
+                        os.kill(old_pid, 0)  # Test if process exists
+                        logger.warning(f"Server already running with PID {old_pid}")
+                        print(f"⚠️  AI2D Chat server is already running (PID: {old_pid})")
+                        print(f"   Mode: {'Development' if is_dev_mode else 'Production'}")
+                        print(f"   URL: http://{host}:{port}")
+                        print(f"   PID file: {pid_file}")
+                        sys.exit(1)
+                    except OSError:
+                        # Process doesn't exist, remove stale PID file
+                        os.remove(pid_file)
+                        logger.info("Removed stale PID file")
+                except (ValueError, FileNotFoundError):
+                    # Invalid or missing PID file
+                    if os.path.exists(pid_file):
+                        os.remove(pid_file)
+            
+            # Daemonize the process (Unix/Linux only)
+            if os.name == 'posix':
+                logger.info("Daemonizing process...")
+                daemonize()
+            else:
+                logger.warning("Background mode not fully supported on Windows, running in foreground")
+                background_mode = False
+            
+            # Write PID file after daemonizing
+            if background_mode:
+                with open(pid_file, 'w') as f:
+                    f.write(str(os.getpid()))
+                logger.info(f"PID file written: {pid_file}")
+                
+        except Exception as e:
+            logger.error(f"Failed to set up background mode: {e}")
+            background_mode = False
+    
+    # Set up signal handlers for graceful shutdown
+    def signal_handler(signum, frame):
+        logger.info(f"Received signal {signum}, shutting down gracefully...")
+        
+        # Clean up PID file
+        if pid_file and os.path.exists(pid_file):
+            try:
+                os.remove(pid_file)
+                logger.info("PID file removed")
+            except Exception as e:
+                logger.error(f"Failed to remove PID file: {e}")
+        
+        # Stop audio pipeline if running
+        if hasattr(ai_app, 'stop_audio'):
+            ai_app.stop_audio()
+        
+        logger.info("Server shutdown complete")
+        sys.exit(0)
+    
+    # Register signal handlers
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+    
     # Initialize the app
     initialize_app()
     
-    # Run the application
-    logger.info(f"Starting AI Companion on http://{host}:{port}")
-    socketio.run(app, host=host, port=port, debug=debug, use_reloader=False, allow_unsafe_werkzeug=True)
+    # Print startup information
+    mode_name = "Development" if is_dev_mode else "Production"
+    run_mode = "Background" if background_mode else "Foreground"
+    
+    startup_message = f"""
+🚀 AI2D Chat Server Starting
+   Mode: {mode_name} ({run_mode})
+   URL: http://{host}:{port}
+   PID: {os.getpid()}"""
+    
+    if pid_file:
+        startup_message += f"""
+   PID File: {pid_file}"""
+    
+    print(startup_message)
+    logger.info(f"Starting AI Companion on http://{host}:{port} in {run_mode.lower()} mode")
+    
+    try:
+        # Run the application
+        socketio.run(app, host=host, port=port, debug=debug, use_reloader=False, allow_unsafe_werkzeug=True)
+    except KeyboardInterrupt:
+        logger.info("Server interrupted by user")
+    except Exception as e:
+        logger.error(f"Server error: {e}")
+    finally:
+        # Clean up PID file on exit
+        if pid_file and os.path.exists(pid_file):
+            try:
+                os.remove(pid_file)
+                logger.info("PID file cleaned up")
+            except Exception as e:
+                logger.error(f"Failed to clean up PID file: {e}")
 
 def main():
     """Main entry point for the application."""

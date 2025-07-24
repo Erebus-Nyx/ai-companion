@@ -342,9 +342,9 @@ class EmotionalTTSHandler:
                 try:
                     self.kokoro_model = LightweightEmotionalTTS()
                     self.kokoro_model.initialize_model()
-                    self.model_loaded = False  # Mark as fallback mode
+                    self.model_loaded = True  # Mark as successfully loaded (fallback mode)
                     self.logger.info("✅ Using LightweightEmotionalTTS fallback")
-                    return False
+                    return True  # Return True for successful fallback
                 except Exception as fallback_error:
                     self.logger.error(f"Failed to initialize fallback TTS: {fallback_error}")
                     return False
@@ -374,6 +374,61 @@ class EmotionalTTSHandler:
         
         return params
 
+    def _clean_text_for_tts(self, text: str) -> str:
+        """Clean text for TTS by removing emojis, symbols, and unpronounceable elements."""
+        import re
+        
+        # Remove emojis (Unicode emoji ranges)
+        emoji_pattern = re.compile(
+            r'[\U0001F600-\U0001F64F]|'  # Emoticons
+            r'[\U0001F300-\U0001F5FF]|'  # Symbols & pictographs
+            r'[\U0001F680-\U0001F6FF]|'  # Transport & map symbols
+            r'[\U0001F1E0-\U0001F1FF]|'  # Flags (iOS)
+            r'[\U00002702-\U000027B0]|'  # Dingbats
+            r'[\U000024C2-\U0001F251]'   # Enclosed characters
+        )
+        
+        # Remove emojis
+        text = emoji_pattern.sub('', text)
+        
+        # Remove common chat expressions and symbols
+        unwanted_patterns = [
+            r'\bmmmm+\b',           # mmmmm, mmmmmm, etc.
+            r'\blol\b',             # lol
+            r'\bhaha+\b',           # haha, hahaha, etc.
+            r'\bahh+\b',            # ahh, ahhh, etc.
+            r'\buh+m*\b',           # uhm, uhhm, etc.
+            r'\boh+\b',             # oh, ohh, ohhh, etc.
+            r'\bmhm+\b',            # mhm, mhmm, etc.
+            r'\bhmm+\b',            # hmm, hmmm, etc.
+            r'\bngh+\b',            # ngh, nghhh, etc.
+            r'\bungh+\b',           # ungh, unghhh, etc.
+            r'~+',                  # tildes
+            r'-{2,}',               # multiple dashes
+            r'\*{2,}',              # multiple asterisks
+            r'_{2,}',               # multiple underscores
+            r'\.{3,}',              # ellipsis with more than 3 dots
+            r'!{2,}',               # multiple exclamations
+            r'\?{2,}',              # multiple questions
+            r'[^\w\s\.\!\?\,\'\;\:\-]', # Non-standard punctuation (keep hyphens)
+            r'\b[a-zA-Z]{1}\1{3,}\b',   # Repeated single letters (aaaa, bbbbb, etc.)
+        ]
+        
+        for pattern in unwanted_patterns:
+            text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+        
+        # Clean up extra whitespace
+        text = re.sub(r'\s+', ' ', text).strip()
+        
+        # Remove empty emotion tags
+        text = re.sub(r'\*\s*\*', '', text)
+        
+        # Ensure we have actual pronounceable content
+        if not re.search(r'[a-zA-Z]', text):
+            return "Hello"  # Fallback if no pronounceable text remains
+        
+        return text
+
     def synthesize_emotional_speech(self, text: str, emotion: Optional[str] = None, 
                                    intensity: Optional[float] = None, 
                                    voice_id: Optional[str] = None) -> Optional[np.ndarray]:
@@ -397,6 +452,13 @@ class EmotionalTTSHandler:
         # Clean text of emotion tags for synthesis
         clean_text = re.sub(r'\*([^*]+)\*', '', text).strip()
         
+        # Apply comprehensive text cleaning for TTS
+        clean_text = self._clean_text_for_tts(clean_text)
+        
+        if not clean_text or len(clean_text.strip()) == 0:
+            self.logger.warning("No valid text remaining after cleaning for TTS")
+            return None
+        
         # Get voice to use
         voice = voice_id or self.current_voice
         
@@ -404,7 +466,7 @@ class EmotionalTTSHandler:
         emotion_params = self._get_emotional_params(emotion, intensity)
         
         try:
-            # Use Kokoro TTS model if available
+            # Use Kokoro TTS model if available (check for the create method)
             if self.model_loaded and self.kokoro_model and hasattr(self.kokoro_model, 'create'):
                 self.logger.info(f"🎵 Generating TTS with Kokoro: voice={voice}, emotion={emotion}, intensity={intensity}")
                 
@@ -427,13 +489,26 @@ class EmotionalTTSHandler:
                 self.logger.info(f"✅ Generated {len(samples)} samples at {sample_rate}Hz")
                 return samples
                 
+            # Use lightweight TTS fallback (check for synthesize_emotional_speech method)
+            elif self.model_loaded and self.kokoro_model and hasattr(self.kokoro_model, 'synthesize_emotional_speech'):
+                self.logger.info(f"🎵 Generating TTS with lightweight fallback: emotion={emotion}, intensity={intensity}")
+                
+                samples = self.kokoro_model.synthesize_emotional_speech(clean_text, emotion, intensity)
+                
+                if samples is not None:
+                    self.logger.info(f"✅ Generated {len(samples)} samples with lightweight TTS")
+                    return samples
+                else:
+                    self.logger.warning("Lightweight TTS returned None")
+                    return None
+                
             else:
-                self.logger.warning("Kokoro model not available, using fallback")
-                # Use fallback method
+                self.logger.warning("No TTS method available")
+                # Generate silence as last resort
                 return self._fallback_synthesis(clean_text, emotion, intensity)
                 
         except Exception as e:
-            self.logger.error(f"Kokoro TTS synthesis error: {e}")
+            self.logger.error(f"TTS synthesis error: {e}")
             # Use fallback method
             return self._fallback_synthesis(clean_text, emotion, intensity)
     

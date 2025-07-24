@@ -521,7 +521,7 @@ class AICompanionCLI:
         
         # Import systemd/daemon functionality from server_cli
         try:
-            from server_cli import has_systemd, start_systemd_service, daemonize
+            from cli_server import has_systemd, start_systemd_service, daemonize
             
             # Check for systemd first
             if has_systemd():
