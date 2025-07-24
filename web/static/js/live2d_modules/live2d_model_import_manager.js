@@ -466,6 +466,151 @@ class Live2DModelImportManager {
             this.showError(`Model scan failed: ${error.message}`);
         }
     }
+    
+    // Simplified Model Management for Settings Panel
+    loadExistingModelsForSettings() {
+        const select = document.getElementById('existingModelSelect');
+        if (!select) return;
+        
+        select.innerHTML = '<option value="">Loading models...</option>';
+        
+        fetch('/live2d/models')
+            .then(response => response.json())
+            .then(data => {
+                select.innerHTML = '<option value="">Select existing model...</option>';
+                if (data.status === 'success' && data.models) {
+                    data.models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.id || model.name;
+                        option.textContent = model.name;
+                        select.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error loading models:', error);
+                select.innerHTML = '<option value="">Error loading models</option>';
+            });
+    }
+    
+    loadCanvasModelsForSettings() {
+        const select = document.getElementById('canvasModelSelect');
+        const removeBtn = document.getElementById('removeModelBtn');
+        if (!select) return;
+        
+        select.innerHTML = '<option value="">No models on canvas...</option>';
+        if (removeBtn) removeBtn.disabled = true;
+        
+        // Get currently loaded models on canvas
+        if (window.Live2DManager && window.Live2DManager.getLoadedModels) {
+            const loadedModels = window.Live2DManager.getLoadedModels();
+            if (loadedModels && loadedModels.length > 0) {
+                select.innerHTML = '<option value="">Select model to remove...</option>';
+                loadedModels.forEach((model, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = model.name || `Model ${index + 1}`;
+                    select.appendChild(option);
+                });
+            }
+        }
+        
+        select.addEventListener('change', function() {
+            if (removeBtn) removeBtn.disabled = !this.value;
+        });
+    }
+    
+    addExistingModelToCanvas() {
+        const select = document.getElementById('existingModelSelect');
+        const selectedValue = select.value;
+        
+        if (!selectedValue) {
+            this.showToast('Please select a model to add', 'warning');
+            return;
+        }
+        
+        // Use existing model loading functionality
+        if (window.Live2DManager && window.Live2DManager.loadModel) {
+            window.Live2DManager.loadModel(selectedValue)
+                .then(() => {
+                    this.showToast('Model added to canvas successfully', 'success');
+                    this.loadCanvasModelsForSettings(); // Refresh the canvas models list
+                })
+                .catch(error => {
+                    console.error('Error adding model to canvas:', error);
+                    this.showToast('Error adding model to canvas', 'error');
+                });
+        } else {
+            console.error('Live2DManager not available');
+            this.showToast('Model manager not available', 'error');
+        }
+    }
+    
+    removeModelFromCanvas() {
+        const select = document.getElementById('canvasModelSelect');
+        const selectedIndex = select.value;
+        
+        if (!selectedIndex) {
+            return;
+        }
+        
+        const modelName = select.options[select.selectedIndex].textContent;
+        
+        if (confirm(`Are you sure you want to remove "${modelName}" from the canvas?`)) {
+            // Use existing model removal functionality
+            if (window.Live2DManager && window.Live2DManager.removeModel) {
+                window.Live2DManager.removeModel(parseInt(selectedIndex))
+                    .then(() => {
+                        this.showToast('Model removed from canvas', 'success');
+                        this.loadCanvasModelsForSettings(); // Refresh the canvas models list
+                    })
+                    .catch(error => {
+                        console.error('Error removing model from canvas:', error);
+                        this.showToast('Error removing model', 'error');
+                    });
+            } else {
+                console.error('Live2DManager not available');
+                this.showToast('Model manager not available', 'error');
+            }
+        }
+    }
+    
+    showToast(message, type = 'info') {
+        // Simple toast notification
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            background: ${type === 'success' ? '#4caf50' : type === 'error' ? '#f44336' : type === 'warning' ? '#ff9800' : '#2196f3'};
+            color: white;
+            border-radius: 6px;
+            z-index: 10000;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        `;
+        
+        document.body.appendChild(toast);
+        
+        // Fade in
+        requestAnimationFrame(() => {
+            toast.style.opacity = '1';
+        });
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    document.body.removeChild(toast);
+                }
+            }, 300);
+        }, 3000);
+    }
 }
 
 // Global functions for dialog management
@@ -495,6 +640,37 @@ window.onCharacterSourceChange = () => {
     if (source) {
         const targetSection = document.getElementById(`${source}CharacterSection`);
         if (targetSection) targetSection.style.display = 'block';
+    }
+};
+
+// Global functions for simplified model management
+window.loadExistingModelsForSettings = () => {
+    if (window.live2dModelImportManager) {
+        window.live2dModelImportManager.loadExistingModelsForSettings();
+    }
+};
+
+window.loadCanvasModelsForSettings = () => {
+    if (window.live2dModelImportManager) {
+        window.live2dModelImportManager.loadCanvasModelsForSettings();
+    }
+};
+
+window.addExistingModelToCanvas = () => {
+    if (window.live2dModelImportManager) {
+        window.live2dModelImportManager.addExistingModelToCanvas();
+    }
+};
+
+window.removeModelFromCanvas = () => {
+    if (window.live2dModelImportManager) {
+        window.live2dModelImportManager.removeModelFromCanvas();
+    }
+};
+
+window.uploadModelZip = (file) => {
+    if (window.live2dModelImportManager && file) {
+        window.live2dModelImportManager.uploadModelFile(file);
     }
 };
 

@@ -122,7 +122,6 @@
                     </div>
                 </div>
                 <div class="window-controls">
-                    <button class="control-btn" onclick="toggleChatSnap()" title="Toggle Snap">📌</button>
                     <button class="close-btn" onclick="closeChat()">×</button>
                 </div>
             </div>
@@ -143,18 +142,39 @@
             <div class="settings-header">
                 <span class="settings-title">Live2D Settings</span>
                 <div class="window-controls">
-                    <button class="control-btn" onclick="toggleSettingsSnap()" title="Toggle Snap">📌</button>
                     <button class="close-btn" onclick="closeSettings()">×</button>
                 </div>
             </div>
             <div class="settings-content">
                 <div class="settings-group">
-                    <h4>Model Selection</h4>
-                    <div class="setting-item">
-                        <label for="modelSelect">Model:</label>
-                        <select id="modelSelect" onchange="onModelChange()">
-                            <option value="">Select a model...</option>
-                        </select>
+                    <h4>Model Management</h4>
+                    <div class="model-management-actions">
+                        <div class="setting-item">
+                            <label>Add Model to Canvas:</label>
+                            <div class="model-add-controls">
+                                <input type="file" id="canvasModelFileInput" accept=".zip" multiple style="display: none;">
+                                <button class="btn btn-primary" onclick="document.getElementById('canvasModelFileInput').click()">
+                                    📁 Upload ZIP Model
+                                </button>
+                                <select id="existingModelSelect" class="form-select">
+                                    <option value="">Select existing model...</option>
+                                </select>
+                                <button class="btn btn-secondary" onclick="addExistingModelToCanvas()">
+                                    ➕ Add to Canvas
+                                </button>
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <label>Remove Model:</label>
+                            <div class="model-delete-controls">
+                                <select id="canvasModelSelect" class="form-select">
+                                    <option value="">No models on canvas...</option>
+                                </select>
+                                <button class="btn btn-warning" onclick="removeModelFromCanvas()" disabled id="removeModelBtn">
+                                    🗑️ Remove
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -300,68 +320,13 @@
         <div class="dialog-overlay" onclick="closeAddModelDialog()"></div>
         <div class="dialog-content">
             <div class="dialog-header">
-                <h3>Live2D Model Management</h3>
+                <h3>Add Live2D Model</h3>
                 <button class="dialog-close" onclick="closeAddModelDialog()">×</button>
             </div>
             <div class="dialog-body">
-                <!-- Tab Navigation -->
-                <div class="dialog-tabs">
-                    <button class="tab-button active" onclick="switchModelDialogTab('existing')">Existing Models</button>
-                    <button class="tab-button" onclick="switchModelDialogTab('import')">Import ZIP Models</button>
-                </div>
-                
-                <!-- Existing Models Tab -->
-                <div id="existingModelsTab" class="tab-content active">
-                    <div class="form-group">
-                        <label for="modelDialogSelect">Select Model:</label>
-                        <select id="modelDialogSelect">
-                            <option value="">Loading models...</option>
-                        </select>
-                    </div>
-                    <div class="model-grid" id="modelGrid">
-                        <div style="text-align: center; padding: 20px; color: #aaa;">
-                            Loading available models...
-                        </div>
-                    </div>
-                    <div class="dialog-actions">
-                        <button class="btn btn-primary" onclick="addSelectedModel()">Add Model</button>
-                    </div>
-                </div>
-                
-                <!-- Import Models Tab -->
-                <div id="importModelsTab" class="tab-content">
-                    <div class="import-section">
-                        <h4>Upload Model Files</h4>
-                        <div class="upload-area">
-                            <div class="drop-zone" id="modelDropZone">
-                                <div class="drop-zone-content">
-                                    <div class="drop-icon">📁</div>
-                                    <p>Drag and drop Live2D model ZIP archives here</p>
-                                    <p class="drop-hint">ZIP files preserve the complete directory structure</p>
-                                    <input type="file" id="modelFileInput" accept=".zip" multiple style="display: none;">
-                                </div>
-                            </div>
-                            <button class="btn btn-secondary" onclick="document.getElementById('modelFileInput').click()">Choose ZIP Files</button>
-                        </div>
-                        
-                        <div class="supported-formats">
-                            <h5>Requirements:</h5>
-                            <ul>
-                                <li><strong>ZIP archives only</strong> - preserves directory structure</li>
-                                <li>Must contain .model3.json configuration file</li>
-                                <li>Includes all motions, textures, and assets</li>
-                                <li>Maintains relative paths for proper model functionality</li>
-                            </ul>
-                            <div class="format-note">
-                                <strong>Note:</strong> Live2D models require their complete directory structure to function properly. 
-                                Individual files cannot be uploaded as they break motion and texture references.
-                            </div>
-                        </div>
-                        
-                        <!-- Upload Progress -->
-                        <div id="uploadProgressContainer" class="upload-progress-container">
-                            <!-- Progress items will be added here -->
-                        </div>
+                <div class="model-grid" id="modelGrid">
+                    <div style="text-align: center; padding: 20px; color: #aaa;">
+                        Loading available models...
                     </div>
                 </div>
             </div>
@@ -390,7 +355,6 @@
         <div class="user-profile-header">
             <span class="user-profile-title">User Profile</span>
             <div class="window-controls">
-                <button class="control-btn" onclick="toggleUserProfileSnap()" title="Toggle Snap">📌</button>
                 <button class="close-btn" onclick="closeUserProfile()">×</button>
             </div>
         </div>
@@ -450,7 +414,6 @@
         <div class="character-profiles-header">
             <span class="character-profiles-title">Character Profiles</span>
             <div class="window-controls">
-                <button class="control-btn" onclick="toggleCharacterProfilesSnap()" title="Toggle Snap">📌</button>
                 <button class="close-btn" onclick="closeCharacterProfiles()">×</button>
             </div>
         </div>
@@ -532,7 +495,6 @@
         <div class="user-management-header">
             <span class="user-management-title">User Management</span>
             <div class="window-controls">
-                <button class="control-btn" onclick="toggleUserManagementSnap()" title="Toggle Snap">📌</button>
                 <button class="close-btn" onclick="closeUserManagement()">×</button>
             </div>
         </div>
@@ -730,7 +692,6 @@
         <div class="drawing-header">
             <span class="drawing-title">Drawing Tools</span>
             <div class="window-controls">
-                <button class="control-btn" onclick="toggleDrawingSnap()" title="Toggle Snap">📌</button>
                 <button class="control-btn" onclick="toggleDrawingResize()" title="Toggle Resize">⤡</button>
                 <button class="close-btn" onclick="closeDrawing()">×</button>
             </div>
@@ -2628,8 +2589,8 @@ async function loadLive2DModel(modelPath) {
         
         // Test adding a message using the chat manager
         if (typeof addMessage === 'function') {
-            addMessage('system', 'Chat system test message - if you can see this, the chat is working!', 'info');
-            console.log('✅ Test message added to chat');
+            // addMessage('system', 'Chat system test message - if you can see this, the chat is working!', 'info');
+            console.log('✅ Test message function available (test message disabled)');
         } else {
             console.error('❌ addMessage function not available');
         }
@@ -2638,8 +2599,7 @@ async function loadLive2DModel(modelPath) {
     // Auto-test chat functionality after page load
     document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
-            console.log('Running automatic chat test...');
-            testChatMessage();
+            // testChatMessage(); // Disabled automatic test message
         }, 2000);
         
         // Test model dialog functions after a delay to ensure all scripts are loaded
@@ -2678,6 +2638,54 @@ async function loadLive2DModel(modelPath) {
                 };
             }
         }, 3000);
+    });
+    
+    // Model Management Functions for Settings Panel - Using Live2D Module
+    // All model management functions are now handled by live2d_model_import_manager.js
+    
+    // Override window.openSettings to initialize model lists
+    const originalOpenSettings = window.openSettings;
+    window.openSettings = function() {
+        if (originalOpenSettings) {
+            originalOpenSettings();
+        } else {
+            const panel = document.getElementById('settingsPanel');
+            if (panel) {
+                panel.classList.add('open');
+            }
+        }
+        
+        // Load model lists when settings panel opens
+        if (window.loadExistingModelsForSettings) {
+            window.loadExistingModelsForSettings();
+        }
+        if (window.loadCanvasModelsForSettings) {
+            window.loadCanvasModelsForSettings();
+        }
+    };
+    
+    // Handle file upload for ZIP models
+    document.addEventListener('DOMContentLoaded', function() {
+        const fileInput = document.getElementById('canvasModelFileInput');
+        if (fileInput) {
+            fileInput.addEventListener('change', function(e) {
+                const files = e.target.files;
+                if (files.length > 0) {
+                    for (let file of files) {
+                        if (file.name.endsWith('.zip')) {
+                            // Use module function for ZIP upload
+                            if (window.uploadModelZip) {
+                                window.uploadModelZip(file);
+                            }
+                        } else {
+                            if (window.live2dModelImportManager) {
+                                window.live2dModelImportManager.showToast('Please select ZIP files only', 'warning');
+                            }
+                        }
+                    }
+                }
+            });
+        }
     });
     
     // Test function for debugging the model dialog
