@@ -113,7 +113,8 @@ class ConsoleLogger {
                 }
             }
             
-            const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+            // Always use relative URLs for proxy compatibility
+            const apiBaseUrl = '';
             
             const response = await fetch(`${apiBaseUrl}/api/logs/frontend`, {
                 method: 'POST',
@@ -139,7 +140,12 @@ class ConsoleLogger {
                 this.logBuffer = this.logBuffer.slice(-this.maxBufferSize);
             }
             
-            this.originalConsole.warn('Failed to send console logs to backend:', error);
+            // Only log error once per minute to avoid spam
+            const now = Date.now();
+            if (!this.lastLogError || (now - this.lastLogError) > 60000) {
+                this.lastLogError = now;
+                this.originalConsole.warn('Failed to send console logs to backend - will retry silently');
+            }
         }
     }
     
@@ -153,7 +159,8 @@ class ConsoleLogger {
             // Use sendBeacon for reliable delivery during page unload
             if (this.logBuffer.length > 0 && navigator.sendBeacon) {
                 try {
-                    const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+                    // Always use relative URLs for proxy compatibility
+                    const apiBaseUrl = '';
                     const data = JSON.stringify({
                         logs: this.logBuffer,
                         session_id: this.getSessionId()

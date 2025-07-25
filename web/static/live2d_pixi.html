@@ -288,11 +288,12 @@
                     <h4>Background Settings</h4>
                     <div class="setting-item">
                         <label for="backgroundImageFile">Background Image:</label>
-                        <input type="file" id="backgroundImageFile" accept="image/*" onchange="handleBackgroundImageUpload(this)" style="font-size: 12px; margin-bottom: 8px;">
+                        <input type="file" id="backgroundImageFile" accept="image/*" style="font-size: 12px; margin-bottom: 8px;">
                     </div>
                     <div class="setting-controls">
+                        <button class="btn btn-primary" onclick="applyBackgroundImage()" title="Apply selected background image">Apply</button>
                         <button class="btn btn-secondary" onclick="clearBackgroundImage()" title="Remove current background image">Clear Background</button>
-                        <button class="btn btn-info" onclick="showBackgroundPreview()" title="Preview current background">Preview</button>
+                        <button class="btn btn-info" onclick="showBackgroundPreview()" title="Preview selected background image">Preview</button>
                     </div>
                     <div class="setting-item" style="margin-top: 10px;">
                         <label for="backgroundOpacity">Background Opacity: <span id="backgroundOpacityValue">100</span>%</label>
@@ -336,6 +337,52 @@
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Help Panel -->
+        <div class="help-panel" id="helpPanel">
+            <div class="help-header">
+                <div class="help-title">AI Companion Help</div>
+                <button class="close-btn" onclick="toggleHelp()">×</button>
+            </div>
+            <div class="help-content">
+                <h3>Getting Started</h3>
+                <ul>
+                    <li><strong>Load Models:</strong> Use the People panel to add Live2D character models</li>
+                    <li><strong>Interact:</strong> Click and drag models to move them around the canvas</li>
+                    <li><strong>Chat:</strong> Open the Chat panel to have conversations with your AI companions</li>
+                    <li><strong>Customize:</strong> Use Settings to adjust voice, appearance, and behavior</li>
+                </ul>
+                
+                <h3>Navigation</h3>
+                <ul>
+                    <li><strong>People Panel:</strong> Manage and add character models</li>
+                    <li><strong>Chat Panel:</strong> Communicate with your AI companions</li>
+                    <li><strong>Drawing Panel:</strong> Sketch and draw on the canvas</li>
+                    <li><strong>Settings Panel:</strong> Configure models, voices, and system settings</li>
+                </ul>
+                
+                <h3>Keyboard Shortcuts</h3>
+                <ul>
+                    <li><kbd>Ctrl+Shift+D</kbd> - Toggle debug console (dev mode)</li>
+                    <li><kbd>Escape</kbd> - Close any open panel</li>
+                    <li><kbd>F11</kbd> - Toggle fullscreen mode</li>
+                </ul>
+                
+                <h3>Voice & Audio</h3>
+                <ul>
+                    <li><strong>Upload Voices:</strong> Add ONNX or PTH voice models in Settings</li>
+                    <li><strong>Test Voices:</strong> Use the voice test feature to preview audio</li>
+                    <li><strong>Character Voices:</strong> Assign specific voices to characters in Character Profiles</li>
+                </ul>
+                
+                <h3>Troubleshooting</h3>
+                <ul>
+                    <li><strong>Models not loading:</strong> Check the debug console for errors (Ctrl+Shift+D)</li>
+                    <li><strong>Voice issues:</strong> Ensure voice files are in supported formats (ONNX, PTH)</li>
+                    <li><strong>Performance:</strong> Close unused panels and limit active models</li>
+                </ul>
             </div>
         </div>
         
@@ -602,8 +649,8 @@
                     <input type="text" id="userName" placeholder="Username (required)" required>
                 </div>
                 <div class="form-group">
-                    <label for="userDisplayName">Display Name:</label>
-                    <input type="text" id="userDisplayName" placeholder="Display name">
+                    <label for="newUserDisplayName">Display Name:</label>
+                    <input type="text" id="newUserDisplayName" placeholder="Display name">
                 </div>
                 <div class="form-group">
                     <label for="userEmail">Email:</label>
@@ -1126,18 +1173,8 @@ console.log('=== End Verification ===');
 <script>
 // AI Companion API Configuration - Dynamic configuration loading
 window.ai2d_chat_CONFIG = {
-    // Default fallback configuration
-    API_BASE_URL: (() => {
-        const protocol = window.location.protocol;
-        const hostname = window.location.hostname;
-        const port = window.location.port;
-        
-        // Use current protocol and host
-        if (port) {
-            return `${protocol}//${hostname}:${port}`;
-        }
-        return `${protocol}//${hostname}`;
-    })(),
+    // Always use empty string to force relative URLs - works with any proxy setup
+    API_BASE_URL: '',
     
     // Configuration loading status
     _configLoaded: false,
@@ -1158,36 +1195,27 @@ async function loadServerConfig() {
         try {
             console.log('Loading server configuration from API...');
             
-            // Try to fetch configuration from the server
+            // Always use relative URLs for API calls - this works with proxies automatically
             const configResponse = await fetch('/api/system/config');
             if (configResponse.ok) {
                 const serverConfig = await configResponse.json();
                 
-                // Update the configuration
-                window.ai2d_chat_CONFIG.API_BASE_URL = serverConfig.server.base_url;
+                // Store server config for reference but don't change API_BASE_URL
                 window.ai2d_chat_CONFIG.serverConfig = serverConfig;
                 window.ai2d_chat_CONFIG._configLoaded = true;
                 
-                console.log('✅ Server configuration loaded successfully:', serverConfig.server.base_url);
+                console.log('✅ Server configuration loaded successfully, using relative URLs for all API calls');
                 return window.ai2d_chat_CONFIG;
             } else {
                 throw new Error(`Config API returned ${configResponse.status}`);
             }
         } catch (error) {
-            console.warn('⚠️ Failed to load server config from API, using fallback:', error.message);
+            console.warn('⚠️ Failed to load server config from API, continuing with relative URLs:', error.message);
             
-            // Fallback: use current location as base
-            const protocol = window.location.protocol;
-            const hostname = window.location.hostname;
-            const port = window.location.port;
-            
-            window.ai2d_chat_CONFIG.API_BASE_URL = port ? 
-                `${protocol}//${hostname}:${port}` : 
-                `${protocol}//${hostname}`;
-            
+            // Always use relative URLs as fallback
             window.ai2d_chat_CONFIG._configLoaded = true;
             
-            console.log('Using fallback configuration:', window.ai2d_chat_CONFIG.API_BASE_URL);
+            console.log('Using relative URLs for all API calls (proxy-compatible)');
             return window.ai2d_chat_CONFIG;
         }
     })();
@@ -1196,15 +1224,12 @@ async function loadServerConfig() {
 }
 
 // Initialize configuration
-console.log('AI Companion API Config (initial):', window.ai2d_chat_CONFIG.API_BASE_URL);
-console.log('Protocol detected:', window.location.protocol);
+console.log('AI Companion API Config: Using relative URLs (proxy-compatible)');
 
-// Helper function for making API calls with proper config loading
+// Helper function for making API calls with relative URLs
 window.makeApiCall = async function(endpoint, options = {}) {
-    // Ensure config is loaded
-    await loadServerConfig();
-    
-    const url = `${window.ai2d_chat_CONFIG.API_BASE_URL}${endpoint}`;
+    // Always use relative URLs - let the browser and proxy handle the rest
+    const url = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     console.log(`Making API call to: ${url}`);
     
     return fetch(url, options);
@@ -1318,6 +1343,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <script src="/static/js/live2d_modules/live2d_simple_fix.js"></script>    
     <script src="/static/js/live2d_modules/live2d_tester.js"></script>
     <script src="/static/js/live2d_modules/live2d_ui_controller.js"></script>
+    <script src="/static/js/live2d_modules/live2d_state_manager.js"></script>
 
     <!-- UI components -->
     <script src="/static/js/ui_modules/ui_drawing_system.js"></script>
@@ -1329,6 +1355,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <script src="/static/js/ui_modules/ui_user_selection.js"></script>
     <script src="/static/js/ui_modules/ui_debug_console.js"></script>
     <script src="/static/js/ui_modules/ui_debug_logger.js"></script>
+    <script src="/static/js/ui_modules/ui_user_profile.js"></script>    
 
     <!-- Audio Processing -->
     <script src="/static/js/audio_modules/audio_context_manager.js"></script>
@@ -1338,14 +1365,16 @@ document.addEventListener('DOMContentLoaded', function() {
     <script src="/static/js/audio_modules/audio_voice_recording.js"></script>
     <script src="/static/js/audio_modules/audio_tts.js"></script> 
 
+    <!-- Chat components -->
+    <script src="/static/js/chat_modules/avatar_interaction_manager.js"></script>
+    <script src="/static/js/chat_modules/avatar_personality_manager.js"></script>
+    <script src="/static/js/chat_modules/chat_character_manager.js"></script>
+    <script src="/static/js/chat_modules/chat_manager.js"></script>    
+
     <!-- Additional Functionality -->
     <script src="/static/js/console_logger.js"></script>
     <script src="/static/js/autonomous_avatars.js"></script>
-    <script src="/static/js/chat_modules/chat_manager.js"></script>
-    <script src="/static/js/chat_modules/chat_character_manager.js"></script>
-    <script src="/static/js/live2d_modules/live2d_state_manager.js"></script>
     <script src="/static/js/db_manager.js"></script>
-    <script src="/static/js/user_profile.js"></script>
     <script src="/static/js/config_api_helpers.js"></script>
 
     <!-- Compatibility Functions -->
@@ -1779,8 +1808,24 @@ async function loadLive2DModel(modelPath) {
         currentModel.x = pixiApp.screen.width / 2;
         currentModel.y = pixiApp.screen.height / 2;
         
-        // Set initial scale
-        currentModel.scale.set(0.3);
+        // Auto-scale models that are too large
+        // Calculate the model's natural height and apply intelligent scaling
+        const modelHeight = currentModel.height;
+        const viewportHeight = pixiApp.screen.height;
+        const maxAllowedHeight = viewportHeight * 0.75; // 3/4 of viewport height
+        
+        let scaleFactor = 0.3; // Default scale factor
+        
+        if (modelHeight > maxAllowedHeight) {
+            // Model is too large, calculate scale to fit within 3/4 viewport height
+            scaleFactor = maxAllowedHeight / modelHeight;
+            console.log(`🎯 Auto-scaling large model: Original height ${modelHeight}px -> Scaled to ${Math.round(modelHeight * scaleFactor)}px (${(scaleFactor * 100).toFixed(1)}%)`);
+        } else {
+            console.log(`✅ Model fits naturally: Height ${modelHeight}px (using default scale ${scaleFactor})`);
+        }
+        
+        // Set the calculated scale
+        currentModel.scale.set(scaleFactor);
         
         // CRITICAL: Enable mouse interactions using Live2D Viewer Web patterns
         setupLive2DMouseInteraction(currentModel);
@@ -1879,21 +1924,21 @@ async function loadLive2DModel(modelPath) {
     // Background Image Management System
     class BackgroundImageManager {
         constructor() {
-            this.storageKey = 'ai2d_chat_background_image';
-            this.settingsKey = 'ai2d_chat_background_settings';
             this.backgroundElement = null;
             this.currentSettings = {
                 opacity: 100,
                 scale: 100,
                 position: 'center'
             };
+            this.currentImage = null;
+            this.imageCache = new Map(); // Add image cache
+            this.isLoading = false; // Add loading state
             this.initialize();
         }
         
         initialize() {
             this.createBackgroundElement();
             this.loadSavedBackground();
-            this.loadSavedSettings();
         }
         
         createBackgroundElement() {
@@ -1929,35 +1974,137 @@ async function loadLive2DModel(modelPath) {
             }
             
             try {
-                // Convert file to base64 for storage
-                const base64 = await this.fileToBase64(file);
+                console.log('🖼️ Setting background image:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+                this.isLoading = true;
                 
-                // Store in localStorage
-                localStorage.setItem(this.storageKey, base64);
+                // Upload file to server instead of converting to base64
+                const backgroundUrl = await this.uploadBackgroundFile(file, this.currentSettings);
                 
-                // Apply background
-                this.applyBackground(base64);
+                // Apply background immediately with the returned URL
+                this.currentImage = backgroundUrl;
+                this.applyBackground(backgroundUrl);
                 
-                console.log('Background image saved and applied successfully');
+                console.log('✅ Background image uploaded and applied successfully');
+                this.isLoading = false;
                 return true;
             } catch (error) {
-                console.error('Error setting background image:', error);
-                return false;
+                console.error('❌ Error setting background image:', error);
+                this.isLoading = false;
+                throw error;
             }
         }
         
-        fileToBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
+        async uploadBackgroundFile(file, settings) {
+            try {
+                const formData = new FormData();
+                formData.append('background_file', file);
+                formData.append('opacity', settings.opacity);
+                formData.append('scale', settings.scale);
+                formData.append('position', settings.position);
+                
+                const response = await fetch('/api/users/background', {
+                    method: 'POST',
+                    body: formData // Use FormData instead of JSON
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Failed to upload background: ${response.statusText} - ${errorText}`);
+                }
+                
+                const result = await response.json();
+                console.log('✅ Background uploaded to server:', result);
+                return result.background_url;
+                
+            } catch (error) {
+                console.error('❌ Error uploading background file:', error);
+                throw error;
+            }
         }
         
-        applyBackground(base64Data) {
-            if (this.backgroundElement && base64Data) {
-                this.backgroundElement.style.backgroundImage = `url(${base64Data})`;
+        async loadSavedBackground() {
+            if (this.isLoading) {
+                console.log('🔄 Background already loading, skipping...');
+                return;
+            }
+            
+            try {
+                console.log('📋 Loading saved background from server...');
+                this.isLoading = true;
+                
+                // Check cache first
+                const currentUser = window.userSelectionSystem?.currentUser;
+                const cacheKey = `background_${currentUser?.id || 'default'}`;
+                
+                if (this.imageCache.has(cacheKey)) {
+                    console.log('🚀 Loading background from cache');
+                    const cachedData = this.imageCache.get(cacheKey);
+                    this.currentImage = cachedData.url;
+                    this.currentSettings = { ...this.currentSettings, ...cachedData.settings };
+                    this.applyBackground(cachedData.url);
+                    this.updateBackgroundStyle();
+                    this.updateUIControls();
+                    this.isLoading = false;
+                    console.log('✅ Background loaded from cache in <1ms');
+                    return;
+                }
+                
+                const response = await fetch('/api/users/background');
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        console.log('⚠️ No user logged in, background not loaded');
+                        this.isLoading = false;
+                        return;
+                    }
+                    const errorText = await response.text();
+                    console.error(`❌ Failed to load background: ${response.statusText} - ${errorText}`);
+                    this.isLoading = false;
+                    return;
+                }
+                
+                const result = await response.json();
+                console.log('📋 Background response received:', result?.background_url ? 'has URL' : 'empty');
+                
+                if (result.background_url) {
+                    this.currentImage = result.background_url;
+                    
+                    // Cache the background data
+                    this.imageCache.set(cacheKey, {
+                        url: result.background_url,
+                        settings: result.background_settings || {}
+                    });
+                    
+                    this.applyBackground(result.background_url);
+                    console.log('✅ Background image loaded from server');
+                }
+                
+                if (result.background_settings) {
+                    this.currentSettings = { ...this.currentSettings, ...result.background_settings };
+                    this.updateBackgroundStyle();
+                    this.updateUIControls();
+                    console.log('✅ Background settings loaded from server');
+                } else {
+                    console.log('📋 No background data found');
+                }
+                
+                this.isLoading = false;
+                
+            } catch (error) {
+                console.error('❌ Error loading background from server:', error);
+                this.isLoading = false;
+            }
+        }
+        
+        applyBackground(imageData) {
+            if (this.backgroundElement && imageData) {
+                // Handle both URLs and base64 data
+                if (imageData.startsWith('data:')) {
+                    // Base64 data - use directly
+                    this.backgroundElement.style.backgroundImage = `url(${imageData})`;
+                } else {
+                    // URL path - use directly
+                    this.backgroundElement.style.backgroundImage = `url(${imageData})`;
+                }
                 this.updateBackgroundStyle();
             }
         }
@@ -2003,30 +2150,6 @@ async function loadLive2DModel(modelPath) {
             }
         }
         
-        loadSavedBackground() {
-            const savedBackground = localStorage.getItem(this.storageKey);
-            if (savedBackground) {
-                this.applyBackground(savedBackground);
-            }
-        }
-        
-        loadSavedSettings() {
-            const savedSettings = localStorage.getItem(this.settingsKey);
-            if (savedSettings) {
-                try {
-                    this.currentSettings = { ...this.currentSettings, ...JSON.parse(savedSettings) };
-                    this.updateUIControls();
-                    this.updateBackgroundStyle();
-                } catch (error) {
-                    console.error('Error loading background settings:', error);
-                }
-            }
-        }
-        
-        saveSettings() {
-            localStorage.setItem(this.settingsKey, JSON.stringify(this.currentSettings));
-        }
-        
         updateUIControls() {
             const opacitySlider = document.getElementById('backgroundOpacity');
             const scaleSlider = document.getElementById('backgroundScale');
@@ -2047,48 +2170,102 @@ async function loadLive2DModel(modelPath) {
             }
         }
         
-        updateOpacity(value) {
+        async updateOpacity(value) {
             this.currentSettings.opacity = parseInt(value);
             this.updateBackgroundStyle();
-            this.saveSettings();
+            await this.saveCurrentSettings();
             
             const opacityValue = document.getElementById('backgroundOpacityValue');
             if (opacityValue) opacityValue.textContent = value;
         }
         
-        updateScale(value) {
+        async updateScale(value) {
             this.currentSettings.scale = parseInt(value);
             this.updateBackgroundStyle();
-            this.saveSettings();
+            await this.saveCurrentSettings();
             
             const scaleValue = document.getElementById('backgroundScaleValue');
             if (scaleValue) scaleValue.textContent = value;
         }
         
-        updatePosition(value) {
+        async updatePosition(value) {
             this.currentSettings.position = value;
             this.updateBackgroundStyle();
-            this.saveSettings();
+            await this.saveCurrentSettings();
         }
         
-        clearBackground() {
-            localStorage.removeItem(this.storageKey);
-            if (this.backgroundElement) {
-                this.backgroundElement.style.backgroundImage = 'none';
+        async saveCurrentSettings() {
+            if (this.currentImage) {
+                try {
+                    // Send settings-only update (JSON) to preserve existing background file
+                    const response = await fetch('/api/users/background', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            background_url: this.currentImage,
+                            background_settings: this.currentSettings
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`Failed to save settings: ${response.statusText} - ${errorText}`);
+                    }
+                    
+                    console.log('✅ Background settings saved successfully');
+                } catch (error) {
+                    console.error('❌ Failed to save background settings:', error);
+                }
             }
-            console.log('Background image cleared');
+        }
+        
+        async clearBackground() {
+            try {
+                console.log('🗑️ Clearing background...');
+                
+                const response = await fetch('/api/users/background', {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Failed to clear background: ${response.statusText} - ${errorText}`);
+                }
+                
+                // Clear local state
+                this.currentImage = null;
+                this.currentSettings = {
+                    opacity: 100,
+                    scale: 100,
+                    position: 'center'
+                };
+                
+                // Clear UI
+                if (this.backgroundElement) {
+                    this.backgroundElement.style.backgroundImage = 'none';
+                }
+                
+                this.updateUIControls();
+                
+                console.log('✅ Background cleared successfully');
+                
+            } catch (error) {
+                console.error('❌ Error clearing background:', error);
+                throw error;
+            }
         }
         
         showPreview() {
-            const savedBackground = localStorage.getItem(this.storageKey);
-            if (savedBackground) {
+            if (this.currentImage) {
                 // Create a preview window
                 const preview = window.open('', 'Background Preview', 'width=800,height=600');
                 if (preview) {
                     preview.document.write(`
                         <html>
                             <head><title>Background Preview</title></head>
-                            <body style="margin:0; background-image:url(${savedBackground}); background-size:cover; background-position:center;">
+                            <body style="margin:0; background-image:url(${this.currentImage}); background-size:cover; background-position:center;">
                                 <div style="position:fixed; top:10px; right:10px; background:rgba(0,0,0,0.7); color:white; padding:10px; border-radius:5px;">
                                     Background Preview<br>
                                     <button onclick="window.close()" style="margin-top:5px;">Close</button>
@@ -2109,61 +2286,292 @@ async function loadLive2DModel(modelPath) {
         // Wait a bit for the DOM to be fully ready
         setTimeout(() => {
             backgroundManager = new BackgroundImageManager();
+            
+            // Listen for user changes to clear cache and reload settings
+            document.addEventListener('userChanged', async (event) => {
+                console.log('👤 User changed, preparing clean environment for:', event.detail.user);
+                
+                try {
+                    // FIRST: Clear cache to prevent cross-user interference
+                    await clearUserSwitchCache();
+                    
+                    // THEN: Reload user-specific settings
+                    if (backgroundManager) {
+                        try {
+                            await backgroundManager.loadSavedBackground();
+                            console.log('✅ Background reloaded for new user');
+                        } catch (error) {
+                            console.error('❌ Failed to reload background for new user:', error);
+                        }
+                    }
+                    
+                    console.log('✅ User switch completed successfully');
+                } catch (error) {
+                    console.error('❌ Error during user switch:', error);
+                }
+            });
+            
+            console.log('🖼️ Background manager initialized with user change listener');
         }, 1000);
     });
     
-    // Global functions for HTML handlers
-    function handleBackgroundImageUpload(input) {
-        if (input.files && input.files[0] && backgroundManager) {
-            backgroundManager.setBackgroundImage(input.files[0]).then(success => {
-                if (success) {
-                    console.log('Background image uploaded successfully');
-                } else {
-                    alert('Failed to upload background image. Please try again.');
+    // Function to reload background when user changes
+    async function reloadUserBackground() {
+        if (backgroundManager) {
+            try {
+                await backgroundManager.loadSavedBackground();
+                console.log('✅ Background reloaded for new user');
+            } catch (error) {
+                console.error('❌ Failed to reload background:', error);
+            }
+        }
+    }
+    
+    // Make reloadUserBackground available globally
+    window.reloadUserBackground = reloadUserBackground;
+    
+    // User switch cache clearing function
+    async function clearUserSwitchCache() {
+        console.log('🧹 Clearing cache for user switch...');
+        
+        try {
+            // Clear user-specific cached data that might interfere between users
+            const userSpecificKeys = [
+                // Background-related keys (now handled by database, but clear any legacy)
+                'ai2d_chat_background_image',
+                'ai2d_chat_background_settings',
+                
+                // Live2D model state keys
+                'live2d_model_positions',
+                'live2d_model_settings',
+                'live2d_current_model',
+                
+                // Chat-related cached data
+                'chat_history_cache',
+                'conversation_context',
+                'last_chat_state',
+                
+                // Voice/audio settings cache
+                'audio_settings_cache',
+                'voice_preferences_cache',
+                
+                // UI state that should reset per user
+                'ui_panel_states',
+                'user_preferences_cache',
+                'character_selection_cache'
+            ];
+            
+            // Clear specific localStorage keys
+            userSpecificKeys.forEach(key => {
+                if (localStorage.getItem(key)) {
+                    localStorage.removeItem(key);
+                    console.log(`🗑️ Cleared localStorage key: ${key}`);
                 }
-                input.value = ''; // Clear the input
             });
-        }
-    }
-    
-    function updateBackgroundOpacity(value) {
-        if (backgroundManager) {
-            backgroundManager.updateOpacity(value);
-        }
-    }
-    
-    function updateBackgroundScale(value) {
-        if (backgroundManager) {
-            backgroundManager.updateScale(value);
-        }
-    }
-    
-    function updateBackgroundPosition(value) {
-        if (backgroundManager) {
-            backgroundManager.updatePosition(value);
-        }
-    }
-    
-    function clearBackgroundImage() {
-        if (backgroundManager) {
-            backgroundManager.clearBackground();
-            // Reset UI controls
-            const opacitySlider = document.getElementById('backgroundOpacity');
-            const scaleSlider = document.getElementById('backgroundScale');
-            const positionSelect = document.getElementById('backgroundPosition');
             
-            if (opacitySlider) opacitySlider.value = 100;
-            if (scaleSlider) scaleSlider.value = 100;
-            if (positionSelect) positionSelect.value = 'center';
+            // Clear sessionStorage completely (user session data)
+            const sessionCount = sessionStorage.length;
+            if (sessionCount > 0) {
+                sessionStorage.clear();
+                console.log(`🗑️ Cleared ${sessionCount} sessionStorage items`);
+            }
             
-            document.getElementById('backgroundOpacityValue').textContent = '100';
-            document.getElementById('backgroundScaleValue').textContent = '100';
+            // Clear any cached DOM state that might persist
+            // Reset model-related UI elements
+            const modelSelectElements = document.querySelectorAll('select[id*="model"], select[id*="character"]');
+            modelSelectElements.forEach(select => {
+                if (select.selectedIndex > 0) {
+                    select.selectedIndex = 0;
+                }
+            });
+            
+            // Clear any voice selection caches
+            if (window.voiceModels) {
+                // Don't clear the array, but reset any user-specific selections
+                const voiceSelects = document.querySelectorAll('select[id*="voice"]');
+                voiceSelects.forEach(select => {
+                    if (select.selectedIndex > 0) {
+                        select.selectedIndex = 0;
+                    }
+                });
+            }
+            
+            // Force garbage collection if available (development only)
+            if (window.gc && typeof window.gc === 'function') {
+                try {
+                    window.gc();
+                    console.log('🗑️ Forced garbage collection');
+                } catch (e) {
+                    // Ignore errors - gc might not be available
+                }
+            }
+            
+            console.log('✅ User switch cache cleared successfully');
+            
+        } catch (error) {
+            console.warn('⚠️ Some cache clearing operations failed during user switch:', error);
+        }
+    }
+    
+    // Make clearUserSwitchCache available globally
+    window.clearUserSwitchCache = clearUserSwitchCache;
+    
+    // Global functions for HTML handlers
+    async function applyBackgroundImage() {
+        const fileInput = document.getElementById('backgroundImageFile');
+        if (fileInput && fileInput.files && fileInput.files[0] && backgroundManager) {
+            try {
+                const success = await backgroundManager.setBackgroundImage(fileInput.files[0]);
+                if (success) {
+                    console.log('✅ Background image applied successfully');
+                    if (typeof showMessage === 'function') {
+                        showMessage('Background image applied successfully!', 'success');
+                    }
+                    // Clear the file input after successful upload
+                    fileInput.value = '';
+                } else {
+                    console.error('❌ Failed to apply background image');
+                    if (typeof showMessage === 'function') {
+                        showMessage('Failed to apply background image. Please try again.', 'error');
+                    } else {
+                        alert('Failed to apply background image. Please try again.');
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Background apply error:', error);
+                if (typeof showMessage === 'function') {
+                    showMessage(`Background apply failed: ${error.message}`, 'error');
+                } else {
+                    alert(`Background apply failed: ${error.message}`);
+                }
+            }
+        } else {
+            alert('Please select a background image file first.');
+        }
+    }
+
+    async function handleBackgroundImageUpload(input) {
+        if (input.files && input.files[0] && backgroundManager) {
+            try {
+                const success = await backgroundManager.setBackgroundImage(input.files[0]);
+                if (success) {
+                    console.log('✅ Background image uploaded successfully');
+                    if (typeof showMessage === 'function') {
+                        showMessage('Background image uploaded successfully!', 'success');
+                    }
+                } else {
+                    console.error('❌ Failed to upload background image');
+                    if (typeof showMessage === 'function') {
+                        showMessage('Failed to upload background image. Please try again.', 'error');
+                    } else {
+                        alert('Failed to upload background image. Please try again.');
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Background upload error:', error);
+                if (typeof showMessage === 'function') {
+                    showMessage(`Background upload failed: ${error.message}`, 'error');
+                } else {
+                    alert(`Background upload failed: ${error.message}`);
+                }
+            } finally {
+                input.value = ''; // Clear the input
+            }
+        }
+    }
+    
+    async function updateBackgroundOpacity(value) {
+        if (backgroundManager) {
+            try {
+                await backgroundManager.updateOpacity(value);
+            } catch (error) {
+                console.error('❌ Failed to update background opacity:', error);
+            }
+        }
+    }
+    
+    async function updateBackgroundScale(value) {
+        if (backgroundManager) {
+            try {
+                await backgroundManager.updateScale(value);
+            } catch (error) {
+                console.error('❌ Failed to update background scale:', error);
+            }
+        }
+    }
+    
+    async function updateBackgroundPosition(value) {
+        if (backgroundManager) {
+            try {
+                await backgroundManager.updatePosition(value);
+            } catch (error) {
+                console.error('❌ Failed to update background position:', error);
+            }
+        }
+    }
+    
+    async function clearBackgroundImage() {
+        if (backgroundManager) {
+            try {
+                await backgroundManager.clearBackground();
+                
+                // Reset UI controls
+                const opacitySlider = document.getElementById('backgroundOpacity');
+                const scaleSlider = document.getElementById('backgroundScale');
+                const positionSelect = document.getElementById('backgroundPosition');
+                const opacityValue = document.getElementById('backgroundOpacityValue');
+                const scaleValue = document.getElementById('backgroundScaleValue');
+                
+                if (opacitySlider) opacitySlider.value = 100;
+                if (scaleSlider) scaleSlider.value = 100;
+                if (positionSelect) positionSelect.value = 'center';
+                if (opacityValue) opacityValue.textContent = '100';
+                if (scaleValue) scaleValue.textContent = '100';
+                
+                console.log('✅ Background cleared successfully');
+                if (typeof showMessage === 'function') {
+                    showMessage('Background cleared successfully!', 'success');
+                }
+                
+            } catch (error) {
+                console.error('❌ Failed to clear background:', error);
+                if (typeof showMessage === 'function') {
+                    showMessage(`Failed to clear background: ${error.message}`, 'error');
+                } else {
+                    alert(`Failed to clear background: ${error.message}`);
+                }
+            }
         }
     }
     
     function showBackgroundPreview() {
-        if (backgroundManager) {
+        const fileInput = document.getElementById('backgroundImageFile');
+        if (fileInput && fileInput.files && fileInput.files[0]) {
+            // Preview the selected file without uploading
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = window.open('', 'Background Preview', 'width=800,height=600');
+                if (preview) {
+                    preview.document.write(`
+                        <html>
+                            <head><title>Background Preview - ${file.name}</title></head>
+                            <body style="margin:0; background-image:url(${e.target.result}); background-size:cover; background-position:center;">
+                                <div style="position:fixed; top:10px; right:10px; background:rgba(0,0,0,0.7); color:white; padding:10px; border-radius:5px;">
+                                    Preview: ${file.name}<br>
+                                    <button onclick="window.close()" style="margin-top:5px;">Close</button>
+                                </div>
+                            </body>
+                        </html>
+                    `);
+                }
+            };
+            reader.readAsDataURL(file);
+        } else if (backgroundManager && backgroundManager.currentImage) {
+            // Fallback to current background if no file selected
             backgroundManager.showPreview();
+        } else {
+            alert('Please select a background image file first.');
         }
     }
     
@@ -2268,93 +2676,8 @@ async function loadLive2DModel(modelPath) {
         console.log('📍 All models centered');
     }
     
-    // UI Panel Management Functions
-    function openChat() {
-        const chatWindow = document.getElementById('chatWindow');
-        if (chatWindow) {
-            chatWindow.style.display = 'block';
-            chatWindow.classList.add('open');
-            console.log('Chat window opened');
-        }
-    }
-    
-    function closeChat() {
-        const chatWindow = document.getElementById('chatWindow');
-        if (chatWindow) {
-            chatWindow.classList.remove('open');
-            setTimeout(() => {
-                chatWindow.style.display = 'none';
-            }, 300);
-            console.log('Chat window closed');
-        }
-    }
-    
-    function openSettings() {
-        const settingsPanel = document.getElementById('settingsPanel');
-        if (settingsPanel) {
-            settingsPanel.style.display = 'block';
-            settingsPanel.classList.add('open');
-            console.log('Settings panel opened');
-        }
-    }
-    
-    function closeSettings() {
-        const settingsPanel = document.getElementById('settingsPanel');
-        if (settingsPanel) {
-            settingsPanel.classList.remove('open');
-            setTimeout(() => {
-                settingsPanel.style.display = 'none';
-            }, 300);
-            console.log('Settings panel closed');
-        }
-    }
-    
-    function openCharacterProfiles() {
-        const characterPanel = document.getElementById('characterProfilesPanel');
-        if (characterPanel) {
-            characterPanel.style.display = 'block';
-            characterPanel.classList.add('open');
-            loadCharactersForProfiles();
-            console.log('Character profiles panel opened');
-        }
-    }
-    
-    function closeCharacterProfiles() {
-        const characterPanel = document.getElementById('characterProfilesPanel');
-        if (characterPanel) {
-            characterPanel.classList.remove('open');
-            setTimeout(() => {
-                characterPanel.style.display = 'none';
-            }, 300);
-            console.log('Character profiles panel closed');
-        }
-    }
-    
-    function openUserManagement() {
-        const userPanel = document.getElementById('userManagementPanel');
-        if (userPanel) {
-            userPanel.style.display = 'block';
-            userPanel.classList.add('open');
-            loadUsersForManagement();
-            console.log('User management panel opened');
-        }
-    }
-    
-    function closeUserManagement() {
-        const userPanel = document.getElementById('userManagementPanel');
-        if (userPanel) {
-            userPanel.classList.remove('open');
-            setTimeout(() => {
-                userPanel.style.display = 'none';
-            }, 300);
-            console.log('User management panel closed');
-        }
-    }
-    
-    function openDrawing() {
-        console.log('Drawing tools not yet implemented');
-        // TODO: Implement drawing tools interface
-    }
+    // Panel management functions are now handled by UIPanelManager2
+    // See /static/js/ui_modules/ui_panel_manager.js
     
     function toggleFullscreen() {
         if (!document.fullscreenElement) {
@@ -2365,16 +2688,19 @@ async function loadLive2DModel(modelPath) {
     }
     
     // Global function assignments for onclick handlers
-    window.openChat = openChat;
-    window.closeChat = closeChat;
-    window.openSettings = openSettings;
-    window.closeSettings = closeSettings;
-    window.openCharacterProfiles = openCharacterProfiles;
-    window.closeCharacterProfiles = closeCharacterProfiles;
-    window.openUserManagement = openUserManagement;
-    window.closeUserManagement = closeUserManagement;
-    window.openDrawing = openDrawing;
+    // Note: Panel management functions are now handled by UIPanelManager2
+    // window.openChat, window.closeChat, window.openDrawing are handled by UIPanelManager2
     window.toggleFullscreen = toggleFullscreen;
+    
+    // Help function
+    function toggleHelp() {
+        if (window.uiPanelManager2) {
+            window.uiPanelManager2.toggleHelp();
+        } else {
+            console.error('UIPanelManager2 not available');
+        }
+    }
+    window.toggleHelp = toggleHelp;
     
     // Character Management Functions
     function loadCharactersForProfiles() {
@@ -2805,13 +3131,19 @@ async function loadLive2DModel(modelPath) {
             formData.append('voice_file', file);
             
             console.log(`📤 Uploading voice file: ${file.name}`);
+            console.log(`📤 File size: ${file.size} bytes`);
+            console.log(`📤 File type: ${file.type}`);
             
             const response = await fetch('/api/voices/upload', {
                 method: 'POST',
                 body: formData
             });
             
+            console.log(`📤 Upload response status: ${response.status}`);
+            
             if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`❌ Upload failed: ${response.statusText} - ${errorText}`);
                 throw new Error(`Upload failed: ${response.statusText}`);
             }
             
@@ -2819,28 +3151,41 @@ async function loadLive2DModel(modelPath) {
             console.log('✅ Voice file uploaded successfully:', result);
             
             // Show success message
-            showMessage(`Voice "${result.name}" uploaded successfully!`, 'success');
+            if (typeof showMessage === 'function') {
+                showMessage(`Voice "${result.name}" uploaded successfully!`, 'success');
+            } else {
+                console.log(`Voice "${result.name}" uploaded successfully!`);
+            }
             
             // Reload voice list
             await loadAvailableVoices();
             
         } catch (error) {
             console.error('❌ Voice upload failed:', error);
-            showMessage(`Failed to upload voice file: ${error.message}`, 'error');
+            if (typeof showMessage === 'function') {
+                showMessage(`Failed to upload voice file: ${error.message}`, 'error');
+            } else {
+                alert(`Failed to upload voice file: ${error.message}`);
+            }
         }
     }
     
     async function loadAvailableVoices() {
         try {
+            console.log('📋 Loading available voices...');
             const response = await fetch('/api/voices/list');
+            console.log(`📋 Voice list response status: ${response.status}`);
+            
             if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`❌ Failed to load voices: ${response.statusText} - ${errorText}`);
                 throw new Error(`Failed to load voices: ${response.statusText}`);
             }
             
             const voices = await response.json();
             window.voiceModels = voices;
             
-            console.log(`📋 Loaded ${voices.length} voice models`);
+            console.log(`📋 Loaded ${voices.length} voice models:`, voices);
             
             // Update voice dropdowns
             updateVoiceDropdowns(voices);
@@ -3207,29 +3552,15 @@ async function loadLive2DModel(modelPath) {
         }
     }
     
-    // Override character profiles open function to load models and voices
-    const originalOpenCharacterProfiles = window.openCharacterProfiles;
-    window.openCharacterProfiles = function() {
-        if (originalOpenCharacterProfiles) {
-            originalOpenCharacterProfiles();
-        }
-        
+    // Panel initialization hooks - these will be called by UIPanelManager2
+    // when panels are opened
+    
+    function initCharacterProfilesPanel() {
         // Load models and voices for dropdowns
         loadCharacterModelsAndVoices();
-    };
+    }
     
-    // Override window.openSettings to initialize model lists
-    const originalOpenSettings = window.openSettings;
-    window.openSettings = function() {
-        if (originalOpenSettings) {
-            originalOpenSettings();
-        } else {
-            const panel = document.getElementById('settingsPanel');
-            if (panel) {
-                panel.classList.add('open');
-            }
-        }
-        
+    function initSettingsPanel() {
         // Load model lists when settings panel opens
         if (window.loadExistingModelsForSettings) {
             window.loadExistingModelsForSettings();
@@ -3237,7 +3568,11 @@ async function loadLive2DModel(modelPath) {
         if (window.loadCanvasModelsForSettings) {
             window.loadCanvasModelsForSettings();
         }
-    };
+    }
+    
+    // Make these available globally so UIPanelManager2 can call them
+    window.initCharacterProfilesPanel = initCharacterProfilesPanel;
+    window.initSettingsPanel = initSettingsPanel;
     
     // Handle file upload for ZIP models
     document.addEventListener('DOMContentLoaded', function() {
@@ -3292,6 +3627,504 @@ async function loadLive2DModel(modelPath) {
             console.error('6. showAddModelDialog function not available!');
         }
     };
+    </script>
+
+    <!-- Dev Environment Auto-Login and Cache Clearing -->
+    <script>
+    // Development Environment Detection and Auto-Login System
+    (function() {
+        'use strict';
+        
+        console.log('🚀 Checking for development environment...');
+        
+        // Detect development environment
+        function isDevEnvironment() {
+            const hostname = window.location.hostname.toLowerCase();
+            const devHosts = [
+                'localhost',
+                '127.0.0.1',
+                '0.0.0.0',
+                '192.168.',  // Local network range
+                '10.0.',     // Private network range
+                '172.16.',   // Private network range
+                'dev.',      // Dev subdomain
+                'test.',     // Test subdomain
+                'staging.',  // Staging subdomain
+                'debug.',    // Debug subdomain
+            ];
+            
+            const isDev = devHosts.some(host => 
+                hostname === host || hostname.startsWith(host)
+            ) || hostname.includes('.local') || window.location.port;
+            
+            console.log(`🔍 Development environment: ${isDev} (hostname: ${hostname}, port: ${window.location.port})`);
+            return isDev;
+        }
+        
+        // Clear cache if dev environment and initial startup
+        // Note: This is for general development cache clearing (hourly)
+        // User-specific cache clearing happens on user switch via clearUserSwitchCache()
+        function clearDevCache() {
+            if (isDevEnvironment()) {
+                const lastClearKey = 'ai2d_chat_last_cache_clear';
+                const lastClear = localStorage.getItem(lastClearKey);
+                const now = Date.now();
+                const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
+                
+                // Clear cache if more than 1 hour since last clear or never cleared
+                if (!lastClear || (now - parseInt(lastClear)) > oneHour) {
+                    console.log('🧹 Clearing development cache...');
+                    
+                    // Clear various storage types
+                    try {
+                        // Clear localStorage (except the clear timestamp)
+                        const keysToKeep = [lastClearKey];
+                        const allKeys = Object.keys(localStorage);
+                        allKeys.forEach(key => {
+                            if (!keysToKeep.includes(key)) {
+                                localStorage.removeItem(key);
+                            }
+                        });
+                        
+                        // Clear sessionStorage
+                        sessionStorage.clear();
+                        
+                        // Clear IndexedDB (if any)
+                        if ('indexedDB' in window) {
+                            // This is a more complex operation, but for now we'll skip it
+                            console.log('🗃️ IndexedDB clearing skipped (would require async operation)');
+                        }
+                        
+                        // Set new clear timestamp
+                        localStorage.setItem(lastClearKey, now.toString());
+                        
+                        console.log('✅ Development cache cleared successfully');
+                    } catch (error) {
+                        console.warn('⚠️ Some cache clearing operations failed:', error);
+                    }
+                } else {
+                    console.log('⏰ Cache was cleared recently, skipping...');
+                }
+            }
+        }
+        
+        // Auto-login for development environment
+        async function autoLoginDev() {
+            if (!isDevEnvironment()) {
+                console.log('🔒 Production environment - auto-login disabled');
+                return;
+            }
+            
+            console.log('🔑 Development auto-login enabled');
+            
+            // Wait for user selection system to be available
+            let attempts = 0;
+            const maxAttempts = 50; // 5 seconds max wait
+            
+            const checkUserSystem = () => {
+                return new Promise((resolve) => {
+                    const checkInterval = setInterval(() => {
+                        attempts++;
+                        
+                        if (window.userSelectionSystem && window.userSelectionSystem.users) {
+                            clearInterval(checkInterval);
+                            resolve(true);
+                        } else if (attempts >= maxAttempts) {
+                            clearInterval(checkInterval);
+                            resolve(false);
+                        }
+                    }, 100);
+                });
+            };
+            
+            const systemReady = await checkUserSystem();
+            
+            if (!systemReady) {
+                console.warn('⚠️ User selection system not ready - auto-login aborted');
+                return;
+            }
+            
+            // Check if already logged in
+            if (window.userSelectionSystem.currentUser) {
+                console.log('👤 User already logged in:', window.userSelectionSystem.currentUser.username);
+                return;
+            }
+            
+            console.log('🎯 Starting auto-login process...');
+            
+            const users = window.userSelectionSystem.users;
+            
+            if (users && users.length > 0) {
+                // Find admin user or use first user
+                let targetUser = users.find(user => 
+                    user.username === 'admin' || 
+                    user.username === 'dev' || 
+                    user.username === 'default' ||
+                    user.is_admin === true
+                ) || users[0];
+                
+                console.log(`🚀 Auto-selecting user: ${targetUser.username} (${targetUser.display_name || 'No display name'})`);
+                
+                // Auto-select the user
+                try {
+                    await window.userSelectionSystem.selectUser(targetUser.id);
+                    console.log('✅ Auto-login successful!');
+                } catch (error) {
+                    console.error('❌ Auto-login failed:', error);
+                }
+            } else {
+                console.log('👤 No existing users found - creating default admin user...');
+                
+                // Create default admin user
+                try {
+                    const defaultUser = {
+                        username: 'admin',
+                        display_name: 'Admin User',
+                        email: 'admin@dev.local',
+                        is_admin: true
+                    };
+                    
+                    // Try to create the user via API
+                    const response = await fetch('/api/users', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(defaultUser)
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        console.log('✅ Default admin user created:', result.user);
+                        
+                        // Reload users and auto-select
+                        await window.userSelectionSystem.loadUsers();
+                        const newUser = window.userSelectionSystem.users.find(u => u.username === 'admin');
+                        if (newUser) {
+                            await window.userSelectionSystem.selectUser(newUser.id);
+                            console.log('✅ Auto-login with new admin user successful!');
+                        }
+                    } else {
+                        console.warn('⚠️ Failed to create default admin user');
+                    }
+                } catch (error) {
+                    console.error('❌ Error creating default admin user:', error);
+                }
+            }
+        }
+        
+        // Initialize on DOM ready
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                // Only run auto-login, cache clearing now happens on user switch
+                autoLoginDev();
+            }, 1000); // Wait 1 second for other systems to initialize
+        });
+        
+        // Debug info
+        if (isDevEnvironment()) {
+            console.log('🛠️ Development mode features enabled:');
+            console.log('  - Auto-login with admin/first user');
+            console.log('  - User-specific cache clearing on user switch');
+            console.log('  - Enhanced logging');
+            console.log('  - Debug console frame visible');
+            console.log('  - Logout will still show login screen for testing');
+        }
+        
+        // Make functions globally available
+        window.isDevEnvironment = isDevEnvironment;
+        window.clearDevCache = clearDevCache;
+        window.autoLoginDev = autoLoginDev;
+        window.clearUserSwitchCache = clearUserSwitchCache;
+    })();
+    </script>
+
+    <!-- Development Debug Console Frame -->
+    <script>
+    // Debug Console Frame for Development Environment
+    (function() {
+        'use strict';
+        
+        let debugConsoleFrame = null;
+        let originalConsole = {};
+        let consoleBuffer = [];
+        const maxBufferSize = 1000; // Keep last 1000 messages
+        let isPaused = false; // Track pause state
+        let pausedBuffer = []; // Buffer for messages received while paused
+        
+        // Initialize debug console frame (only in dev environment)
+        function initDebugConsoleFrame() {
+            if (!window.isDevEnvironment || !window.isDevEnvironment()) return;
+            
+            console.log('🐛 Initializing debug console frame...');
+            
+            // Create debug console frame
+            createDebugConsoleFrame();
+            
+            // Intercept console methods
+            interceptConsole();
+            
+            console.log('✅ Debug console frame initialized');
+        }
+        
+        function createDebugConsoleFrame() {
+            // Remove existing frame if it exists
+            const existing = document.getElementById('debugConsoleFrame');
+            if (existing) {
+                existing.remove();
+            }
+            
+            // Create frame container
+            debugConsoleFrame = document.createElement('div');
+            debugConsoleFrame.id = 'debugConsoleFrame';
+            debugConsoleFrame.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 35%;
+                height: 50%;
+                background: rgba(0, 0, 0, 0.70);
+                border: 1px solid rgba(51, 51, 51, 0.3);
+                border-radius: 0 0 8px 0;
+                color: #00ff00;
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+                z-index: 1;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                pointer-events: auto;
+                user-select: text;
+                box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
+                backdrop-filter: blur(2px);
+            `;
+            
+            // Create header
+            const header = document.createElement('div');
+            header.style.cssText = `
+                background: rgba(0, 50, 0, 0.2);
+                color: #00ff00;
+                padding: 4px 8px;
+                font-weight: bold;
+                border-bottom: 1px solid rgba(51, 51, 51, 0.3);
+                font-size: 11px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-shrink: 0;
+                backdrop-filter: blur(1px);
+            `;
+            header.innerHTML = `
+                <span>🐛 Debug Console</span>
+                <div>
+                    <button id="pauseDebugConsole" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(85, 85, 85, 0.5); color: #ffaa00; font-size: 9px; padding: 2px 6px; cursor: pointer; margin-right: 4px; backdrop-filter: blur(1px);">⏸️ Pause</button>
+                    <button id="clearDebugConsole" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(85, 85, 85, 0.5); color: #00ff00; font-size: 9px; padding: 2px 6px; cursor: pointer; margin-right: 4px; backdrop-filter: blur(1px);">Clear</button>
+                    <button id="closeDebugConsole" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(85, 85, 85, 0.5); color: #ff4444; font-size: 9px; padding: 2px 6px; cursor: pointer; backdrop-filter: blur(1px);">×</button>
+                </div>
+            `;
+            
+            // Create scrollable content area
+            const content = document.createElement('div');
+            content.id = 'debugConsoleContent';
+            content.style.cssText = `
+                flex: 1;
+                overflow-y: auto;
+                overflow-x: hidden;
+                padding: 8px;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+                line-height: 1.3;
+            `;
+            
+            // Add event listeners
+            header.querySelector('#pauseDebugConsole').addEventListener('click', togglePauseDebugConsole);
+            header.querySelector('#clearDebugConsole').addEventListener('click', clearDebugConsole);
+            header.querySelector('#closeDebugConsole').addEventListener('click', closeDebugConsole);
+            
+            // Assemble frame
+            debugConsoleFrame.appendChild(header);
+            debugConsoleFrame.appendChild(content);
+            
+            // Insert into page (behind canvas)
+            document.body.appendChild(debugConsoleFrame);
+            
+            // Load existing console buffer
+            updateDebugConsoleDisplay();
+        }
+        
+        function interceptConsole() {
+            const methods = ['log', 'warn', 'error', 'info', 'debug'];
+            
+            methods.forEach(method => {
+                originalConsole[method] = console[method];
+                console[method] = function(...args) {
+                    // Call original console method
+                    originalConsole[method].apply(console, args);
+                    
+                    // Add to debug console
+                    addToDebugConsole(method, args);
+                };
+            });
+        }
+        
+        function addToDebugConsole(method, args) {
+            const timestamp = new Date().toLocaleTimeString();
+            const message = args.map(arg => {
+                if (typeof arg === 'object') {
+                    try {
+                        return JSON.stringify(arg, null, 2);
+                    } catch (e) {
+                        return String(arg);
+                    }
+                }
+                return String(arg);
+            }).join(' ');
+            
+            const logEntry = {
+                timestamp,
+                method,
+                message,
+                formatted: formatLogEntry(timestamp, method, message)
+            };
+            
+            // If paused, add to pause buffer instead of main buffer
+            if (isPaused) {
+                pausedBuffer.push(logEntry);
+                // Still add to main buffer for history but don't update display
+                consoleBuffer.push(logEntry);
+                
+                // Trim main buffer if too large
+                if (consoleBuffer.length > maxBufferSize) {
+                    consoleBuffer = consoleBuffer.slice(-maxBufferSize);
+                }
+                return; // Don't update display while paused
+            }
+            
+            // Add to buffer normally when not paused
+            consoleBuffer.push(logEntry);
+            
+            // Trim buffer if too large
+            if (consoleBuffer.length > maxBufferSize) {
+                consoleBuffer = consoleBuffer.slice(-maxBufferSize);
+            }
+            
+            // Update display
+            updateDebugConsoleDisplay();
+        }
+        
+        function formatLogEntry(timestamp, method, message) {
+            const methodColors = {
+                log: '#00ff00',
+                info: '#00ccff',
+                warn: '#ffaa00',
+                error: '#ff4444',
+                debug: '#cc88ff'
+            };
+            
+            const color = methodColors[method] || '#00ff00';
+            const methodIcon = {
+                log: '📝',
+                info: 'ℹ️',
+                warn: '⚠️',
+                error: '❌',
+                debug: '🐛'
+            }[method] || '📝';
+            
+            return `<span style="color: #666;">[${timestamp}]</span> <span style="color: ${color};">${methodIcon} ${method.toUpperCase()}</span>: ${message}`;
+        }
+        
+        function updateDebugConsoleDisplay() {
+            const content = document.getElementById('debugConsoleContent');
+            if (!content) return;
+            
+            // Get last 100 entries for display
+            const displayBuffer = consoleBuffer.slice(-100);
+            let displayText = displayBuffer.map(entry => entry.formatted).join('\n');
+            
+            // Add pause indicator and cached message count if paused
+            if (isPaused) {
+                const pauseIndicator = `<div style="background: rgba(255, 170, 0, 0.2); padding: 4px; margin: 4px 0; border-left: 3px solid #ffaa00; font-weight: bold;">
+                    ⏸️ PAUSED - ${pausedBuffer.length} messages cached
+                </div>`;
+                displayText += '\n' + pauseIndicator;
+            }
+            
+            content.innerHTML = displayText;
+            
+            // Auto-scroll to bottom only if not paused (to allow reading)
+            if (!isPaused) {
+                content.scrollTop = content.scrollHeight;
+            }
+        }
+        
+        function clearDebugConsole() {
+            consoleBuffer = [];
+            pausedBuffer = [];
+            updateDebugConsoleDisplay();
+            console.log('🧹 Debug console cleared');
+        }
+        
+        function togglePauseDebugConsole() {
+            isPaused = !isPaused;
+            const pauseBtn = document.getElementById('pauseDebugConsole');
+            
+            if (isPaused) {
+                pauseBtn.textContent = '▶️ Resume';
+                pauseBtn.style.color = '#00ff00';
+                pausedBuffer = []; // Clear pause buffer when starting pause
+                console.log('⏸️ Debug console paused - messages will be cached');
+            } else {
+                pauseBtn.textContent = '⏸️ Pause';
+                pauseBtn.style.color = '#ffaa00';
+                
+                // Flush cached messages when resuming
+                if (pausedBuffer.length > 0) {
+                    console.log(`▶️ Debug console resumed - displaying ${pausedBuffer.length} cached messages`);
+                    updateDebugConsoleDisplay();
+                    pausedBuffer = []; // Clear pause buffer after display
+                } else {
+                    console.log('▶️ Debug console resumed');
+                }
+            }
+        }
+        
+        function closeDebugConsole() {
+            if (debugConsoleFrame) {
+                debugConsoleFrame.style.display = 'none';
+                console.log('👁️ Debug console hidden (refresh to show again)');
+            }
+        }
+        
+        function toggleDebugConsole() {
+            if (debugConsoleFrame) {
+                const isVisible = debugConsoleFrame.style.display !== 'none';
+                debugConsoleFrame.style.display = isVisible ? 'none' : 'flex';
+                console.log(isVisible ? '👁️ Debug console hidden' : '👁️ Debug console shown');
+            }
+        }
+        
+        // Make toggle function globally available for keyboard shortcuts
+        window.toggleDebugConsole = toggleDebugConsole;
+        window.initDebugConsoleFrame = initDebugConsoleFrame;
+        
+        // Add keyboard shortcut (Ctrl+Shift+D) to toggle debug console
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.shiftKey && e.key === 'D' && window.isDevEnvironment && window.isDevEnvironment()) {
+                e.preventDefault();
+                toggleDebugConsole();
+            }
+        });
+        
+        // Initial message and initialization
+        if (window.isDevEnvironment && window.isDevEnvironment()) {
+            // Initialize debug console frame
+            initDebugConsoleFrame();
+            
+            setTimeout(() => {
+                console.log('🐛 Debug console frame ready! Press Ctrl+Shift+D to toggle visibility.');
+            }, 500);
+        }
+    })();
     </script>
 
 </body>

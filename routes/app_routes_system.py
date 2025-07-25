@@ -162,18 +162,31 @@ def api_system_config():
         if forwarded_host:
             host = forwarded_host
         elif request.headers.get('CF-Connecting-IP'):
-            # Cloudflare proxy detected - use the proxy domain
+            # Cloudflare proxy detected - use the actual request host instead of hardcoded
             protocol = 'https'
-            host = 'chat.erebus-nyx.net'
-            logger.info(f"Cloudflare proxy detected, using domain: {host}")
+            host = request.host
+            logger.info(f"Cloudflare proxy detected, using actual host: {host}")
         else:
             # Fallback to request host
             host = request.host
         
         # Try to get config from app_globals if available
         server_config = {}
+        is_dev_mode = False
         if hasattr(app_globals, 'config') and app_globals.config:
             server_config = app_globals.config.get('server', {})
+            
+            # Also check if we're in development mode using config_manager
+            try:
+                from config.config_manager import ConfigManager
+                config_manager = ConfigManager()
+                is_dev_mode = config_manager.is_dev_mode
+                logger.info(f"Development mode detected: {is_dev_mode}")
+            except Exception as e:
+                logger.warning(f"Could not determine dev mode: {e}")
+                # Fallback: check environment variable directly
+                import os
+                is_dev_mode = os.environ.get('AI2D_ENV') == 'development'
         
         # Build the base URL using the current request context
         base_url = f"{protocol}://{host}"
@@ -182,7 +195,8 @@ def api_system_config():
             "server": {
                 "protocol": protocol,
                 "host": host,
-                "base_url": base_url
+                "base_url": base_url,
+                "is_development": is_dev_mode
             },
             "endpoints": {
                 "base_url": base_url,

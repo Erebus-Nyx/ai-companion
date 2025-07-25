@@ -3,16 +3,8 @@
 
 // Helper function to get API base URL with dynamic config loading
 async function getApiBaseUrl() {
-    // Ensure server configuration is loaded
-    if (typeof loadServerConfig === 'function' && !window.ai2d_chat_CONFIG._configLoaded) {
-        try {
-            await loadServerConfig();
-        } catch (error) {
-            console.warn('Failed to load server config in debug functions:', error);
-        }
-    }
-    
-    return window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+    // Always use relative URLs for proxy compatibility
+    return '';
 }
 
 function updateModelInfo() {

@@ -42,31 +42,22 @@ async function loadServerConfig() {
             if (configResponse.ok) {
                 const serverConfig = await configResponse.json();
                 
-                // Update the configuration
-                window.ai2d_chat_CONFIG.API_BASE_URL = serverConfig.server.base_url;
+                // Store server config but keep using relative URLs for API calls
                 window.ai2d_chat_CONFIG.serverConfig = serverConfig;
                 window.ai2d_chat_CONFIG._configLoaded = true;
                 
-                console.log('✅ Server configuration loaded successfully:', serverConfig.server.base_url);
+                console.log('✅ Server configuration loaded successfully, using relative URLs for all API calls');
                 return window.ai2d_chat_CONFIG;
             } else {
                 throw new Error(`Config API returned ${configResponse.status}`);
             }
         } catch (error) {
-            console.warn('⚠️ Failed to load server config from API, using fallback:', error.message);
+            console.warn('⚠️ Failed to load server config from API, using relative URLs:', error.message);
             
-            // Fallback: use current location as base
-            const protocol = window.location.protocol;
-            const hostname = window.location.hostname;
-            const port = window.location.port;
-            
-            window.ai2d_chat_CONFIG.API_BASE_URL = port ? 
-                `${protocol}//${hostname}:${port}` : 
-                `${protocol}//${hostname}`;
-            
+            // Keep using relative URLs for all API calls
             window.ai2d_chat_CONFIG._configLoaded = true;
             
-            console.log('Using fallback configuration:', window.ai2d_chat_CONFIG.API_BASE_URL);
+            console.log('Using relative URL configuration for proxy compatibility');
             return window.ai2d_chat_CONFIG;
         }
     })();
@@ -77,7 +68,7 @@ async function loadServerConfig() {
 // Helper function to get API base URL (used by motion manager and other components)
 async function getApiBaseUrl() {
     await loadServerConfig();
-    return window.ai2d_chat_CONFIG.API_BASE_URL;
+    return ''; // Always use relative URLs for proxy compatibility
 }
 
 // Make the function globally available

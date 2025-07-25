@@ -16,6 +16,9 @@ system_detector = None
 model_downloader = None
 live2d_manager = None
 
+# Configuration loaded from config_manager
+config = None
+
 # Currently loaded Live2D models (updated by frontend via SocketIO)
 loaded_models = []
 

@@ -316,6 +316,23 @@ socketio = SocketIO(app, cors_allowed_origins="*",
                    logger=False, engineio_logger=False,
                    ping_timeout=60, ping_interval=25)
 
+# Load and store configuration in app_globals for routes to access
+try:
+    from config.config_manager import ConfigManager
+    config_manager = ConfigManager()
+    config = config_manager.load_config()
+    app_globals.config = config
+    logger.info("Configuration loaded and stored in app_globals")
+except Exception as e:
+    logger.error(f"Failed to load configuration: {e}")
+    # Set fallback config
+    app_globals.config = {
+        'server': {
+            'host': '0.0.0.0',
+            'port': 19080
+        }
+    }
+
 # Set globals for blueprints
 app_globals.socketio = socketio
 
@@ -486,6 +503,14 @@ class AICompanionApp:
             app_globals.db_manager = db_manager
             # Database is already initialized in the constructor
             logger.info("Database initialized")
+            
+            # Initialize voices database
+            try:
+                from routes.app_routes_voices import init_voices_database
+                init_voices_database()
+                logger.info("Voices database initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize voices database: {e}")
             
             # Initialize Live2D model manager
             global live2d_manager
@@ -778,6 +803,23 @@ def create_app(debug=False, auto_initialize=True):
                        async_mode='threading',
                        logger=False, engineio_logger=False,
                        ping_timeout=60, ping_interval=25)
+
+    # Load and store configuration in app_globals for routes to access
+    try:
+        from config.config_manager import ConfigManager
+        config_manager = ConfigManager()
+        config = config_manager.load_config()
+        app_globals.config = config
+        logger.info("Configuration loaded and stored in app_globals")
+    except Exception as e:
+        logger.error(f"Failed to load configuration: {e}")
+        # Set fallback config
+        app_globals.config = {
+            'server': {
+                'host': '0.0.0.0',
+                'port': 19080
+            }
+        }
 
     # Set globals for blueprints
     app_globals.socketio = socketio

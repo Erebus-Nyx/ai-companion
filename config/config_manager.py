@@ -41,6 +41,11 @@ class ConfigManager:
         
     def _detect_dev_mode(self) -> bool:
         """Detect if we're running in development mode (editable install)."""
+        # Check environment variable set by development CLI
+        if os.environ.get('AI2D_ENV') == 'development':
+            logger.info("Development mode detected (AI2D_ENV=development)")
+            return True
+            
         # Check if we're running from source directory
         current_file = Path(__file__).resolve()
         src_dir = current_file.parent

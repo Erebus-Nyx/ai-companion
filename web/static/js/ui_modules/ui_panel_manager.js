@@ -12,7 +12,9 @@ class UIPanelManager2 {
             people: { open: false },
             settings: { open: false },
             characterProfiles: { open: false },
-            userManagement: { open: false }
+            userManagement: { open: false },
+            drawing: { open: false },
+            audio: { open: false }
         };
         this.LAYOUT_STORAGE_KEY = 'ai2d_chat_window_layout_v2';
         this.currentUser = null;
@@ -59,6 +61,20 @@ class UIPanelManager2 {
             header.addEventListener('mousedown', (e) => this.startDragging(e));
             header.style.cursor = 'move';
         });
+        
+        // Special handling for dynamically created audio panel
+        setTimeout(() => {
+            const audioPanel = document.getElementById('audioQueueControlPanel');
+            if (audioPanel) {
+                const audioHeader = audioPanel.querySelector('div'); // First div acts as header
+                if (audioHeader) {
+                    audioHeader.addEventListener('mousedown', (e) => this.startDragging(e));
+                    audioHeader.style.cursor = 'move';
+                    audioHeader.classList.add('audio-header'); // Add class for styling
+                }
+            }
+        }, 1000);
+        
         document.addEventListener('mousemove', (e) => this.handleDragging(e));
         document.addEventListener('mouseup', () => this.stopDragging());
     }
@@ -84,13 +100,19 @@ class UIPanelManager2 {
                 dialog.style.display = 'none';
             }
         });
+        
+        // Also close help panel on Escape
+        const helpPanel = document.getElementById('helpPanel');
+        if (helpPanel && helpPanel.classList.contains('open')) {
+            this.toggleHelp();
+        }
     }
 
     // --- Dragging ---
     startDragging(e) {
         const header = e.currentTarget;
         const windowEl = header.closest(
-            '.chat-window, .people-panel, .settings-panel, .model-selection-dialog, .user-selection-dialog, .user-profile-panel, .character-profiles-panel, .user-management-panel, .drawing-panel, .resizable-panel'
+            '.chat-window, .people-panel, .settings-panel, .model-selection-dialog, .user-selection-dialog, .user-profile-panel, .character-profiles-panel, .user-management-panel, .drawing-panel, .resizable-panel, #audioQueueControlPanel'
         );
         if (!windowEl) return;
         this.draggingWindow = windowEl;
@@ -127,20 +149,65 @@ class UIPanelManager2 {
 
     // --- Panel Open/Close ---
     openPanel(panel) {
-        this.panels[panel].open = !this.panels[panel].open;
+        console.log(`🎛️ UIPanelManager2: Opening panel "${panel}"`);
         const el = this.getPanelElement(panel);
+        console.log(`🎛️ Panel element found:`, !!el, el ? el.className : 'none');
+        
         if (el) {
-            if (this.panels[panel].open) el.classList.add('open');
-            else el.classList.remove('open');
+            // Check current visual state to determine action
+            const isCurrentlyOpen = el.classList.contains('open');
+            console.log(`🎛️ Panel "${panel}" currently open:`, isCurrentlyOpen);
+            
+            if (!isCurrentlyOpen) {
+                // Open the panel
+                console.log(`🎛️ Adding 'open' class to panel "${panel}"`);
+                el.classList.add('open');
+                this.panels[panel].open = true;
+                
+                // Handle panel-specific initialization
+                if (panel === 'characterProfiles') {
+                    if (typeof loadCharactersForProfiles === 'function') {
+                        console.log('🎛️ Calling loadCharactersForProfiles()');
+                        loadCharactersForProfiles();
+                    }
+                    if (typeof window.initCharacterProfilesPanel === 'function') {
+                        console.log('🎛️ Calling initCharacterProfilesPanel()');
+                        window.initCharacterProfilesPanel();
+                    }
+                }
+                if (panel === 'userManagement' && typeof loadUsersForManagement === 'function') {
+                    console.log('🎛️ Calling loadUsersForManagement()');
+                    loadUsersForManagement();
+                }
+                if (panel === 'settings' && typeof window.initSettingsPanel === 'function') {
+                    console.log('🎛️ Calling initSettingsPanel()');
+                    window.initSettingsPanel();
+                }
+                
+                console.log(`🎛️ Panel "${panel}" opened`);
+            } else {
+                // Close the panel (toggle behavior)
+                console.log(`🎛️ Removing 'open' class from panel "${panel}"`);
+                el.classList.remove('open');
+                this.panels[panel].open = false;
+                console.log(`🎛️ Panel "${panel}" closed`);
+            }
+        } else {
+            console.error(`🎛️ Panel element not found for "${panel}"`);
         }
         this.updateNavIconStates();
         this.saveWindowLayout();
     }
 
     closePanel(panel) {
+        console.log(`🎛️ UIPanelManager2: Closing panel "${panel}"`);
         this.panels[panel].open = false;
         const el = this.getPanelElement(panel);
-        if (el) el.classList.remove('open');
+        if (el) {
+            console.log(`🎛️ Removing 'open' class from panel "${panel}"`);
+            el.classList.remove('open');
+            console.log(`🎛️ Panel "${panel}" closed`);
+        }
         this.updateNavIconStates();
         this.saveWindowLayout();
     }
@@ -152,6 +219,8 @@ class UIPanelManager2 {
             case 'settings': return document.getElementById('settingsPanel');
             case 'characterProfiles': return document.getElementById('characterProfilesPanel');
             case 'userManagement': return document.getElementById('userManagementPanel');
+            case 'drawing': return document.getElementById('drawingPanel');
+            case 'audio': return document.getElementById('audioQueueControlPanel');
             default: return null;
         }
     }
@@ -303,7 +372,7 @@ class UIPanelManager2 {
     }
 
     rescueOffScreenWindows() {
-        const panels = ['chat', 'people', 'settings', 'characterProfiles', 'userManagement'];
+        const panels = ['chat', 'people', 'settings', 'characterProfiles', 'userManagement', 'drawing', 'audio'];
         panels.forEach(panel => {
             const el = this.getPanelElement(panel);
             if (!el) return;
@@ -360,6 +429,14 @@ class UIPanelManager2 {
             const settingsIcon = document.querySelector('.nav-icon[onclick*="Settings"]');
             if (settingsIcon) settingsIcon.classList.add('active');
         }
+        if (this.panels.drawing && this.panels.drawing.open) {
+            const drawingIcon = document.querySelector('.nav-icon[onclick*="Drawing"]');
+            if (drawingIcon) drawingIcon.classList.add('active');
+        }
+        if (this.panels.audio && this.panels.audio.open) {
+            const audioIcon = document.querySelector('.nav-icon[onclick*="Audio"]');
+            if (audioIcon) audioIcon.classList.add('active');
+        }
     }
 
     // --- Fullscreen/Help ---
@@ -372,38 +449,100 @@ class UIPanelManager2 {
     }
 
     toggleHelp() {
+        console.log('🎯 toggleHelp() called');
         const helpPanel = document.getElementById('helpPanel');
+        console.log('🎯 Help panel element:', helpPanel);
         if (helpPanel) {
+            console.log('🎯 Help panel current classes:', helpPanel.className);
             helpPanel.classList.toggle('open');
+            console.log('🎯 Help panel classes after toggle:', helpPanel.className);
+            
+            // Failsafe: Force visibility if class toggle isn't working
+            if (helpPanel.classList.contains('open')) {
+                helpPanel.style.display = 'flex';
+                helpPanel.style.opacity = '1';
+                helpPanel.style.visibility = 'visible';
+                helpPanel.style.pointerEvents = 'auto';
+                console.log('🎯 Forced help panel to be visible');
+            } else {
+                helpPanel.style.display = '';
+                helpPanel.style.opacity = '';
+                helpPanel.style.visibility = '';
+                helpPanel.style.pointerEvents = '';
+                console.log('🎯 Reset help panel inline styles');
+            }
         } else {
+            console.log('🎯 Creating new help panel');
             this.createHelpPanel();
         }
     }
 
     createHelpPanel() {
+        console.log('🎯 createHelpPanel() called');
         const helpPanel = document.createElement('div');
         helpPanel.id = 'helpPanel';
         helpPanel.className = 'help-panel';
+        console.log('🎯 Created help panel element:', helpPanel);
         helpPanel.innerHTML = `
             <div class="help-header">
-                <span class="help-title">Help & Controls</span>
+                <span class="help-title">🎯 AI Companion Interface - Help & Controls</span>
                 <button class="close-btn" onclick="uiPanelManager2.toggleHelp()">×</button>
             </div>
             <div class="help-content">
-                <h3>Keyboard Shortcuts</h3>
+                <h3>🎮 Navigation & Panels</h3>
                 <ul>
-                    <li><kbd>Ctrl+Shift+R</kbd> - Reset window layout</li>
-                    <li><kbd>Ctrl+Shift+B</kbd> - Rescue off-screen windows</li>
-                    <li><kbd>Escape</kbd> - Close dialogs</li>
+                    <li><strong>💬 Chat Panel</strong> - Main conversation interface with AI companion</li>
+                    <li><strong>👥 People Panel</strong> - Add/manage Live2D characters and models</li>
+                    <li><strong>📊 Character Profiles</strong> - View and edit character personalities</li>
+                    <li><strong>👤 User Management</strong> - Switch between different user profiles</li>
+                    <li><strong>⚙️ Settings Panel</strong> - Configure AI behavior and interface options</li>
+                    <li><strong>🎨 Drawing Tools</strong> - Drawing interface for creative interaction</li>
+                    <li><strong>🎵 Audio Queue</strong> - Control TTS playback and voice settings</li>
                 </ul>
-                <h3>Mouse Controls</h3>
+                
+                <h3>⌨️ Keyboard Shortcuts</h3>
                 <ul>
-                    <li>Drag window headers to move panels</li>
+                    <li><kbd>Ctrl+Shift+R</kbd> - Reset all window positions to default</li>
+                    <li><kbd>Ctrl+Shift+B</kbd> - Rescue off-screen windows back to view</li>
+                    <li><kbd>Escape</kbd> - Close dialogs and help panel</li>
                 </ul>
+                
+                <h3>🖱️ Mouse Controls</h3>
+                <ul>
+                    <li><strong>Drag Headers</strong> - Move any panel by dragging its title bar</li>
+                    <li><strong>Toggle Panels</strong> - Click navigation icons to open/close panels</li>
+                    <li><strong>Resize Panels</strong> - Some panels can be resized from corners</li>
+                    <li><strong>Live2D Interaction</strong> - Click avatar for animations and responses</li>
+                </ul>
+                
+                <h3>🔧 Getting Started</h3>
+                <ul>
+                    <li><strong>1. User Login</strong> - Select or create your user profile first</li>
+                    <li><strong>2. Add Characters</strong> - Use People panel to load Live2D models</li>
+                    <li><strong>3. Configure Settings</strong> - Adjust AI personality and preferences</li>
+                    <li><strong>4. Start Chatting</strong> - Open chat panel and begin conversation</li>
+                    <li><strong>5. Arrange Interface</strong> - Drag panels to your preferred layout</li>
+                </ul>
+                
+                <h3>💡 Pro Tips</h3>
+                <ul>
+                    <li>Windows automatically save positions per user</li>
+                    <li>Audio queue supports different playback modes</li>
+                    <li>Character profiles affect AI personality and responses</li>
+                    <li>Drawing mode can be toggled for creative interaction</li>
+                    <li>All panels are fully draggable and repositionable</li>
+                </ul>
+                
+                <div style="margin-top: 20px; padding: 15px; background: rgba(255, 255, 255, 0.1); border-radius: 8px;">
+                    <strong>🚀 Current Version:</strong> AI2D Chat v0.5.0a<br>
+                    <strong>🎭 Features:</strong> Live2D Integration, Multi-modal AI, Voice Synthesis<br>
+                    <strong>📡 Server:</strong> Built-in pipx server (no reload required)
+                </div>
             </div>
         `;
         document.body.appendChild(helpPanel);
         helpPanel.classList.add('open');
+        console.log('🎯 Help panel appended and opened:', helpPanel.className);
     }
 }
 
@@ -422,6 +561,11 @@ window.openCharacterProfiles = () => uiPanelManager2.openPanel('characterProfile
 window.closeCharacterProfiles = () => uiPanelManager2.closePanel('characterProfiles');
 window.openUserManagement = () => uiPanelManager2.openPanel('userManagement');
 window.closeUserManagement = () => uiPanelManager2.closePanel('userManagement');
+window.openDrawing = () => uiPanelManager2.openPanel('drawing');
+window.closeDrawing = () => uiPanelManager2.closePanel('drawing');
+window.openAudio = () => uiPanelManager2.openPanel('audio');
+window.closeAudio = () => uiPanelManager2.closePanel('audio');
+window.toggleAudioQueuePanel = () => uiPanelManager2.openPanel('audio');
 window.toggleFullscreen = () => uiPanelManager2.toggleFullscreen();
 window.toggleHelp = () => uiPanelManager2.toggleHelp();
 window.resetWindowLayout = () => uiPanelManager2.resetWindowLayout();

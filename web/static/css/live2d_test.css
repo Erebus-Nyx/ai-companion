@@ -6,7 +6,7 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+    background: transparent;
     color: #ffffff;
     overflow: hidden;
     height: 100vh;
@@ -40,8 +40,8 @@ body {
     position: relative;
     width: 40px;
     height: 40px;
-    background: transparent;
-    border: none;
+    background: transparent !important;
+    border: none !important;
     border-radius: 50%;
     cursor: pointer;
     display: flex;
@@ -52,7 +52,7 @@ body {
 }
 
 .nav-icon:hover {
-    background: rgba(74, 144, 226, 0.2);
+    background: transparent !important;
     color: #4a90e2;
     transform: scale(1.1);
 }
@@ -62,7 +62,7 @@ body {
 }
 
 .nav-icon.active {
-    background: rgba(74, 144, 226, 0.3);
+    background: transparent !important;
     color: #4a90e2;
 }
 
@@ -206,12 +206,18 @@ body {
     background: rgba(0, 0, 0, 0.8);
     backdrop-filter: blur(10px);
     z-index: 10000;
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.user-selection-overlay.open {
+    display: flex;
     opacity: 1;
     visibility: visible;
-    transition: all 0.3s ease;
 }
 
 .user-selection-overlay.hidden {
@@ -2063,280 +2069,708 @@ body.user-selection-active .app-container > *:not(.user-selection-overlay) {
     color: #ffffff;
 }
 
-/* Canvas Container - Full screen background */
-.canvas-container {
+/* ================================
+   AUDIO-STYLE UNIFIED PANEL DESIGN
+   ================================ */
+
+/* Base panel styles - matching audio window exactly */
+.settings-panel,
+.character-profiles-panel,
+.user-management-panel,
+.user-profile-panel,
+.drawing-panel,
+.chat-window {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100vw;
-    height: 100vh;
-    margin: 0;
-    padding: 0;
-    z-index: 1;
-    background: transparent;
+    background: rgba(0, 0, 0, 0.9) !important;
+    color: white !important;
+    padding: 15px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    z-index: 200;
+    transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease !important;
+    overflow: hidden !important;
+    resize: both !important;
+    min-width: 280px !important;
+    min-height: 300px !important;
+    max-width: 60vw !important;
+    max-height: 80vh !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transform: translateY(-10px) !important;
+}
+
+.settings-panel.open,
+.character-profiles-panel.open,
+.user-management-panel.open,
+.user-profile-panel.open,
+.drawing-panel.open,
+.chat-window.open {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: translateY(0) !important;
+}
+
+/* Remove all existing header styles and create seamless headers */
+.settings-header,
+.character-profiles-header,
+.user-management-header,
+.user-profile-header,
+.drawing-header,
+.chat-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 12px !important;
+    background: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    cursor: move !important;
+}
+
+.settings-title,
+.character-profiles-title,
+.user-management-title,
+.user-profile-title,
+.drawing-title,
+.chat-title {
+    margin: 0 !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    color: #ffffff !important;
+}
+
+/* Close buttons - simple and clean */
+.close-btn,
+.control-btn {
+    background: none !important;
+    border: none !important;
+    color: #ffffff !important;
+    font-size: 18px !important;
+    cursor: pointer !important;
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    transition: background-color 0.2s ease !important;
+}
+
+.close-btn:hover,
+.control-btn:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Content areas - seamless with panel */
+.settings-content,
+.character-profiles-content,
+.user-management-content,
+.user-profile-content,
+.drawing-content {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: none !important;
+    border: none !important;
+}
+
+/* Scrollbar styling */
+.settings-content::-webkit-scrollbar,
+.character-profiles-content::-webkit-scrollbar,
+.user-management-content::-webkit-scrollbar,
+.user-profile-content::-webkit-scrollbar,
+.drawing-content::-webkit-scrollbar {
+    width: 6px !important;
+}
+
+.settings-content::-webkit-scrollbar-track,
+.character-profiles-content::-webkit-scrollbar-track,
+.user-management-content::-webkit-scrollbar-track,
+.user-profile-content::-webkit-scrollbar-track,
+.drawing-content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 3px !important;
+}
+
+.settings-content::-webkit-scrollbar-thumb,
+.character-profiles-content::-webkit-scrollbar-thumb,
+.user-management-content::-webkit-scrollbar-thumb,
+.user-profile-content::-webkit-scrollbar-thumb,
+.drawing-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3) !important;
+    border-radius: 3px !important;
+}
+
+.settings-content::-webkit-scrollbar-thumb:hover,
+.character-profiles-content::-webkit-scrollbar-thumb:hover,
+.user-management-content::-webkit-scrollbar-thumb:hover,
+.user-profile-content::-webkit-scrollbar-thumb:hover,
+.drawing-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5) !important;
 }
 
 /* ================================
-   UNIFIED PANEL STYLING SYSTEM
+   SEAMLESS SECTIONS AND FORMS
    ================================ */
 
-/* Base panel styles - Clean, modern design inspired by audio panel */
-.panel-base {
-    position: fixed;
-    background: rgba(0, 0, 0, 0.9);
-    color: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    backdrop-filter: blur(15px);
-    z-index: 200;
-    transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    resize: both;
-    min-width: 280px;
-    min-height: 300px;
-    max-width: 60vw;
-    max-height: 80vh;
-    /* Hidden by default */
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transform: translateY(-10px);
+/* Sections - seamless integration without borders */
+.section {
+    margin-bottom: 16px !important;
+    padding: 0 !important;
+    background: none !important;
+    border: none !important;
 }
 
-.panel-base.open {
-    opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
-    transform: translateY(0);
+.section:last-child {
+    margin-bottom: 0 !important;
 }
 
-.panel-base.snapped-left {
-    left: 10px;
-    top: 10px;
-    max-height: calc(100vh - 20px);
+.section h4,
+.section h3 {
+    margin: 0 0 8px 0 !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: #ffffff !important;
+    display: block !important;
 }
 
-.panel-base.snapped-right {
-    right: 10px;
-    top: 10px;
-    max-height: calc(100vh - 20px);
-}
-
-/* Panel header styles */
-.panel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 15px;
-    background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
-    border-radius: 8px 8px 0 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    cursor: move;
-}
-
-.panel-title {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 600;
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.window-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.close-btn, .minimize-btn, .pin-btn {
-    background: none;
-    border: none;
-    color: #ffffff;
-    font-size: 18px;
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: background-color 0.2s ease;
-    line-height: 1;
-}
-
-.close-btn:hover {
-    background: rgba(231, 76, 60, 0.8);
-}
-
-.minimize-btn:hover, .pin-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-}
-
-/* Panel content styles */
-.panel-content {
-    flex: 1;
-    padding: 15px;
-    overflow-y: auto;
-    overflow-x: hidden;
-}
-
-.panel-content::-webkit-scrollbar {
-    width: 6px;
-}
-
-.panel-content::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 3px;
-}
-
-.panel-content::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 3px;
-}
-
-.panel-content::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.5);
-}
-
-/* Panel sections */
-.panel-section {
-    margin-bottom: 20px;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 15px;
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.panel-section:last-child {
-    margin-bottom: 0;
-}
-
-.panel-section h4 {
-    margin: 0 0 12px 0;
-    font-size: 14px;
-    font-weight: 600;
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.panel-section h4::before {
-    content: '';
-    width: 3px;
-    height: 16px;
-    background: #4a90e2;
-    border-radius: 2px;
-}
-
-/* Form elements */
+/* Form elements with subtle background */
 .form-group {
-    margin-bottom: 15px;
+    margin-bottom: 12px !important;
+    background: none !important;
 }
 
 .form-group:last-child {
-    margin-bottom: 0;
+    margin-bottom: 0 !important;
 }
 
 .form-group label {
-    display: block;
-    margin-bottom: 6px;
-    font-weight: 500;
-    color: #ffffff;
-    font-size: 13px;
+    display: block !important;
+    margin-bottom: 4px !important;
+    font-weight: 500 !important;
+    color: #ffffff !important;
+    font-size: 12px !important;
 }
 
-.form-group input, 
-.form-group select, 
-.form-group textarea {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-    font-size: 13px;
-    transition: border-color 0.2s ease, background-color 0.2s ease;
+input, select, textarea {
+    width: 100% !important;
+    padding: 6px 10px !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-radius: 4px !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: white !important;
+    font-size: 12px !important;
+    font-family: inherit !important;
+    transition: border-color 0.2s ease, background-color 0.2s ease !important;
+    box-sizing: border-box !important;
 }
 
-.form-group input:focus, 
-.form-group select:focus, 
-.form-group textarea:focus {
-    outline: none;
-    border-color: #4a90e2;
-    background: rgba(255, 255, 255, 0.15);
+input:focus, select:focus, textarea:focus {
+    outline: none !important;
+    border-color: #4a90e2 !important;
+    background: rgba(255, 255, 255, 0.12) !important;
 }
 
-.form-group input::placeholder,
-.form-group textarea::placeholder {
-    color: rgba(255, 255, 255, 0.6);
+input::placeholder, textarea::placeholder {
+    color: rgba(255, 255, 255, 0.5) !important;
 }
 
-/* Button styles */
-.btn {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    justify-content: center;
+/* Buttons with minimal design */
+button {
+    padding: 6px 12px !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    font-family: inherit !important;
+    transition: all 0.2s ease !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: white !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    justify-content: center !important;
 }
 
-.btn-primary {
-    background: #4a90e2;
-    color: white;
+button:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
 }
 
-.btn-primary:hover {
-    background: #357abd;
-    transform: translateY(-1px);
+button:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
 }
 
-.btn-secondary {
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+button.btn-danger {
+    background: rgba(231, 76, 60, 0.8) !important;
+    border-color: rgba(231, 76, 60, 1) !important;
 }
 
-.btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.2);
-    transform: translateY(-1px);
+button.btn-danger:hover {
+    background: rgba(231, 76, 60, 1) !important;
 }
 
-.btn-warning {
-    background: #f57c00;
-    color: white;
+button.btn-primary {
+    background: rgba(74, 144, 226, 0.8) !important;
+    border-color: rgba(74, 144, 226, 1) !important;
 }
 
-.btn-warning:hover {
-    background: #ef6c00;
-    transform: translateY(-1px);
+button.btn-primary:hover {
+    background: rgba(74, 144, 226, 1) !important;
 }
 
-.btn-danger {
-    background: #d32f2f;
-    color: white;
+/* Row layouts for buttons */
+.button-row {
+    display: flex !important;
+    gap: 8px !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    margin-bottom: 12px !important;
 }
 
-.btn-danger:hover {
-    background: #c62828;
-    transform: translateY(-1px);
+.button-row:last-child {
+    margin-bottom: 0 !important;
 }
 
-.btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none !important;
+/* Upload areas */
+.upload-area {
+    padding: 12px !important;
+    border: 2px dashed rgba(255, 255, 255, 0.3) !important;
+    border-radius: 6px !important;
+    text-align: center !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    transition: all 0.3s ease !important;
+    cursor: pointer !important;
+}
+
+.upload-area:hover {
+    border-color: rgba(255, 255, 255, 0.5) !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.upload-area.drag-over {
+    border-color: #4a90e2 !important;
+    background: rgba(74, 144, 226, 0.1) !important;
+}
+
+/* Character profiles specific */
+.character-card {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 6px !important;
+    padding: 12px !important;
+    margin-bottom: 12px !important;
+    transition: background-color 0.2s ease !important;
+}
+
+.character-card:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.character-name {
+    font-weight: 600 !important;
+    color: #ffffff !important;
+    margin-bottom: 6px !important;
+}
+
+.character-description {
+    color: rgba(255, 255, 255, 0.8) !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+}
+
+/* Lists and dropdowns */
+ul, li {
+    margin: 0 !important;
+    padding: 0 !important;
+    list-style: none !important;
+}
+
+select option {
+    background: rgba(0, 0, 0, 0.9) !important;
+    color: white !important;
+}
+
+/* ================================
+   SETTINGS PANEL STYLING
+   ================================ */
+
+/* User Selection Popup - matches audio window style */
+.user-selection-popup {
+    background: rgba(0, 0, 0, 0.9) !important;
+    color: white !important;
+    padding: 15px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    max-width: 500px !important;
+    max-height: 80vh !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* User Selection Header - seamless like audio window */
+.user-selection-header {
+    margin-bottom: 12px !important;
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+.user-selection-header h2 {
+    margin: 0 0 4px 0 !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    color: #ffffff !important;
+}
+
+.user-selection-header p {
+    margin: 0 !important;
+    font-size: 12px !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* User Selection Content - scrollable */
+.user-selection-content {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: none !important;
+}
+
+.user-selection-content::-webkit-scrollbar {
+    width: 6px !important;
+}
+
+.user-selection-content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 3px !important;
+}
+
+.user-selection-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3) !important;
+    border-radius: 3px !important;
+}
+
+.user-selection-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* User Selection List */
+.user-selection-list {
+    margin-bottom: 12px !important;
+}
+
+/* User Items */
+.user-item {
+    display: flex !important;
+    align-items: center !important;
+    padding: 10px !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    margin-bottom: 8px !important;
+}
+
+.user-item:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.user-item.selected {
+    background: rgba(74, 144, 226, 0.3) !important;
+    border-color: #4a90e2 !important;
+}
+
+/* User Avatar */
+.user-avatar {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #4a90e2, #357abd) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin-right: 10px !important;
+    font-size: 14px !important;
+    font-weight: bold !important;
+    color: white !important;
+}
+
+/* User Details */
+.user-details h4 {
+    margin: 0 0 2px 0 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #ffffff !important;
+}
+
+.user-details p {
+    margin: 0 !important;
+    font-size: 11px !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* New User Form */
+.new-user-form {
+    background: rgba(255, 255, 255, 0.05) !important;
+    padding: 12px !important;
+    border-radius: 6px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    margin-top: 12px !important;
+}
+
+/* Form Actions */
+.form-actions {
+    display: flex !important;
+    gap: 8px !important;
+    justify-content: flex-end !important;
+    margin-top: 12px !important;
+}
+
+/* User Selection Dialog - for the separate dialog */
+.user-selection-dialog {
+    position: fixed !important;
+    background: rgba(0, 0, 0, 0.9) !important;
+    color: white !important;
+    padding: 15px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    z-index: 200 !important;
+    max-width: 500px !important;
+    max-height: 80vh !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.dialog-content {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+}
+
+.dialog-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 12px !important;
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+.dialog-header h3 {
+    margin: 0 !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    color: #ffffff !important;
+}
+
+.dialog-close {
+    background: none !important;
+    border: none !important;
+    color: #ffffff !important;
+    font-size: 18px !important;
+    cursor: pointer !important;
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    transition: background-color 0.2s ease !important;
+}
+
+.dialog-close:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dialog-body {
+    flex: 1 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: none !important;
+}
+
+.dialog-body::-webkit-scrollbar {
+    width: 6px !important;
+}
+
+.dialog-body::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 3px !important;
+}
+
+.dialog-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3) !important;
+    border-radius: 3px !important;
+}
+
+.dialog-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* ================================
+   USER SELECTION ENHANCEMENTS
+   ================================ */
+
+/* User Cards */
+.user-card {
+    display: flex !important;
+    align-items: center !important;
+    padding: 12px !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 8px !important;
+    margin-bottom: 8px !important;
+    transition: all 0.2s ease !important;
+    cursor: pointer !important;
+}
+
+.user-card:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    transform: translateY(-1px) !important;
+}
+
+.user-card .user-avatar {
+    width: 48px !important;
+    height: 48px !important;
+    margin-right: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: linear-gradient(135deg, #4a90e2, #357abd) !important;
+    border-radius: 50% !important;
+    font-size: 24px !important;
+    color: white !important;
+}
+
+.user-card .user-info {
+    flex: 1 !important;
+    margin-right: 12px !important;
+}
+
+.user-card .user-name {
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    color: #ffffff !important;
+    margin-bottom: 2px !important;
+}
+
+.user-card .user-username {
+    font-size: 12px !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+    margin-bottom: 2px !important;
+}
+
+.user-card .user-badge {
+    display: inline-block !important;
+    background: rgba(74, 144, 226, 0.8) !important;
+    color: white !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    margin-bottom: 2px !important;
+}
+
+.user-card .user-last-active {
+    font-size: 11px !important;
+    color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.user-card .user-select-btn {
+    background: rgba(74, 144, 226, 0.8) !important;
+    border: 1px solid rgba(74, 144, 226, 1) !important;
+    color: white !important;
+    padding: 8px 16px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    transition: all 0.2s ease !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+.user-card .user-select-btn:hover {
+    background: rgba(74, 144, 226, 1) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Section Headers */
+.user-section-header {
+    color: #ffffff !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    margin: 16px 0 8px 0 !important;
+}
+
+.user-section-header:first-child {
+    margin-top: 0 !important;
+}
+
+/* Section Separator */
+.user-section-separator {
+    display: flex !important;
+    align-items: center !important;
+    margin: 16px 0 !important;
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.user-section-separator hr {
+    flex: 1 !important;
+    border: none !important;
+    height: 1px !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+    margin: 0 !important;
+}
+
+.user-section-separator span {
+    padding: 0 12px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+}
+
+/* User Message */
+.user-message {
+    padding: 8px 12px !important;
+    border-radius: 6px !important;
+    margin-bottom: 12px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+}
+
+.user-message.success {
+    background: rgba(46, 204, 113, 0.2) !important;
+    border: 1px solid rgba(46, 204, 113, 0.5) !important;
+    color: #2ecc71 !important;
+}
+
+.user-message.error {
+    background: rgba(231, 76, 60, 0.2) !important;
+    border: 1px solid rgba(231, 76, 60, 0.5) !important;
+    color: #e74c3c !important;
+}
+
+.user-message.info {
+    background: rgba(74, 144, 226, 0.2) !important;
+    border: 1px solid rgba(74, 144, 226, 0.5) !important;
+    color: #4a90e2 !important;
 }
 
 /* Settings Panel - Updated with new system */
@@ -2364,6 +2798,8 @@ body.user-selection-active .app-container > *:not(.user-selection-overlay) {
     max-height: 80vh;
     opacity: 0;
     visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-10px);
     pointer-events: none;
     transform: translateY(-10px);
 }
@@ -2825,11 +3261,16 @@ body.user-selection-active .app-container > *:not(.user-selection-overlay) {
 /* Canvas Area */
 .canvas-container {
     position: fixed;
-    top: 5px; /* Leave space for tab system */
-    left: 5px; /* Start with panel closed */
-    right: 5px;
-    bottom: 5px; /* Leave space for character icons bar */
-    background: #1a1a1a;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    z-index: 1;
+    background: transparent;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2994,7 +3435,9 @@ body.user-selection-active .app-container > *:not(.user-selection-overlay) {
     opacity: 0;
 }
 
-/* Settings Panel */
+/* Settings Panel - REMOVED - Conflicts with UIPanelManager2 system
+   This definition used translateX animation instead of opacity/visibility
+   The main definition is around line 2792 
 .settings-panel {
     position: fixed;
     top: 20px;
@@ -3015,6 +3458,7 @@ body.user-selection-active .app-container > *:not(.user-selection-overlay) {
 .settings-panel.visible {
     transform: translateX(0);
 }
+*/
 
 .settings-header {
     padding: 5px 5px;
@@ -4796,4 +5240,141 @@ body.user-selection-active .app-container > *:not(.user-selection-overlay) {
 .model-file-controls .btn,
 .voice-file-controls .btn {
     flex: 0 0 auto !important;
+}
+
+/* Audio Queue Control Panel */
+#audioQueueControlPanel {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease !important;
+    transform: translateY(-10px) !important;
+    overflow-y: auto !important;
+    max-height: 80vh !important;
+}
+
+#audioQueueControlPanel.open {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: translateY(0) !important;
+}
+
+#audioQueueControlPanel .audio-header {
+    cursor: move !important;
+    user-select: none !important;
+}
+
+/* Help Panel */
+.help-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) translateY(-10px);
+    width: 600px;
+    max-width: 95vw;
+    max-height: 90vh;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    backdrop-filter: blur(20px);
+    z-index: 10001;
+    transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.help-panel.open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translate(-50%, -50%) translateY(0);
+}
+
+.help-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 20px 15px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(135deg, rgba(74, 144, 226, 0.2), rgba(80, 200, 120, 0.2));
+}
+
+.help-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+.help-content {
+    padding: 20px;
+    overflow-y: auto;
+    max-height: calc(90vh - 100px);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.help-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.help-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.help-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+
+.help-content h3 {
+    color: #4a90e2;
+    margin-bottom: 12px;
+    margin-top: 20px;
+    font-size: 16px;
+    border-left: 3px solid #4a90e2;
+    padding-left: 10px;
+}
+
+.help-content h3:first-child {
+    margin-top: 0;
+}
+
+.help-content ul {
+    list-style: none;
+    margin-bottom: 20px;
+}
+
+.help-content li {
+    padding: 8px 0;
+    color: #e0e0e0;
+    line-height: 1.4;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.help-content li:last-child {
+    border-bottom: none;
+}
+
+.help-content strong {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.help-content kbd {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+    color: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }

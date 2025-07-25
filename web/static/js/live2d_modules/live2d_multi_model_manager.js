@@ -178,7 +178,8 @@ class Live2DMultiModelManager {
             }
         }
         
-        const apiBaseUrl = window.ai2d_chat_CONFIG?.API_BASE_URL || window.location.origin;
+        // Always use relative URLs for proxy compatibility
+        const apiBaseUrl = '';
         
         try {
             console.log(`Loading models from: ${apiBaseUrl}/api/live2d/models`);

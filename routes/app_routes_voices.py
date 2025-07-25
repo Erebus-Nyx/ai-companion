@@ -63,9 +63,65 @@ def init_voices_database():
         conn.close()
         logger.info("✅ Voices database initialized successfully")
         
+        # Scan for existing voice files after initialization
+        scan_existing_voices()
+        
     except Exception as e:
         logger.error(f"❌ Failed to initialize voices database: {e}")
         raise
+
+def scan_existing_voices():
+    """Scan the voices directory for existing files and add them to database"""
+    try:
+        voices_dir = get_voices_directory()
+        if not voices_dir.exists():
+            logger.info("📁 Voices directory doesn't exist yet")
+            return
+        
+        logger.info(f"🔍 Scanning voices directory: {voices_dir}")
+        
+        conn = get_voices_connection()
+        cursor = conn.cursor()
+        
+        scanned_count = 0
+        added_count = 0
+        
+        for file_path in voices_dir.glob("*"):
+            if file_path.is_file() and allowed_voice_file(file_path.name):
+                scanned_count += 1
+                
+                # Check if already in database
+                cursor.execute('SELECT id FROM voices WHERE file_path = ?', (str(file_path),))
+                if cursor.fetchone():
+                    continue
+                
+                # Add to database
+                voice_id = file_path.stem
+                voice_name = voice_id.replace('_', ' ').replace('-', ' ').title()
+                voice_type = file_path.suffix.lower()[1:]
+                file_size = file_path.stat().st_size
+                
+                metadata = {
+                    'original_filename': file_path.name,
+                    'file_extension': file_path.suffix.lower(),
+                    'scan_source': 'directory_scan'
+                }
+                
+                cursor.execute('''
+                    INSERT INTO voices (id, name, type, file_path, file_size, metadata)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (voice_id, voice_name, voice_type, str(file_path), file_size, json.dumps(metadata)))
+                
+                added_count += 1
+                logger.info(f"➕ Added voice from directory: {voice_name}")
+        
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"✅ Voice scan complete: {scanned_count} files scanned, {added_count} added to database")
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to scan existing voices: {e}")
 
 def get_voices_directory():
     """Get the voices directory path"""

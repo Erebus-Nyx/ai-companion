@@ -130,7 +130,13 @@ async function loadAvailableModelsForDialog() {
     
     try {
         // Use the already-loaded model list from the multi-model manager
-        if (!window.live2dMultiModelManager || !window.live2dMultiModelManager.modelList || window.live2dMultiModelManager.modelList.length === 0) {
+        if (!window.live2dMultiModelManager) {
+            console.warn('🎭 Multi-model manager not initialized yet');
+            modelGrid.innerHTML = '<div style="text-align: center; padding: 20px; color: #aaa;">Model system is still initializing. Please try again in a moment.</div>';
+            return;
+        }
+        
+        if (!window.live2dMultiModelManager.modelList || window.live2dMultiModelManager.modelList.length === 0) {
             // If not loaded yet, try to load
             await window.live2dMultiModelManager.loadAvailableModels();
         }

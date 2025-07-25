@@ -219,8 +219,24 @@ async function loadLive2DModel(modelPath) {
         currentModel.x = pixiApp.screen.width / 2;
         currentModel.y = pixiApp.screen.height / 2;
         
-        // Set initial scale
-        currentModel.scale.set(0.3);
+        // Auto-scale models that are too large
+        // Calculate the model's natural height and apply intelligent scaling
+        const modelHeight = currentModel.height;
+        const viewportHeight = pixiApp.screen.height;
+        const maxAllowedHeight = viewportHeight * 0.75; // 3/4 of viewport height
+        
+        let scaleFactor = 0.3; // Default scale factor
+        
+        if (modelHeight > maxAllowedHeight) {
+            // Model is too large, calculate scale to fit within 3/4 viewport height
+            scaleFactor = maxAllowedHeight / modelHeight;
+            console.log(`🎯 Auto-scaling large model: Original height ${modelHeight}px -> Scaled to ${Math.round(modelHeight * scaleFactor)}px (${(scaleFactor * 100).toFixed(1)}%)`);
+        } else {
+            console.log(`✅ Model fits naturally: Height ${modelHeight}px (using default scale ${scaleFactor})`);
+        }
+        
+        // Set the calculated scale
+        currentModel.scale.set(scaleFactor);
         
         // Enable mouse interactions using Live2D Viewer Web patterns
         setupLive2DMouseInteraction(currentModel);

@@ -474,7 +474,7 @@ class Live2DModelImportManager {
         
         select.innerHTML = '<option value="">Loading models...</option>';
         
-        fetch('/live2d/models')
+        fetch(`${this.apiBaseUrl}/api/live2d/models`)
             .then(response => response.json())
             .then(data => {
                 select.innerHTML = '<option value="">Select existing model...</option>';

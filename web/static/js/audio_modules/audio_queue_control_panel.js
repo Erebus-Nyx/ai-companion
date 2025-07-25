@@ -25,14 +25,13 @@ class AudioQueueControlPanel {
             min-width: 280px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             border: 1px solid rgba(255, 255, 255, 0.2);
-            display: none;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         `;
         
         this.panelElement.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                 <h3 style="margin: 0; font-size: 16px; color: #ffffff;">🎵 Audio Queue Control</h3>
-                <button id="closeAudioPanel" style="background: none; border: none; color: #ffffff; font-size: 18px; cursor: pointer;">×</button>
+                <button id="closeAudioPanel" class="close-btn">×</button>
             </div>
             
             <div style="margin-bottom: 15px;">
@@ -73,7 +72,12 @@ class AudioQueueControlPanel {
     setupEventListeners() {
         // Close button
         document.getElementById('closeAudioPanel').addEventListener('click', () => {
-            this.hide();
+            // Use UIPanelManager2 for consistent behavior
+            if (window.uiPanelManager2) {
+                window.uiPanelManager2.closePanel('audio');
+            } else {
+                this.hide();
+            }
         });
         
         // Mode selection
@@ -175,7 +179,12 @@ class AudioQueueControlPanel {
     
     show() {
         this.isVisible = true;
-        this.panelElement.style.display = 'block';
+        this.panelElement.classList.add('open');
+        // Sync with UIPanelManager2
+        if (window.uiPanelManager2) {
+            window.uiPanelManager2.panels.audio.open = true;
+            window.uiPanelManager2.updateNavIconStates();
+        }
         this.updateStatus();
         
         // Update current mode in UI
@@ -193,7 +202,12 @@ class AudioQueueControlPanel {
     
     hide() {
         this.isVisible = false;
-        this.panelElement.style.display = 'none';
+        this.panelElement.classList.remove('open');
+        // Sync with UIPanelManager2
+        if (window.uiPanelManager2) {
+            window.uiPanelManager2.panels.audio.open = false;
+            window.uiPanelManager2.updateNavIconStates();
+        }
     }
     
     toggle() {
@@ -208,9 +222,14 @@ class AudioQueueControlPanel {
 // Create global audio queue control panel
 window.audioQueueControlPanel = new AudioQueueControlPanel();
 
-// Global function to toggle panel
+// Global function to toggle panel - use UIPanelManager2 for consistency
 window.toggleAudioQueuePanel = function() {
-    window.audioQueueControlPanel.toggle();
+    if (window.uiPanelManager2) {
+        window.uiPanelManager2.openPanel('audio');
+    } else {
+        // Fallback to local toggle if UIPanelManager2 not available
+        window.audioQueueControlPanel.toggle();
+    }
 };
 
 // Export

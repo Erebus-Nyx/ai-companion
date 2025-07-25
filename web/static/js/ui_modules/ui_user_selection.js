@@ -94,8 +94,9 @@ class UserSelectionSystem {
         // Show the new user form
         newUserForm.style.display = 'block';
         
-        // Show the popup with blur effect
+        // Show the popup with blur effect using class-based approach like other modals
         this.popupElement.style.display = 'flex';
+        this.popupElement.classList.add('open');
         document.body.classList.add('user-selection-active');
         
         console.log('User selection popup displayed');
@@ -158,6 +159,8 @@ class UserSelectionSystem {
                 console.log('User selected successfully:', result);
                 
                 this.currentUser = user;
+                
+                console.log('🔑 About to hide user selection popup...');
                 this.hideUserSelectionPopup();
                 
                 // Trigger user change event for other systems
@@ -231,8 +234,21 @@ class UserSelectionSystem {
     }
     
     hideUserSelectionPopup() {
-        this.popupElement.style.display = 'none';
+        // Use class-based approach like other modals
+        console.log('🔑 Hiding user selection popup - removing open class');
+        console.log('🔑 Current classes before:', this.popupElement.className);
+        
+        this.popupElement.classList.remove('open');
         document.body.classList.remove('user-selection-active');
+        
+        console.log('🔑 Current classes after removing open:', this.popupElement.className);
+        
+        // Set display none after transition delay
+        setTimeout(() => {
+            console.log('🔑 Setting display: none after transition delay');
+            this.popupElement.style.display = 'none';
+        }, 300);
+        
         console.log('User selection popup hidden');
     }
     

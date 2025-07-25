@@ -722,6 +722,273 @@ def logout_user():
         logging.error(f"{error_msg}\n{traceback.format_exc()}")
         return jsonify({'error': error_msg}), 500
 
+@users_routes.route('/api/users/background', methods=['DELETE'])
+def clear_user_background():
+    """Clear current user's background image"""
+    try:
+        current_user = session.get('current_user')
+        if not current_user:
+            return jsonify({'error': 'No user logged in'}), 401
+        
+        user_id = session.get('current_user_id')
+        if not user_id:
+            return jsonify({'error': 'User ID not found in session'}), 401
+        
+        with get_user_profiles_connection() as conn:
+            # Get current preferences to find background file
+            cursor = conn.execute('''
+                SELECT preferences FROM user_profiles WHERE user_id = ?
+            ''', (user_id,))
+            
+            profile = cursor.fetchone()
+            
+            if profile and profile[0]:
+                try:
+                    preferences = json.loads(profile[0])
+                    background_data = preferences.get('background', {})
+                    background_url = background_data.get('url')
+                    
+                    # Clean up background file if exists
+                    if background_url:
+                        try:
+                            import re
+                            match = re.search(r'/background/file/\d+/(.+)$', background_url)
+                            if match:
+                                filename = match.group(1)
+                                from config.config_manager import get_cache_path
+                                file_path = get_cache_path() / 'backgrounds' / str(user_id) / filename
+                                if file_path.exists():
+                                    file_path.unlink()
+                                    logging.info(f"Deleted background file: {file_path}")
+                        except Exception as e:
+                            logging.warning(f"Could not delete background file: {e}")
+                    
+                    # Remove background from preferences
+                    if 'background' in preferences:
+                        del preferences['background']
+                    
+                    # Update preferences
+                    conn.execute('''
+                        UPDATE user_profiles SET 
+                            preferences = ?,
+                            last_updated = CURRENT_TIMESTAMP
+                        WHERE user_id = ?
+                    ''', (json.dumps(preferences), user_id))
+                    
+                except json.JSONDecodeError:
+                    # Invalid JSON, just continue
+                    pass
+            
+            return jsonify({
+                'success': True,
+                'message': 'Background cleared successfully'
+            })
+            
+    except Exception as e:
+        error_msg = f"Clear background API error: {str(e)}"
+        logging.error(f"{error_msg}\n{traceback.format_exc()}")
+        return jsonify({'error': error_msg}), 500
+
+
+@users_routes.route('/api/users/background', methods=['GET'])
+def get_user_background():
+    """Get current user's background settings"""
+    try:
+        current_user = session.get('current_user')
+        if not current_user:
+            return jsonify({'error': 'No user logged in'}), 401
+        
+        user_id = session.get('current_user_id')
+        if not user_id:
+            return jsonify({'error': 'User ID not found in session'}), 401
+        
+        with get_user_profiles_connection() as conn:
+            cursor = conn.execute('''
+                SELECT preferences FROM user_profiles WHERE user_id = ?
+            ''', (user_id,))
+            
+            profile = cursor.fetchone()
+            
+            if profile and profile[0]:
+                try:
+                    preferences = json.loads(profile[0])
+                    background_settings = preferences.get('background', {})
+                    return jsonify({
+                        'success': True,
+                        'background_url': background_settings.get('url'),
+                        'background_settings': background_settings.get('settings', {})
+                    })
+                except json.JSONDecodeError:
+                    pass
+            
+            # Return empty background if none found
+            return jsonify({
+                'success': True,
+                'background_url': {},
+                'background_settings': {}
+            })
+            
+    except Exception as e:
+        error_msg = f"Get background API error: {str(e)}"
+        logging.error(f"{error_msg}\n{traceback.format_exc()}")
+        return jsonify({'error': error_msg}), 500
+
+@users_routes.route('/api/users/background/file/<int:user_id>/<filename>')
+def serve_background_file(user_id, filename):
+    """Serve background image files from cache"""
+    try:
+        current_user_id = session.get('current_user_id')
+        if not current_user_id:
+            return jsonify({'error': 'No user logged in'}), 401
+        
+        # Security: Users can only access their own background files
+        if current_user_id != user_id:
+            return jsonify({'error': 'Access denied'}), 403
+        
+        from config.config_manager import get_cache_path
+        file_path = get_cache_path() / 'backgrounds' / str(user_id) / filename
+        
+        if not file_path.exists():
+            return jsonify({'error': 'File not found'}), 404
+        
+        # Serve the file
+        from flask import send_file
+        return send_file(str(file_path))
+        
+    except Exception as e:
+        logging.error(f"Serve background file error: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({'error': 'Failed to serve file'}), 500
+
+
+@users_routes.route('/api/users/background', methods=['POST'])
+def save_user_background():
+    """Save current user's background image as file and store reference"""
+    try:
+        current_user = session.get('current_user')
+        if not current_user:
+            return jsonify({'error': 'No user logged in'}), 401
+        
+        user_id = session.get('current_user_id')
+        if not user_id:
+            return jsonify({'error': 'User ID not found in session'}), 401
+        
+        # Check if this is a file upload or settings update
+        if 'background_file' in request.files:
+            # Handle file upload
+            file = request.files['background_file']
+            if not file or file.filename == '':
+                return jsonify({'error': 'No file selected'}), 400
+            
+            # Validate file type
+            if not file.content_type.startswith('image/'):
+                return jsonify({'error': 'Invalid file type. Please upload an image.'}), 400
+            
+            # Create user cache directory
+            from config.config_manager import get_cache_path
+            user_cache_dir = get_cache_path() / 'backgrounds' / str(user_id)
+            user_cache_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Generate unique filename
+            import uuid
+            from pathlib import Path
+            file_extension = Path(file.filename).suffix.lower()
+            if not file_extension:
+                file_extension = '.jpg'  # Default extension
+            
+            unique_filename = f"background_{uuid.uuid4().hex}{file_extension}"
+            file_path = user_cache_dir / unique_filename
+            
+            # Save file to disk
+            file.save(str(file_path))
+            
+            # Create web-accessible URL path
+            background_url = f"/api/users/background/file/{user_id}/{unique_filename}"
+            
+            # Get settings from form data
+            background_settings = {
+                'opacity': int(request.form.get('opacity', 100)),
+                'scale': int(request.form.get('scale', 100)),
+                'position': request.form.get('position', 'center')
+            }
+            
+        else:
+            # Handle settings-only update (JSON)
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'No data provided'}), 400
+            
+            background_url = data.get('background_url')  # Keep existing URL
+            background_settings = data.get('background_settings', {})
+        
+        with get_user_profiles_connection() as conn:
+            # Get current preferences
+            cursor = conn.execute('''
+                SELECT preferences FROM user_profiles WHERE user_id = ?
+            ''', (user_id,))
+            
+            profile = cursor.fetchone()
+            current_preferences = {}
+            
+            if profile and profile[0]:
+                try:
+                    current_preferences = json.loads(profile[0])
+                except json.JSONDecodeError:
+                    current_preferences = {}
+            
+            # Update background settings with file reference (not base64 data)
+            background_data = {
+                'url': background_url,
+                'settings': background_settings,
+                'updated_at': datetime.now().isoformat()
+            }
+            
+            # Clean up old background file if exists
+            old_background = current_preferences.get('background', {})
+            old_url = old_background.get('url')
+            if old_url and old_url != background_url:
+                try:
+                    # Extract filename from old URL and delete file
+                    import re
+                    match = re.search(r'/background/file/\d+/(.+)$', old_url)
+                    if match:
+                        old_filename = match.group(1)
+                        from config.config_manager import get_cache_path
+                        old_file_path = get_cache_path() / 'backgrounds' / str(user_id) / old_filename
+                        if old_file_path.exists():
+                            old_file_path.unlink()
+                            logging.info(f"Cleaned up old background file: {old_file_path}")
+                except Exception as e:
+                    logging.warning(f"Could not clean up old background file: {e}")
+            
+            current_preferences['background'] = background_data
+            
+            # Save updated preferences
+            conn.execute('''
+                UPDATE user_profiles SET 
+                    preferences = ?,
+                    last_updated = CURRENT_TIMESTAMP
+                WHERE user_id = ?
+            ''', (json.dumps(current_preferences), user_id))
+            
+            # If no profile exists, create one
+            if not profile:
+                conn.execute('''
+                    INSERT INTO user_profiles (user_id, display_name, preferences)
+                    VALUES (?, ?, ?)
+                ''', (user_id, current_user, json.dumps(current_preferences)))
+            
+            return jsonify({
+                'success': True,
+                'message': 'Background saved successfully',
+                'background_url': background_url,
+                'settings': background_settings
+            })
+            
+    except Exception as e:
+        error_msg = f"Save background API error: {str(e)}"
+        logging.error(f"{error_msg}\n{traceback.format_exc()}")
+        return jsonify({'error': error_msg}), 500
+
 # Initialize tables when module is imported
 try:
     init_user_tables()
